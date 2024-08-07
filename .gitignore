@@ -1,0 +1,28 @@
+# Бинарные файлы
+*.exe
+*.exe.manifest
+
+# Логи
+logs/*.txt
+
+# Директории сборки
+bin/
+build/
+
+# Кэш модулей Go
+go.sum
+go.mod
+
+# Директории и файлы IDE
+.vscode/
+.idea/
+*.iml
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# JSON задания
+jsons/works/*.json
+jsons/works/connection.txt
+jsons/works/printed.txt

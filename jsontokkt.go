@@ -30,6 +30,21 @@ var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуля�
 
 const Version_of_program = "2024_07_30_02"
 
+type CheckItem struct {
+	Code     string `json:"code"`
+	Article  string `json:"article"`
+	Name     string `json:"name"`
+	Quantity string `json:"quantity"`
+	Price    string `json:"price"`
+	Sum      string `json:"sum"`
+}
+
+type CheckData struct {
+	TableData []CheckItem `json:"tableData"`
+	Employee  string      `json:"employee"`
+	Master    string      `json:"master"`
+}
+
 func main() {
 	var err error
 	var fptr *fptr10.IFptr
@@ -133,7 +148,111 @@ func main() {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf(descrError)
 		logsmy.LogginInFile(descrError)
 	}
+
+	http.HandleFunc("/api/print-check", handlePrintCheck)
+
+	fmt.Println("Сервер запущен на http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 } //main
+
+func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Ошибка чтения тела запроса", http.StatusBadRequest)
+		return
+	}
+
+	var checkData CheckData
+	err = json.Unmarshal(body, &checkData)
+	if err != nil {
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Здесь вызываем функцию для печати чека
+	err = printCheck(checkData)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Ошибка печати чека: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Чек успешно напечатан"})
+}
+
+func printCheck(checkData CheckData) error {
+	var fptr *fptr10.IFptr
+	var err error
+
+	fptr, err = fptr10.NewSafe()
+	if err != nil {
+		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+	}
+	defer fptr.Destroy()
+
+	// Подключение к кассе
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+	}
+	defer fptr.Close()
+
+	// Проверка открытия смены
+	_, err = checkOpenShift(fptr, true, checkData.Employee)
+	if err != nil {
+		return fmt.Errorf("ошибка проверки/открытия смены: %v", err)
+	}
+
+	// Формирование JSON для печати чека
+	checkJSON := formatCheckJSON(checkData)
+
+	// Отправка команды печати чека
+	result, err := sendComandeAndGetAnswerFromKKT(fptr, checkJSON)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки команды печати чека: %v", err)
+	}
+
+	if !successCommand(result) {
+		return fmt.Errorf("ошибка печати чека: %v", result)
+	}
+
+	return nil
+}
+
+func formatCheckJSON(checkData CheckData) string {
+	// Здесь формируем JSON для печати чека в соответствии с форматом, ожидаемым ККТ
+	// Пример:
+	checkItems := make([]map[string]interface{}, len(checkData.TableData))
+	for i, item := range checkData.TableData {
+		quantity, _ := strconv.ParseFloat(item.Quantity, 64)
+		price, _ := strconv.ParseFloat(item.Price, 64)
+		checkItems[i] = map[string]interface{}{
+			"type":     "position",
+			"name":     item.Name,
+			"price":    price,
+			"quantity": quantity,
+			"amount":   price * quantity,
+		}
+	}
+
+	checkJSON := map[string]interface{}{
+		"type":  "sell",
+		"items": checkItems,
+		"operator": map[string]string{
+			"name": checkData.Employee,
+		},
+		"cashier": map[string]string{
+			"name": checkData.Master,
+		},
+	}
+
+	jsonBytes, _ := json.Marshal(checkJSON)
+	return string(jsonBytes)
+}
 
 func sendComandeAndGetAnswerFromKKT(fptr *fptr10.IFptr, comJson string) (string, error) {
 	var err error

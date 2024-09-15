@@ -99,55 +99,70 @@ func main() {
 
 	// Настройка CORS
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // Разрешаем все источники
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
+		AllowedOrigins:      []string{"*"}, // Разрешаем все источники
+		AllowedMethods:      []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:      []string{"Content-Type", "Authorization"},
+		AllowCredentials:    true,
+		AllowPrivateNetwork: true, // Добавляем это
 	})
 
 	// Оборачиваем наш mux в CORS handler
 	handler := c.Handler(mux)
 
+	fmt.Println("Настройки CORS:")
+	fmt.Printf("AllowedOrigins: %v\n", []string{"*"})
+	fmt.Printf("AllowedMethods: %v\n", []string{"GET", "POST", "OPTIONS"})
+	fmt.Printf("AllowedHeaders: %v\n", []string{"Content-Type", "Authorization"})
+	fmt.Printf("AllowCredentials: %v\n", true)
+
 	fmt.Println("Сервер запущен на http://localhost:8081")
-	log.Fatal(http.ListenAndServe(":8081", handler))
+	//log.Fatal(http.ListenAndServe(":8081", handler))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8081", handler))
 } //main
 
 func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("handlePrintCheck")
-	fmt.Println("r.Method", r.Method)
-	fmt.Println("r.URL", r.URL)
-	fmt.Println("r.Header", r.Header)
-	fmt.Println("r.Body", r.Body)
-	fmt.Println("r.RemoteAddr", r.RemoteAddr)
-	fmt.Println("r.RequestURI", r.RequestURI)
-	fmt.Println("r.Host", r.Host)
-	fmt.Println("r.Proto", r.Proto)
-	fmt.Println("r.UserAgent", r.UserAgent())
-	fmt.Println("r.Referer", r.Referer())
-	fmt.Println("r.ContentLength", r.ContentLength)
-	fmt.Println("r.TransferEncoding", r.TransferEncoding)
-	fmt.Println("r.Close", r.Close)
-	fmt.Println("r.Host", r.Host)
-	fmt.Println("r.Form", r.Form)
+	fmt.Println("handlePrintCheck вызван")
+	fmt.Println("Метод запроса:", r.Method)
+	fmt.Println("URL запроса:", r.URL)
+	fmt.Println("Заголовки запроса:")
+	for name, values := range r.Header {
+		for _, value := range values {
+			fmt.Printf("%s: %s\n", name, value)
+		}
+	}
+	fmt.Println("Тело запроса:", r.Body)
+	fmt.Println("Удаленный адрес:", r.RemoteAddr)
+	fmt.Println("URI запроса:", r.RequestURI)
+	fmt.Println("Хост:", r.Host)
+	fmt.Println("Протокол:", r.Proto)
+	fmt.Println("User-Agent:", r.UserAgent())
+	fmt.Println("Referer:", r.Referer())
+	fmt.Println("Content-Length:", r.ContentLength)
+	fmt.Println("Transfer-Encoding:", r.TransferEncoding)
+	fmt.Println("Close:", r.Close)
+	fmt.Println("Form:", r.Form)
 
 	// Устанавливаем CORS-заголовки
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Private-Network", "true")
+
+	fmt.Println("CORS заголовки установлены")
 
 	// Обрабатываем предварительный запрос OPTIONS
 	if r.Method == "OPTIONS" {
-		fmt.Println("OPTIONS")
+		fmt.Println("Получен OPTIONS запрос")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	if r.Method != http.MethodPost {
+		fmt.Println("Метод не поддерживается:", r.Method)
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		fmt.Println("Метод не поддерживается")
 		return
 	}
-	fmt.Println("POST")
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {

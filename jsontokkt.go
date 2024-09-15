@@ -101,23 +101,21 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", handleWebSocket)
-	//mux.HandleFunc("/api/products", handlePrintCheck)
-	mux.HandleFunc("/api/close-shift", handleCloseShift)
-	mux.HandleFunc("/api/x-report", handleXReport)
 
 	// Настройка CORS
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // Разрешаем все источники
-		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
+		AllowedOrigins:      []string{"*"}, // Разрешаем все источники
+		AllowedMethods:      []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:      []string{"Content-Type", "Authorization"},
+		AllowCredentials:    true,
+		AllowPrivateNetwork: true,
 	})
 
 	// Оборачиваем наш mux в CORS handler
 	handler := c.Handler(mux)
 
 	fmt.Println("Сервер запущен на http://localhost:8081")
-	log.Fatal(http.ListenAndServe(":8081", handler))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8081", handler))
 } //main
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +161,33 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				sendWebSocketResponse(conn, "Чек успешно напечатан")
 			}
 
-		// ... обработка других типов сообщений ...
+		case "closeShift":
+			var requestData struct {
+				Cashier string `json:"cashier"`
+			}
+			dataJSON, _ := json.Marshal(message.Data)
+			if err := json.Unmarshal(dataJSON, &requestData); err != nil {
+				log.Println("Ошибка при разборе данных закрытия смены:", err)
+				sendWebSocketError(conn, "Ошибка при разборе данных закрытия смены")
+				continue
+			}
+
+			err := closeShift(requestData.Cashier)
+			if err != nil {
+				log.Println("Ошибка при закрытии смены:", err)
+				sendWebSocketError(conn, fmt.Sprintf("Ошибка закрытия смены: %v", err))
+			} else {
+				sendWebSocketResponse(conn, "Смена успешно закрыта")
+			}
+
+		case "xReport":
+			err := printXReport()
+			if err != nil {
+				log.Println("Ошибка при печати X-отчета:", err)
+				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати X-отчета: %v", err))
+			} else {
+				sendWebSocketResponse(conn, "X-отчет успешно напечатан")
+			}
 
 		default:
 			log.Println("Неизвестный тип сообщения:", message.Type)
@@ -195,63 +219,6 @@ func sendWebSocketError(conn *websocket.Conn, errorMessage string) {
 	if err := conn.WriteJSON(response); err != nil {
 		log.Println("Ошибка при отправке сообщения об ошибке:", err)
 	}
-}
-
-func handleCloseShift(w http.ResponseWriter, r *http.Request) {
-	// Устанавливаем CORS-заголовки
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-
-	// Обрабатываем предварительный запрос OPTIONS
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Cashier string `json:"cashier"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	err := closeShift(requestData.Cashier)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Ошибка закрытия смены: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Смена успешно закрыта"})
-}
-
-func handleXReport(w http.ResponseWriter, r *http.Request) {
-	// Устанавливаем CORS-заголовки
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-
-	// Обрабатываем предварительный запрос OPTIONS
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	err := printXReport()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Ошибка печати X-отчета: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "X-отчет успешно напечатан"})
 }
 
 func printCheck(checkData CheckData) error {

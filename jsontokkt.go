@@ -16,6 +16,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/rs/cors"
 )
 
 var clearLogsProgramm = flag.Bool("clearlogs", true, "очистить логи программы")
@@ -51,23 +53,6 @@ func main() {
 	var err error
 	var fptr *fptr10.IFptr
 	//выводим информацию о программе
-	//читаем параметры запуска программы
-	//открываем лог файлы
-	//читаем настроку com - порта в директории json - заданий
-	//подключаемся к кассовому аппарату
-	//печатаем чек
-	//если были ошибку при печати чека, то переходим к следующему заданию
-	//эмулируем ошибку, если режим эмуляции ошибки включен
-	//читаем информацию об результате выполнения команды
-	//если команда выполнена успешно, то записываем в таблицу напечатанных чеков
-	//если команда выполнена неуспешно, то проверяем не превышен ли количество чеков в смену,
-	//и если превышено, то закрываем и открываем смену
-	//закрывес соединение с кассой меркурий если было установлено
-	//выводим информацию об количестве напечтатнных чеков
-	//
-	/////////////////**************************///////////////////////
-	//
-	//выводим информацию о программе
 	runDescription := "программа версии " + Version_of_program + " распечатка чеков из json заданий запущена"
 	fmt.Println(runDescription)
 	defer fmt.Println("программа версии " + Version_of_program + " распечатка чеков из json заданий остановлена")
@@ -93,12 +78,11 @@ func main() {
 	logsmy.LogginInFile(clearLogsDescr)
 	//читаем настроку com - порта в директории json - заданий
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("порт кассы", *comport)
-	//подключаемся к кассовому аппарату
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Тип кассы atol")
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера атол")
 	fptr, err = fptr10.NewSafe()
 	if err != nil {
-		descrError := fmt.Sprintf("Ошибка (%v) инициализации драйвера ККТ атол", err)
+		descrError := fmt.Sprintf("Ошибка (%v) иницилизации драйвера ККТ атол", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(descrError)
 		println("Нажмите любую клавишу...")
 		input.Scan()
@@ -106,62 +90,64 @@ func main() {
 	}
 	defer fptr.Destroy()
 	fmt.Println(fptr.Version())
-	//сединение с кассой
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("соединение с кассой")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		descrErr := fmt.Sprintf("ошибка соединения с кассовым аппаратом %v", typepodkluch)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
-		if !*emulation {
-			println("Нажмите любую клавишу...")
-			input.Scan()
-			log.Panic(descrErr)
-		}
-	} else {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе на порт %v прошло успешно", *comport)
-	}
-	defer fptr.Close()
-	//печатаем чек
-	jsonOfCheck := ""
-	logstr := fmt.Sprintf("посылаем команду печати чека кассу json файл %v", jsonOfCheck)
-	logsmy.LogginInFile(logstr)
-	resulOfCommand := ""
-	resulOfCommand, err = sendComandeAndGetAnswerFromKKT(fptr, jsonOfCheck)
-	//если были ошибку при печати чека, то переходим к следующему заданию
-	if err != nil {
-		errorDescr := fmt.Sprintf("ошибка (%v) печати чека", err)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-	}
-	logsmy.LogginInFile("послали команду печати чека кассу json файл")
-	//эмулируем ошибку, если режим эмуляции ошибки включен
-	if *emulatmistakes {
-		logsmy.LogginInFile("производим ошибку печати чека")
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("производим ошибку печати чека")
-		resulOfCommand = "{\"result\": \"error - эмуляция ошибки\"}"
-	}
-	//читаем информацию об результате выполнения команды
-	//если команда выполнена успешно, то записываем в таблицу напечатанных чеков
-	//если команда выполнена неуспешно, то проверяем не превышен ли количество чеков в смену,
-	//и если превышено, то закрываем и открываем смену
-	if successCommand(resulOfCommand) {
-		//при успешной печати чека, записываем данные о номере напечатнного чека
-		fmt.Println("Чек успешно напечатан")
-	} else {
-		descrError := fmt.Sprintf("ошибка (%v) печати чека %v атол", resulOfCommand, jsonOfCheck)
-		logsmy.Logsmap[consttypes.LOGERROR].Printf(descrError)
-		logsmy.LogginInFile(descrError)
-	}
 
-	http.HandleFunc("/api/print-check", handlePrintCheck)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/print-check", handlePrintCheck)
+	//mux.HandleFunc("/api/products", handlePrintCheck)
+	mux.HandleFunc("/api/close-shift", handleCloseShift)
+	mux.HandleFunc("/api/x-report", handleXReport)
 
-	fmt.Println("Сервер запущен на http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// Настройка CORS
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"}, // Разрешаем все источники
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
+	// Оборачиваем наш mux в CORS handler
+	handler := c.Handler(mux)
+
+	fmt.Println("Сервер запущен на http://localhost:8081")
+	log.Fatal(http.ListenAndServe(":8081", handler))
 } //main
 
 func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+	fmt.Println("handlePrintCheck")
+	fmt.Println("r.Method", r.Method)
+	fmt.Println("r.URL", r.URL)
+	fmt.Println("r.Header", r.Header)
+	fmt.Println("r.Body", r.Body)
+	fmt.Println("r.RemoteAddr", r.RemoteAddr)
+	fmt.Println("r.RequestURI", r.RequestURI)
+	fmt.Println("r.Host", r.Host)
+	fmt.Println("r.Proto", r.Proto)
+	fmt.Println("r.UserAgent", r.UserAgent())
+	fmt.Println("r.Referer", r.Referer())
+	fmt.Println("r.ContentLength", r.ContentLength)
+	fmt.Println("r.TransferEncoding", r.TransferEncoding)
+	fmt.Println("r.Close", r.Close)
+	fmt.Println("r.Host", r.Host)
+	fmt.Println("r.Form", r.Form)
+
+	// Устанавливаем CORS-заголовки
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Обрабатываем предварительный запрос OPTIONS
+	if r.Method == "OPTIONS" {
+		fmt.Println("OPTIONS")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		fmt.Println("Метод не поддерживается")
+		return
+	}
+	fmt.Println("POST")
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -185,6 +171,63 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Чек успешно напечатан"})
+}
+
+func handleCloseShift(w http.ResponseWriter, r *http.Request) {
+	// Устанавливаем CORS-заголовки
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+	// Обрабатываем предварительный запрос OPTIONS
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Cashier string `json:"cashier"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	err := closeShift(requestData.Cashier)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Ошибка закрытия ��мены: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Смена успешно закрыта"})
+}
+
+func handleXReport(w http.ResponseWriter, r *http.Request) {
+	// Устанавливаем CORS-заголовки
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+	// Обрабатываем предварительный запрос OPTIONS
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	err := printXReport()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Ошибка печати X-отчета: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "X-отчет успешно напечатан"})
 }
 
 func printCheck(checkData CheckData) error {
@@ -336,76 +379,6 @@ func connectWithKassa(fptr *fptr10.IFptr, comportint int, ipaddresskktper string
 	fptr.Open()
 	return fptr.IsOpened(), typeConnect
 }
-func connectToKKT(fptr *fptr10.IFptr, createComObj bool) (string, error) {
-	var err error
-	logsmy.LogginInFile("снова создаём объект драйвера...")
-	if createComObj {
-		fptr, err = fptr10.NewSafe()
-	}
-	if err != nil {
-		descrError := fmt.Sprintf("ошибка (%v) инициализации драйвера ККТ атол", err)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(descrError)
-		return descrError, errors.New(descrError)
-	}
-	//сединение с кассой
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("соединение с кассой...")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		descrErr := fmt.Sprintf("ошибка сокдинения с кассовым аппаратом %v", typepodkluch)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
-		if !*emulation {
-			return descrErr, errors.New(descrErr)
-		}
-	} else {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе на порт %v прошло успешно", *comport)
-	}
-	return "", nil
-}
-func disconnectWithKKT(fptr *fptr10.IFptr, destroyComObject bool) {
-	fptr.Close()
-	if destroyComObject {
-		fptr.Destroy()
-	}
-}
-func reconnectToKKT(fptr *fptr10.IFptr) error {
-	fptr.Close()
-	fptr.Destroy()
-	fptr, err := fptr10.NewSafe()
-	if err != nil {
-		descrError := fmt.Sprintf("ошибка (%v) инициализации драйвера ККТ атол", err)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(descrError)
-		return errors.New(descrError)
-		//println("Нажмите любую клавишу...")
-		//input.Scan()
-		//log.Panic(descrError)
-	}
-	//defer fptr.Destroy()
-	fmt.Println(fptr.Version())
-	//сединение с кассой
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("соединение с кассой")
-	//if err != nil {
-	//	desrErr := fmt.Sprintf("ошибка (%v) чтения параметра com порт соединения с кассой", err)
-	//	logsmy.Logsmap[consttypes.LOGERROR].Println(desrErr)
-	//	return errors.New(desrErr)
-	//	//println("Нажмите любую клавишу...")
-	//	//input.Scan()
-	//	//log.Panic(desrErr)
-	//}
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		//if !connectWithKassa(fptr, *comport, *ipaddresskkt, *ipaddressservrkkt) {
-		descrErr := fmt.Sprintf("ошибка сокдинения с кассовым аппаратом %v", typepodkluch)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
-		if !*emulation {
-			return errors.New(descrErr)
-			//println("Нажмите любую клавишу...")
-			//input.Scan()
-			//log.Panic(descrErr)
-		}
-	} else {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе на порт %v прошло успешно", *comport)
-	}
-	return nil
-	//defer fptr.Close()
-}
 
 func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (bool, error) {
 	logsmy.LogginInFile("получаем статус ККТ")
@@ -461,3 +434,53 @@ func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (b
 	}
 	return true, nil
 } //checkOpenShift
+
+func closeShift(cashier string) error {
+	fptr, err := fptr10.NewSafe()
+	if err != nil {
+		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+	}
+	defer fptr.Destroy()
+
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+	}
+	defer fptr.Close()
+
+	closeShiftJSON := fmt.Sprintf(`{"type": "closeShift", "operator": {"name": "%s"}}`, cashier)
+	result, err := sendComandeAndGetAnswerFromKKT(fptr, closeShiftJSON)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки команды закрытия смены: %v", err)
+	}
+
+	if !successCommand(result) {
+		return fmt.Errorf("ошибка закрытия смены: %v", result)
+	}
+
+	return nil
+}
+
+func printXReport() error {
+	fptr, err := fptr10.NewSafe()
+	if err != nil {
+		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+	}
+	defer fptr.Destroy()
+
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+	}
+	defer fptr.Close()
+
+	xReportJSON := `{"type": "reportX"}`
+	result, err := sendComandeAndGetAnswerFromKKT(fptr, xReportJSON)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки команды печати X-отчета: %v", err)
+	}
+
+	if !successCommand(result) {
+		return fmt.Errorf("ошибка печати X-отчета: %v", result)
+	}
+
+	return nil
+}

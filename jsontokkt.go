@@ -10,13 +10,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/rs/cors"
 )
 
@@ -47,6 +47,14 @@ type CheckData struct {
 	TableData []CheckItem `json:"tableData"`
 	Employee  string      `json:"employee"`
 	Master    string      `json:"master"`
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		log.Printf("Получен WebSocket запрос с origin: %s, URL: %s", origin, r.URL.String())
+		return true // Все еще разрешаем все запросы, но теперь логируем их
+	},
 }
 
 func main() {
@@ -92,7 +100,7 @@ func main() {
 	fmt.Println(fptr.Version())
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/print-check", handlePrintCheck)
+	mux.HandleFunc("/ws", handleWebSocket)
 	//mux.HandleFunc("/api/products", handlePrintCheck)
 	mux.HandleFunc("/api/close-shift", handleCloseShift)
 	mux.HandleFunc("/api/x-report", handleXReport)
@@ -112,65 +120,81 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8081", handler))
 } //main
 
-func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("handlePrintCheck")
-	fmt.Println("r.Method", r.Method)
-	fmt.Println("r.URL", r.URL)
-	fmt.Println("r.Header", r.Header)
-	fmt.Println("r.Body", r.Body)
-	fmt.Println("r.RemoteAddr", r.RemoteAddr)
-	fmt.Println("r.RequestURI", r.RequestURI)
-	fmt.Println("r.Host", r.Host)
-	fmt.Println("r.Proto", r.Proto)
-	fmt.Println("r.UserAgent", r.UserAgent())
-	fmt.Println("r.Referer", r.Referer())
-	fmt.Println("r.ContentLength", r.ContentLength)
-	fmt.Println("r.TransferEncoding", r.TransferEncoding)
-	fmt.Println("r.Close", r.Close)
-	fmt.Println("r.Host", r.Host)
-	fmt.Println("r.Form", r.Form)
-
-	// Устанавливаем CORS-заголовки
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	// Обрабатываем предварительный запрос OPTIONS
-	if r.Method == "OPTIONS" {
-		fmt.Println("OPTIONS")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		fmt.Println("Метод не поддерживается")
-		return
-	}
-	fmt.Println("POST")
-
-	body, err := ioutil.ReadAll(r.Body)
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		http.Error(w, "Ошибка чтения тела запроса", http.StatusBadRequest)
+		log.Println("Ошибка при установке WebSocket соединения:", err)
 		return
 	}
+	defer conn.Close()
 
-	var checkData CheckData
-	err = json.Unmarshal(body, &checkData)
-	if err != nil {
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
+	for {
+		_, p, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("Ошибка при чтении сообщения:", err)
+			return
+		}
+
+		var message struct {
+			Type string      `json:"type"`
+			Data interface{} `json:"data"`
+		}
+
+		if err := json.Unmarshal(p, &message); err != nil {
+			log.Println("Ошибка при разборе JSON:", err)
+			continue
+		}
+
+		switch message.Type {
+		case "printCheck":
+			var checkData CheckData
+			checkDataJSON, _ := json.Marshal(message.Data)
+			if err := json.Unmarshal(checkDataJSON, &checkData); err != nil {
+				log.Println("Ошибка при разборе данных чека:", err)
+				sendWebSocketError(conn, "Ошибка при разборе данных чека")
+				continue
+			}
+
+			err := printCheck(checkData)
+			if err != nil {
+				log.Println("Ошибка при печати чека:", err)
+				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати чека: %v", err))
+			} else {
+				sendWebSocketResponse(conn, "Чек успешно напечатан")
+			}
+
+		// ... обработка других типов сообщений ...
+
+		default:
+			log.Println("Неизвестный тип сообщения:", message.Type)
+		}
 	}
+}
 
-	// Здесь вызываем функцию для печати чека
-	err = printCheck(checkData)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Ошибка печати чека: %v", err), http.StatusInternalServerError)
-		return
+func sendWebSocketResponse(conn *websocket.Conn, message string) {
+	response := struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}{
+		Type:    "printCheckResponse",
+		Message: message,
 	}
+	if err := conn.WriteJSON(response); err != nil {
+		log.Println("Ошибка при отправке ответа:", err)
+	}
+}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Чек успешно напечатан"})
+func sendWebSocketError(conn *websocket.Conn, errorMessage string) {
+	response := struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}{
+		Type:    "error",
+		Message: errorMessage,
+	}
+	if err := conn.WriteJSON(response); err != nil {
+		log.Println("Ошибка при отправке сообщения об ошибке:", err)
+	}
 }
 
 func handleCloseShift(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +224,7 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 
 	err := closeShift(requestData.Cashier)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Ошибка закрытия ��мены: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Ошибка закрытия смены: %v", err), http.StatusInternalServerError)
 		return
 	}
 

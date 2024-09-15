@@ -200,7 +200,7 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 
 	err := closeShift(requestData.Cashier)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Ошибка закрытия ��мены: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Ошибка закрытия смены: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -213,6 +213,7 @@ func handleXReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	w.Header().Set("Access-Control-Allow-Private-Network", "true")
 
 	// Обрабатываем предварительный запрос OPTIONS
 	if r.Method == "OPTIONS" {

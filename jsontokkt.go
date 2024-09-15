@@ -28,11 +28,12 @@ var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
 var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
 var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
 var emulation = flag.Bool("emul", false, "эмуляция")
-var dontprintrealfortest = flag.Bool("test", false, "тест - не печатать реальный чек")
-var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
-var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
 
-const Version_of_program = "2024_07_30_02"
+//var dontprintrealfortest = flag.Bool("test", false, "тест - не печатать реальный чек")
+//var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
+//var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
+
+const Version_of_program = "2024_09_15_01"
 
 type CheckItem struct {
 	Code     string `json:"code"`

@@ -21,13 +21,13 @@ import (
 )
 
 var clearLogsProgramm = flag.Bool("clearlogs", true, "очистить логи программы")
-var LogsDebugs = flag.Int("debug", 0, "уровень логирования всех действий, чем выше тем больше логов")
+var LogsDebugs = flag.Int("debug", 3, "уровень логирования всех действий, чем выше тем больше логов")
 var comport = flag.Int("com", 0, "ком порт кассы")
 var CassirName = flag.String("cassir", "", "имя кассира")
 var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
 var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
 var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
-var emulation = flag.Bool("emul", false, "эмуляция")
+var emulation = flag.Bool("emul", true, "эмуляция")
 
 //var dontprintrealfortest = flag.Bool("test", false, "тест - не печатать реальный чек")
 //var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
@@ -36,18 +36,21 @@ var emulation = flag.Bool("emul", false, "эмуляция")
 const Version_of_program = "2024_09_15_01"
 
 type CheckItem struct {
-	Code     string `json:"code"`
-	Article  string `json:"article"`
 	Name     string `json:"name"`
 	Quantity string `json:"quantity"`
 	Price    string `json:"price"`
-	Sum      string `json:"sum"`
+}
+
+type Payment struct {
+	Type   string  `json:"type"`
+	Amount float64 `json:"amount"`
 }
 
 type CheckData struct {
 	TableData []CheckItem `json:"tableData"`
-	Employee  string      `json:"employee"`
-	Master    string      `json:"master"`
+	Cashier   string      `json:"cashier"`
+	Payments  []Payment   `json:"payments"`
+	Type      string      `json:"type"`
 }
 
 var upgrader = websocket.Upgrader{
@@ -135,8 +138,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var message struct {
-			Type string      `json:"type"`
-			Data interface{} `json:"data"`
+			Command string      `json:"command"`
+			Data    interface{} `json:"data"`
 		}
 
 		if err := json.Unmarshal(p, &message); err != nil {
@@ -144,7 +147,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		switch message.Type {
+		switch message.Command {
 		case "printCheck":
 			var checkData CheckData
 			checkDataJSON, _ := json.Marshal(message.Data)
@@ -154,12 +157,12 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			err := printCheck(checkData)
+			fdn, err := printCheck(checkData)
 			if err != nil {
 				log.Println("Ошибка при печати чека:", err)
 				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати чека: %v", err))
 			} else {
-				sendWebSocketResponse(conn, "Чек успешно напечатан")
+				sendWebSocketResponse(conn, "Чек успешно напечатан", fdn)
 			}
 
 		case "closeShift":
@@ -191,19 +194,27 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 		default:
-			log.Println("Неизвестный тип сообщения:", message.Type)
+			log.Println("Неизвестный тип сообщения:", message.Command)
 		}
 	}
 }
 
-func sendWebSocketResponse(conn *websocket.Conn, message string) {
+func sendWebSocketResponse(conn *websocket.Conn, message string, fiscalDocumentNumber ...int) {
+	var fdn int
+	if len(fiscalDocumentNumber) > 0 {
+		fdn = fiscalDocumentNumber[0]
+	}
+
 	response := struct {
 		Type    string `json:"type"`
+		Data    int    `json:"data"`
 		Message string `json:"message"`
 	}{
 		Type:    "printCheckResponse",
+		Data:    fdn,
 		Message: message,
 	}
+
 	if err := conn.WriteJSON(response); err != nil {
 		log.Println("Ошибка при отправке ответа:", err)
 	}
@@ -222,26 +233,30 @@ func sendWebSocketError(conn *websocket.Conn, errorMessage string) {
 	}
 }
 
-func printCheck(checkData CheckData) error {
+func printCheck(checkData CheckData) (int, error) {
 	var fptr *fptr10.IFptr
 	var err error
 
 	fptr, err = fptr10.NewSafe()
 	if err != nil {
-		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+		return 0, fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
 	}
 	defer fptr.Destroy()
 
 	// Подключение к кассе
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		if !*emulation {
+			return 0, fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
 	}
 	defer fptr.Close()
 
 	// Проверка открытия смены
-	_, err = checkOpenShift(fptr, true, checkData.Employee)
+	_, err = checkOpenShift(fptr, true, checkData.Cashier)
 	if err != nil {
-		return fmt.Errorf("ошибка проверки/открытия смены: %v", err)
+		if !*emulation {
+			return 0, fmt.Errorf("ошибка проверки/открытия смены: %v", err)
+		}
 	}
 
 	// Формирование JSON для печати чека
@@ -249,15 +264,33 @@ func printCheck(checkData CheckData) error {
 
 	// Отправка команды печати чека
 	result, err := sendComandeAndGetAnswerFromKKT(fptr, checkJSON)
+	fmt.Println("получили результат отправки команды печати чека", result)
 	if err != nil {
-		return fmt.Errorf("ошибка отправки команды печати чека: %v", err)
+		return 0, fmt.Errorf("ошибка отправки команды печати чека: %v", err)
 	}
 
 	if !successCommand(result) {
-		return fmt.Errorf("ошибка печати чека: %v", result)
+		return 0, fmt.Errorf("ошибка печати чека: %v", result)
 	}
 
-	return nil
+	// Преобразуем result в структуру JSON
+	var resultJSON struct {
+		FiscalDocumentNumber int `json:"fiscalDocumentNumber"`
+	}
+
+	err = json.Unmarshal([]byte(result), &resultJSON)
+	if err != nil {
+		if !*emulation {
+			fmt.Println("Ошибка при разборе JSON результата:", err)
+			return 0, fmt.Errorf("ошибка при разборе JSON результата: %v", err)
+		} else {
+			resultJSON.FiscalDocumentNumber = 123
+		}
+	}
+
+	fmt.Println("Номер фискального документа:", resultJSON.FiscalDocumentNumber)
+
+	return resultJSON.FiscalDocumentNumber, nil
 }
 
 func formatCheckJSON(checkData CheckData) string {
@@ -276,15 +309,44 @@ func formatCheckJSON(checkData CheckData) string {
 		}
 	}
 
+	// Формируем массив оплат
+	payments := make([]map[string]interface{}, 0)
+	totalAmount := 0.0
+
+	// Вычисляем общую сумму чека
+	for _, item := range checkData.TableData {
+		quantity, _ := strconv.ParseFloat(item.Quantity, 64)
+		price, _ := strconv.ParseFloat(item.Price, 64)
+		totalAmount += quantity * price
+	}
+
+	if len(checkData.Payments) == 0 {
+		// Если платежи не переданы, используем оплату наличными по умолчанию
+		payments = append(payments, map[string]interface{}{
+			"type": "cash",
+			"sum":  totalAmount,
+		})
+	} else {
+		for _, payment := range checkData.Payments {
+			payments = append(payments, map[string]interface{}{
+				"type": payment.Type,
+				"sum":  payment.Amount,
+			})
+		}
+	}
+
+	checkType := "sell"
+	if checkData.Type != "" {
+		checkType = checkData.Type
+	}
+
 	checkJSON := map[string]interface{}{
-		"type":  "sell",
-		"items": checkItems,
+		"type": checkType,
 		"operator": map[string]string{
-			"name": checkData.Employee,
+			"name": checkData.Cashier,
 		},
-		"cashier": map[string]string{
-			"name": checkData.Master,
-		},
+		"items":    checkItems,
+		"payments": payments,
 	}
 
 	jsonBytes, _ := json.Marshal(checkJSON)
@@ -295,6 +357,7 @@ func sendComandeAndGetAnswerFromKKT(fptr *fptr10.IFptr, comJson string) (string,
 	var err error
 	logsmy.LogginInFile("начало процедуры sendComandeAndGetAnswerFromKKT")
 	//return "", nil
+	logsmy.LogginInFile("отправка команды на кассу:" + comJson)
 	fptr.SetParam(fptr10.LIBFPTR_PARAM_JSON_DATA, comJson)
 	//fptr.ValidateJson()
 	if !*emulation {
@@ -374,6 +437,7 @@ func connectWithKassa(fptr *fptr10.IFptr, comportint int, ipaddresskktper string
 
 func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (bool, error) {
 	logsmy.LogginInFile("получаем статус ККТ")
+	fmt.Println("получаем статус ККТ")
 	getStatusKKTJson := "{\"type\": \"getDeviceStatus\"}"
 	resgetStatusKKT, err := sendComandeAndGetAnswerFromKKT(fptr, getStatusKKTJson)
 	if err != nil {
@@ -381,6 +445,7 @@ func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (b
 		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
 		return false, err
 	}
+	fmt.Println("получили статус кассы")
 	if !successCommand(resgetStatusKKT) {
 		errorDescr := fmt.Sprintf("ошибка (%v) получения статуса кассы", resgetStatusKKT)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
@@ -454,23 +519,30 @@ func closeShift(cashier string) error {
 
 func printXReport() error {
 	fptr, err := fptr10.NewSafe()
+	fmt.Println("инициализация драйвера ККТ")
 	if err != nil {
 		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
 	}
 	defer fptr.Destroy()
 
+	fmt.Println("подключение к кассе")
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		if !*emulation {
+			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
 	}
 	defer fptr.Close()
 
 	xReportJSON := `{"type": "reportX"}`
+	fmt.Println("отправка команды печати X-отчета")
 	result, err := sendComandeAndGetAnswerFromKKT(fptr, xReportJSON)
 	if err != nil {
+		fmt.Println("ошибка отправки команды печати X-отчета: %v", err)
 		return fmt.Errorf("ошибка отправки команды печати X-отчета: %v", err)
 	}
 
 	if !successCommand(result) {
+		fmt.Println("ошибка печати X-отчета: %v", result)
 		return fmt.Errorf("ошибка печати X-отчета: %v", result)
 	}
 

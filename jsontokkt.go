@@ -9,10 +9,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +34,7 @@ var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
 var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
 var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
 var emulation = flag.Bool("emul", false, "эмуляция")
+var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
 //var dontprintrealfortest = flag.Bool("test", false, "тест - не печатать реальный чек")
 //var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
@@ -60,7 +64,10 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получен WebSocket запрос с origin: %s, URL: %s", origin, r.URL.String())
-		return true // Все еще разрешаем все запросы, но теперь логируем их
+		if currentSettings.AllowedOrigin != "" {
+			return origin == currentSettings.AllowedOrigin
+		}
+		return true // Разрешаем все запросы, если AllowedOrigin не указан
 	},
 }
 
@@ -444,7 +451,7 @@ func successCommand(resulJson string) bool {
 	if indErr || indOsh {
 		res = false
 	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку успешности выполнения команды")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку успешности ыполнения команды")
 	return res
 } //successCommand
 
@@ -605,18 +612,167 @@ func printXReport() error {
 	return nil
 }
 
+// Структура для хранения настроек
+type Settings struct {
+	ClearLogs     bool   `json:"clearlogs"`
+	Debug         int    `json:"debug"`
+	Com           int    `json:"com"`
+	Cassir        string `json:"cassir"`
+	IpKKT         string `json:"ipkkt"`
+	PortKKT       int    `json:"portipkkt"`
+	IpServKKT     string `json:"ipservkkt"`
+	Emulation     bool   `json:"emul"`
+	AllowedOrigin string `json:"allowedOrigin"`
+}
+
+var currentSettings Settings
+
+// Обработчик для получения текущих настроек
+func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(currentSettings)
+}
+
+// Обработчик для сохранения настроек
+func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Ошибка чтения тела запроса", http.StatusBadRequest)
+		return
+	}
+
+	err = json.Unmarshal(body, &currentSettings)
+	if err != nil {
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Обновляем глобальные переменные
+	*clearLogsProgramm = currentSettings.ClearLogs
+	*LogsDebugs = currentSettings.Debug
+	*comport = currentSettings.Com
+	*CassirName = currentSettings.Cassir
+	*ipaddresskkt = currentSettings.IpKKT
+	*portkktatol = currentSettings.PortKKT
+	*ipaddressservrkkt = currentSettings.IpServKKT
+	*emulation = currentSettings.Emulation
+	*allowedOrigin = currentSettings.AllowedOrigin
+
+	// Здесь вы можете добавить логику для сохранения настроек в файл или базу данных
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func restartServiceHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var cmd *exec.Cmd
+	serviceName := "CloudPosBridge"
+
+	if runtime.GOOS == "windows" {
+		// Останавливаем службу
+		cmd = exec.Command("net", "stop", serviceName)
+		err := cmd.Run()
+		if err != nil {
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при остановке службы: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": err.Error()})
+			return
+		}
+
+		// Запускаем службу
+		cmd = exec.Command("net", "start", serviceName)
+		err = cmd.Run()
+		if err != nil {
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске службы: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": err.Error()})
+			return
+		}
+	} else {
+		// Для других ОС оставляем текущую реализацию
+		cmd = exec.Command("systemctl", "restart", serviceName+".service")
+		err := cmd.Run()
+		if err != nil {
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при перезапуске службы: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+var logFilePath string
+
+func getLogPathHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(logFilePath))
+}
+
+func openLogsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	logDir := filepath.Dir(logFilePath)
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", logDir)
+	case "darwin":
+		cmd = exec.Command("open", logDir)
+	case "linux":
+		cmd = exec.Command("xdg-open", logDir)
+	default:
+		http.Error(w, "Неподдерживаемая операционная система", http.StatusInternalServerError)
+		return
+	}
+
+	err := cmd.Start()
+	if err != nil {
+		http.Error(w, "Ошибка при открытии папки с логами", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func openBrowser(url string) error {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
+}
+
 func main() {
 	fmt.Println("начало работы программы")
 	if err := consttypes.EnsureLogDirectoryExists(); err != nil {
 		fmt.Printf("Не удалось создать директорию для логов: %v", err)
 	}
-	descrMistake, err := logsmy.InitializationsLogs(*clearLogsProgramm, *LogsDebugs)
+	descrMistake, logPath, err := logsmy.InitializationsLogs(*clearLogsProgramm, *LogsDebugs)
 	defer logsmy.CloseDescrptorsLogs()
 	if err != nil {
 		fmt.Fprint(os.Stderr, descrMistake)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(descrMistake)
 		return
 	}
+	logFilePath = logPath
 
 	logsmy.LogginInFile("Начало работы программы")
 	isService, err := svc.IsWindowsService()
@@ -629,7 +785,53 @@ func main() {
 	}
 
 	// Запускаем как обычное приложение
-	runServer()
+	http.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "templates/settings.html")
+	})
+	http.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			getSettingsHandler(w, r)
+		} else if r.Method == "POST" {
+			saveSettingsHandler(w, r)
+		}
+	})
+
+	http.HandleFunc("/api/restart", restartServiceHandler)
+	http.HandleFunc("/api/logpath", getLogPathHandler)
+	http.HandleFunc("/api/openlogs", openLogsHandler)
+
+	// Добавляем обработку статических файлов
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	// Добавляем обработку статических файлов
+	fsjs := http.FileServer(http.Dir("static/js"))
+	http.Handle("/static/js/", http.StripPrefix("/static/js/", fsjs))
+
+	// Добавляем обработку статических файлов
+	fscss := http.FileServer(http.Dir("static/css"))
+	http.Handle("/static/css/", http.StripPrefix("/static/css/", fscss))
+
+	// Запускаем сервер в отдельной горутине
+	go func() {
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск веб-сервера на http://localhost:8080")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка запуска веб-сервера: %v", err)
+		}
+	}()
+
+	// Даем серверу время на запуск
+	time.Sleep(100 * time.Millisecond)
+
+	// Открываем страницу настроек в браузере
+	url := "http://localhost:8080/settings"
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Открытие страницы настроек в браузере: %s", url)
+	if err := openBrowser(url); err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при открытии браузера: %v", err)
+	}
+
+	// Держим приложение запущенным
+	select {}
 }
 
 func runService(isDebug bool) {

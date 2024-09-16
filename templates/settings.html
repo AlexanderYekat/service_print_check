@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки CloudPosBridge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/settings.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Настройки CloudPosBridge</h1>
+        </header>
+        <main>
+            <form id="settingsForm">
+                <div class="form-field">
+                    <h2>Логи</h2>
+                    <p class="helper-text">Логи программы хранятся в следующей папке:</p>
+                    <p id="logPath" class="log-path"></p>
+                    <button type="button" id="openLogs" class="button secondary">Открыть папку с логами</button>
+                </div>
+                
+                <div class="form-field">
+                    <label for="clearlogs" class="switch">
+                        <input type="checkbox" id="clearlogs" name="clearlogs" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <span>Очищать логи при запуске</span>
+                    <span class="helper-text">Если включено, логи будут очищаться при каждом запуске службы</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="debug">Уровень логирования</label>
+                    <input type="number" id="debug" name="debug" min="0" max="5" class="text-input">
+                    <span class="helper-text">От 0 (минимум) до 5 (максимум). Чем выше уровень, тем больше информации записывается в логи</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="com">COM порт кассы</label>
+                    <input type="number" id="com" name="com" min="0" class="text-input">
+                    <span class="helper-text">Номер COM-порта, к которому подключена касса</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="cassir">Имя кассира</label>
+                    <input type="text" id="cassir" name="cassir" class="text-input">
+                    <span class="helper-text">Имя кассира, которое будет использоваться при печати чеков</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="ipkkt">IP адрес ККТ</label>
+                    <input type="text" id="ipkkt" name="ipkkt" class="text-input">
+                    <span class="helper-text">IP адрес контрольно-кассовой техники</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="portipkkt">Порт IP ККТ</label>
+                    <input type="number" id="portipkkt" name="portipkkt" min="0" class="text-input">
+                    <span class="helper-text">Порт для подключения к контрольно-кассовой технике</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="ipservkkt">IP адрес сервера ККТ</label>
+                    <input type="text" id="ipservkkt" name="ipservkkt" class="text-input">
+                    <span class="helper-text">IP адрес сервера контрольно-кассовой техники (если используется)</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="emul" class="switch">
+                        <input type="checkbox" id="emul" name="emul">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Включить эмуляцию</span>
+                    <span class="helper-text">Если включено, служба будет работать в режиме эмуляции без реального взаимодействия с ККТ</span>
+                </div>
+                
+                <div class="form-field">
+                    <label for="allowedOrigin">Разрешенный Origin</label>
+                    <input type="text" id="allowedOrigin" name="allowedOrigin" class="text-input">
+                    <span class="helper-text">Укажите разрешенный origin для WebSocket соединений (например, http://localhost:3000). Оставьте пустым, чтобы разрешить все origins.</span>
+                </div>
+                
+                <div class="button-container">
+                    <button type="submit" class="button primary">Сохранить настройки</button>
+                    <button type="button" id="restartService" class="button secondary">Перезапустить службу</button>
+                </div>
+            </form>
+        </main>
+    </div>
+    <script src="/static/js/settings.js"></script>
+</body>
+</html>

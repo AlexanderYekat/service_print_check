@@ -31,7 +31,7 @@ func CloseDescrptorsLogs() {
 	}
 }
 
-func InitializationsLogs(clearLogsProgramm bool, LogsDebugs int) (string, error) {
+func InitializationsLogs(clearLogsProgramm bool, LogsDebugs int) (string, string, error) {
 	DeegreOfDebug = LogsDebugs
 	if foundedLogDir, _ := consttypes.DoesFileExist(consttypes.LOGSDIR); !foundedLogDir {
 		os.Mkdir(consttypes.LOGSDIR, 0777)
@@ -39,12 +39,13 @@ func InitializationsLogs(clearLogsProgramm bool, LogsDebugs int) (string, error)
 	filelogmap, Logsmap, descrError, err = initializationLogsLoc(clearLogsProgramm, consttypes.LOGINFO, consttypes.LOGERROR)
 	if err != nil {
 		descrMistake := fmt.Sprintf("ошибка инициализации лог файлов %v", descrError)
-		return descrMistake, err
+		return descrMistake, "", err
 	}
 	fmt.Println("лог файлы инициализированы в папке " + consttypes.LOGSDIR)
 	multwriterLocLoc := io.MultiWriter(Logsmap[consttypes.LOGINFO].Writer(), os.Stdout)
 	Logsmap[consttypes.LOGINFO_WITHSTD] = log.New(multwriterLocLoc, consttypes.LOG_PREFIX+"_"+strings.ToUpper(consttypes.LOGINFO)+" ", log.LstdFlags)
-	return "OK", nil
+	return "OK", consttypes.LOGSDIR, nil
+
 }
 
 func initializationLogsLoc(clearLogs bool, logstrs ...string) (map[string]*os.File, map[string]*log.Logger, string, error) {

@@ -158,8 +158,6 @@ var LOGSDIR = filepath.Join(os.Getenv("ProgramData"), "CloudPosBridge", "logs") 
 const LOGINFO = "info"
 const LOGINFO_WITHSTD = "info_std"
 const LOGERROR = "error"
-const LOGSKIP_LINES = "skip_line"
-const LOGOTHER = "other"
 const LOG_PREFIX = "TASKS"
 
 func DoesFileExist(fullFileName string) (found bool, err error) {

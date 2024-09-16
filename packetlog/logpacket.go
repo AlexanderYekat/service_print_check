@@ -36,7 +36,7 @@ func InitializationsLogs(clearLogsProgramm bool, LogsDebugs int) (string, error)
 	if foundedLogDir, _ := consttypes.DoesFileExist(consttypes.LOGSDIR); !foundedLogDir {
 		os.Mkdir(consttypes.LOGSDIR, 0777)
 	}
-	filelogmap, Logsmap, descrError, err = initializationLogsLoc(clearLogsProgramm, consttypes.LOGINFO, consttypes.LOGERROR, consttypes.LOGSKIP_LINES, consttypes.LOGOTHER)
+	filelogmap, Logsmap, descrError, err = initializationLogsLoc(clearLogsProgramm, consttypes.LOGINFO, consttypes.LOGERROR)
 	if err != nil {
 		descrMistake := fmt.Sprintf("ошибка инициализации лог файлов %v", descrError)
 		return descrMistake, err

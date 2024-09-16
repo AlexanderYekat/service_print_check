@@ -60,10 +60,14 @@ function printCheck() {
             payments: [
                 {
                     type: 'cash',
-                    amount: 400.00
+                    amount: 300.00
+                },
+                {
+                    type: 'electronically',
+                    amount: 100.00
                 }
             ],
-            type: 'sell'
+            type: 'sell' //продажа sellReturn - возрат
         }
     };
 

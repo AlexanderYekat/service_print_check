@@ -59,7 +59,7 @@ type CheckData struct {
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
-		log.Printf("Получен WebSocket запрос с origin: %s, URL: %s", origin, r.URL.String())
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получен WebSocket запрос с origin: %s, URL: %s", origin, r.URL.String())
 		return true // Все еще разрешаем все запросы, но теперь логируем их
 	},
 }
@@ -70,78 +70,78 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 	// Настройка логирования
 	logFile, err := os.OpenFile(filepath.Join(os.TempDir(), "CloudPosBridge_service.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Printf("Ошибка при открытии файла лога: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при открытии файла лога: %v", err)
 		return
 	}
 	defer logFile.Close()
 	log.SetOutput(logFile)
 
-	log.Println("Служба CloudPosBridge запущена")
-	log.Printf("Аргументы запуска: %v", args)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Служба CloudPosBridge запущена")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Аргументы запуска: %v", args)
 
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
-	log.Println("Статус изменен на StartPending")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Статус изменен на StartPending")
 
 	// Попытка инициализации
-	log.Println("Начало инициализации")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало инициализации")
 	// Здесь можно добавить код инициализации, если он есть
-	log.Println("Инициализация завершена")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Инициализация завершена")
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-	log.Println("Статус изменен на Running")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Статус изменен на Running")
 
-	log.Println("Запуск сервера")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск сервера")
 	go func() {
 		if err := runServer(); err != nil {
-			log.Printf("Ошибка при запуске сервера: %v", err)
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске сервера: %v", err)
 		}
 	}()
 
-	log.Println("Вход в основной цикл обработки")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Вход в основной цикл обработки")
 	for {
 		select {
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
-				log.Println("Получена команда Interrogate")
+				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Получена команда Interrogate")
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
-				log.Printf("Получена команда %v", c.Cmd)
+				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получена команда %v", c.Cmd)
 				return
 			default:
-				log.Printf("Получена неизвестная команда %d", c)
+				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получена неизвестная команда %d", c)
 			}
-		case <-time.After(5 * time.Second):
-			log.Println("Служба все еще работает")
+		case <-time.After(60 * time.Second):
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Служба все еще работает")
 		}
 	}
 }
 
 func runServer() error {
-	log.Println("Функция runServer начала выполнение")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
 	addr := "localhost:8081"
-	log.Printf("Попытка запуска WebSocket сервера на %s", addr)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска WebSocket сервера на %s", addr)
 	http.HandleFunc("/", handleWebSocket)
-	log.Println("Начало прослушивания WebSocket соединений")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания WebSocket соединений")
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
-		log.Printf("Ошибка при запуске WebSocket сервера: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске WebSocket сервера: %v", err)
 		return err
 	}
-	log.Println("Функция runServer завершила выполнение")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
 	return nil
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Получен запрос на WebSocket соединение от %s", r.RemoteAddr)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получен запрос на WebSocket соединение от %s", r.RemoteAddr)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Ошибка при установке WebSocket соединения: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при установке WebSocket соединения: %v", err)
 		return
 	}
 	defer conn.Close()
-	log.Printf("WebSocket соединение установлено с %s", conn.RemoteAddr())
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("WebSocket соединение установлено с %s", conn.RemoteAddr())
 
 	// Увеличим таймаут до 5 минут
 	conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
@@ -160,65 +160,65 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("Ошибка при чтении сообщения: %v", err)
+				logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при чтении сообщения: %v", err)
 			} else {
-				log.Printf("Соединение закрыто клиентом: %v", err)
+				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Соединение закрыто клиентом: %v", err)
 			}
 			return
 		}
 		conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-		log.Printf("Получено сообщение: %s", string(p))
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получено сообщение: %s", string(p))
 
 		var message struct {
 			Command string      `json:"command"`
 			Data    interface{} `json:"data"`
 		}
 
-		log.Printf("Unmarshal-ing сообщения: %v", p)
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Unmarshal-ing сообщения: %v", p)
 		if err := json.Unmarshal(p, &message); err != nil {
-			log.Println("Ошибка при разборе JSON:", err)
+			logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при разборе JSON:", err)
 			sendWebSocketError(conn, fmt.Sprintf("Ошибка при разборе JSON: %v", err))
 			continue
 		}
-		log.Printf("Unmarshal-ed сообщения: %v", message)
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Unmarshal-ed сообщения: %v", message)
 
-		log.Printf("команда: %v", message.Command)
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("команда: %v", message.Command)
 		switch message.Command {
 		case "printCheck":
 			var checkData CheckData
-			log.Printf("маршалинг данных чека %v", message.Data)
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("маршалинг данных чека %v", message.Data)
 			checkDataJSON, _ := json.Marshal(message.Data)
-			log.Printf("отмаршалили данные чека %v", checkDataJSON)
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("отмаршалили данные чека %v", checkDataJSON)
 			if err := json.Unmarshal(checkDataJSON, &checkData); err != nil {
-				log.Println("Ошибка при разборе данных чека:", err)
+				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при разборе данных чека:", err)
 				sendWebSocketError(conn, "Ошибка при разборе данных чека")
 				continue
 			}
-			log.Printf("Unmarshal данные чека %v", checkData)
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Unmarshal данные чека %v", checkData)
 
-			log.Println("начали выполнение команды печати чека")
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали выполнение команды печати чека")
 			fdn, err := printCheck(checkData)
 			if err != nil {
-				log.Println("Ошибка при печати чека:", err)
+				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати чека:", err)
 				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати чека: %v", err))
 			} else {
 				sendWebSocketResponse(conn, "Чек успешно напечатан", fdn)
 			}
-			log.Println("выполнили команду печати чека")
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("выполнили команду печати чека")
 		case "closeShift":
 			var requestData struct {
 				Cashier string `json:"cashier"`
 			}
 			dataJSON, _ := json.Marshal(message.Data)
 			if err := json.Unmarshal(dataJSON, &requestData); err != nil {
-				log.Println("Ошибка при разборе данных закрытия смены:", err)
+				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при разборе данных закрытия смены:", err)
 				sendWebSocketError(conn, "Ошибка при разборе данных закрыти смены")
 				continue
 			}
 
 			err := closeShift(requestData.Cashier)
 			if err != nil {
-				log.Println("Ошибка при закрытии смены:", err)
+				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при закрытии смены:", err)
 				sendWebSocketError(conn, fmt.Sprintf("Ошибка закрытия смены: %v", err))
 			} else {
 				sendWebSocketResponse(conn, "Смена успешно закрыта")
@@ -227,14 +227,14 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case "xReport":
 			err := printXReport()
 			if err != nil {
-				log.Println("Ошибка при печати X-отчета:", err)
+				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати X-отчета:", err)
 				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати X-отчета: %v", err))
 			} else {
 				sendWebSocketResponse(conn, "X-отчет успешно напечатан")
 			}
 
 		default:
-			log.Println("Неизвестный тип сообщения:", message.Command)
+			logsmy.Logsmap[consttypes.LOGERROR].Println("Неизвестный тип сообщения:", message.Command)
 		}
 	}
 }
@@ -256,7 +256,7 @@ func sendWebSocketResponse(conn *websocket.Conn, message string, fiscalDocumentN
 	}
 
 	if err := conn.WriteJSON(response); err != nil {
-		log.Println("Ошибка при отправке ответа:", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при отправке ответа:", err)
 	}
 }
 
@@ -269,7 +269,7 @@ func sendWebSocketError(conn *websocket.Conn, errorMessage string) {
 		Message: errorMessage,
 	}
 	if err := conn.WriteJSON(response); err != nil {
-		log.Println("Ошибка при отправке сообщения об ошибке:", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при отправке сообщения об ошибке:", err)
 	}
 }
 
@@ -277,48 +277,48 @@ func printCheck(checkData CheckData) (int, error) {
 	var fptr *fptr10.IFptr
 	var err error
 
-	log.Println("начали инициализацию драйвера ККТ")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали инициализацию драйвера ККТ")
 	fptr, err = fptr10.NewSafe()
 	if err != nil {
 		return 0, fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
 	}
-	log.Println("завершили инициализацию драйвера ККТ")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили инициализацию драйвера ККТ")
 	defer fptr.Destroy()
 
 	// Подключение к кассе
-	log.Println("начали подключение к кассе")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали подключение к кассе")
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
 		if !*emulation {
 			return 0, fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
 		}
 	}
-	log.Println("завершили подключение к кассе")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили подключение к кассе")
 	defer fptr.Close()
 
 	// Проверка открытия смены
-	log.Println("начали проверку/открытие смены. Кассир:", checkData.Cashier)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("начали проверку/открытие смены. Кассир: %s", checkData.Cashier)
 	_, err = checkOpenShift(fptr, true, checkData.Cashier)
 	if err != nil {
 		if !*emulation {
 			return 0, fmt.Errorf("ошибка проверки/открытия смены: %v", err)
 		}
 	}
-	log.Println("завершили проверку/открытие смены")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку/открытие смены")
 	// Формирование JSON для печати чека
 	checkJSON := formatCheckJSON(checkData)
-	log.Println("начали отправку команды печати чека")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали отправку команды печати чека")
 	// Отправка команды печати чека
 	result, err := sendComandeAndGetAnswerFromKKT(fptr, checkJSON)
-	log.Println("получили результат отправки команды печати чека", result)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("получили результат отправки команды печати чека: %s", result)
 	if err != nil {
 		return 0, fmt.Errorf("ошибка отправки команды печати чека: %v", err)
 	}
-	log.Println("завершили отправку команды печати чека")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили отправку команды печати чека")
 
 	if !successCommand(result) {
 		return 0, fmt.Errorf("ошибка печати чека: %v", result)
 	}
-	log.Println("начали преобразование результата отправки команды печати чека в структуру JSON")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали преобразование результата отправки команды печати чека в структуру JSON")
 	// Преобразуем result в структуру JSON
 	var resultJSON struct {
 		FiscalDocumentNumber int `json:"fiscalDocumentNumber"`
@@ -326,14 +326,14 @@ func printCheck(checkData CheckData) (int, error) {
 	err = json.Unmarshal([]byte(result), &resultJSON)
 	if err != nil {
 		if !*emulation {
-			fmt.Println("Ошибка при разборе JSON результата:", err)
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при разборе JSON результата: %v", err)
 			return 0, fmt.Errorf("ошибка при разборе JSON результата: %v", err)
 		} else {
 			resultJSON.FiscalDocumentNumber = 123
 		}
 	}
-	log.Println("завершили преобразование результата отправки команды печати чека в структуру JSON")
-	log.Println("Номер фискального документа:", resultJSON.FiscalDocumentNumber)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили преобразование результата отправки команды печати чека в структуру JSON")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Номер фискального документа: %d", resultJSON.FiscalDocumentNumber)
 
 	fmt.Println("Номер фискального документа:", resultJSON.FiscalDocumentNumber)
 	return resultJSON.FiscalDocumentNumber, nil
@@ -401,9 +401,9 @@ func formatCheckJSON(checkData CheckData) string {
 
 func sendComandeAndGetAnswerFromKKT(fptr *fptr10.IFptr, comJson string) (string, error) {
 	var err error
-	logsmy.LogginInFile("начало процедуры sendComandeAndGetAnswerFromKKT")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начало процедуры sendComandeAndGetAnswerFromKKT")
 	//return "", nil
-	logsmy.LogginInFile("отправка команды на кассу:" + comJson)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("отправка команды на кассу: %s", comJson)
 	fptr.SetParam(fptr10.LIBFPTR_PARAM_JSON_DATA, comJson)
 	//fptr.ValidateJson()
 	if !*emulation {
@@ -413,39 +413,38 @@ func sendComandeAndGetAnswerFromKKT(fptr *fptr10.IFptr, comJson string) (string,
 		if !*emulation {
 			desrError := fmt.Sprintf("ошибка (%v) выполнение команды %v на кассе", err, comJson)
 			logsmy.Logsmap[consttypes.LOGERROR].Println(desrError)
-			logstr := fmt.Sprint("конец процедуры sendComandeAndGetAnswerFromKKT c ошибкой", err)
-			logsmy.LogginInFile(logstr)
+			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("конец процедуры sendComandeAndGetAnswerFromKKT c ошибкой: %v", err)
 			return desrError, err
 		}
 	}
 	result := fptr.GetParamString(fptr10.LIBFPTR_PARAM_JSON_DATA)
 	if strings.Contains(result, "Нет связи") {
-		logsmy.LogginInFile("нет связи: переподключаемся")
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("нет связи: переподключаемся")
 		if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
 			descrErr := fmt.Sprintf("ошибка соединения с кассовым аппаратом %v", typepodkluch)
 			logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
 			if !*emulation {
 				println("Нажмите любую клавишу...")
 				//input.Scan()
-				log.Panic(descrErr)
+				logsmy.Logsmap[consttypes.LOGERROR].Panic(descrErr)
 			}
 		} else {
 			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе на порт %v прошло успешно", *comport)
 		}
 	}
-	logsmy.LogginInFile("конец процедуры sendComandeAndGetAnswerFromKKT без ошибки")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("конец процедуры sendComandeAndGetAnswerFromKKT без ошибки")
 	return result, nil
 } //sendComandeAndGetAnswerFromKKT
 
 func successCommand(resulJson string) bool {
-	log.Println("начали проверку успешности выполнения команды")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали проверку успешности выполнения команды")
 	res := true
 	indOsh := strings.Contains(resulJson, "ошибка")
 	indErr := strings.Contains(resulJson, "error")
 	if indErr || indOsh {
 		res = false
 	}
-	log.Println("завершили проверку успешности выполнения команды")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку успешности выполнения команды")
 	return res
 } //successCommand
 
@@ -485,16 +484,16 @@ func connectWithKassa(fptr *fptr10.IFptr, comportint int, ipaddresskktper string
 
 func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (bool, error) {
 	if fptr == nil {
-		log.Println("fptr is nil")
+		logsmy.Logsmap[consttypes.LOGERROR].Println("fptr is nil")
 		return false, fmt.Errorf("fptr is nil")
 	}
 
-	logsmy.LogginInFile("получаем статус ККТ")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("получаем статус ККТ")
 	fmt.Println("получаем статус ККТ")
 	getStatusKKTJson := "{\"type\": \"getDeviceStatus\"}"
-	log.Println("отправляем команду getDeviceStatus")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("отправляем команду getDeviceStatus")
 	resgetStatusKKT, err := sendComandeAndGetAnswerFromKKT(fptr, getStatusKKTJson)
-	log.Println("получили результат отправки команды getDeviceStatus", resgetStatusKKT)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("получили результат отправки команды getDeviceStatus: %s", resgetStatusKKT)
 	if err != nil {
 		errorDescr := fmt.Sprintf("ошибка (%v) получения статуса кассы", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
@@ -507,9 +506,9 @@ func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (b
 		//logsmy.LogginInFile(errorDescr)
 		return false, errors.New(errorDescr)
 	}
-	logsmy.LogginInFile("получили статус кассы")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("получили статус кассы")
 	//проверяем - открыта ли смена
-	log.Println("начали распарсивание статуса кассы")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали распарсивание статуса кассы")
 	var answerOfGetStatusofShift consttypes.TAnswerGetStatusOfShift
 	err = json.Unmarshal([]byte(resgetStatusKKT), &answerOfGetStatusofShift)
 	if err != nil {
@@ -517,15 +516,15 @@ func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (b
 		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
 		return false, err
 	}
-	log.Println("завершили распарсивание статуса кассы")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили распарсивание статуса кассы")
 	if answerOfGetStatusofShift.ShiftStatus.State == "expired" {
 		errorDescr := "ошибка - смена на кассе уже истекла. Закройте смену"
 		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
 		return false, errors.New(errorDescr)
 	}
-	log.Println("проверяем - закрыта ли смена на кассе")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("проверяем - закрыта ли смена на кассе")
 	if answerOfGetStatusofShift.ShiftStatus.State == "closed" {
-		log.Println("смена на кассе закрыта. Открываем смену")
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("смена на кассе закрыта. Открываем смену")
 		if openShiftIfClose {
 			if kassir == "" {
 				errorDescr := "не указано имя кассира для открытия смены"
@@ -578,13 +577,13 @@ func closeShift(cashier string) error {
 
 func printXReport() error {
 	fptr, err := fptr10.NewSafe()
-	fmt.Println("инициализация драйвера ККТ")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера ККТ")
 	if err != nil {
 		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
 	}
 	defer fptr.Destroy()
 
-	fmt.Println("подключение к кассе")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
 		if !*emulation {
 			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
@@ -593,7 +592,7 @@ func printXReport() error {
 	defer fptr.Close()
 
 	xReportJSON := `{"type": "reportX"}`
-	fmt.Println("отправка команды печати X-отчета")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("отправка команды печати X-отчета")
 	result, err := sendComandeAndGetAnswerFromKKT(fptr, xReportJSON)
 	if err != nil {
 		return fmt.Errorf("ошибка отправки команды печати X-отчета: %v", err)
@@ -608,24 +607,21 @@ func printXReport() error {
 
 func main() {
 	fmt.Println("начало работы программы")
-	fmt.Println(os.TempDir())
 	if err := consttypes.EnsureLogDirectoryExists(); err != nil {
-		log.Fatalf("Не удалось создать директорию для логов: %v", err)
+		fmt.Printf("Не удалось создать директорию для логов: %v", err)
 	}
 	descrMistake, err := logsmy.InitializationsLogs(*clearLogsProgramm, *LogsDebugs)
 	defer logsmy.CloseDescrptorsLogs()
 	if err != nil {
 		fmt.Fprint(os.Stderr, descrMistake)
-		//println("Нажмите любую клавишу...")
-		//input.Scan()
-		log.Println(descrMistake)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(descrMistake)
+		return
 	}
 
-	log.Println("Начало работы программы")
 	logsmy.LogginInFile("Начало работы программы")
 	isService, err := svc.IsWindowsService()
 	if err != nil {
-		log.Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
 	}
 	if isService {
 		runService(false)
@@ -637,21 +633,29 @@ func main() {
 }
 
 func runService(isDebug bool) {
-	elog, err := eventlog.Open("MyService")
+	elog, err := eventlog.Open("CloudPosBridge")
 	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Не удалось открыть журнал событий: %v", err)
 		return
 	}
 	defer elog.Close()
 
-	elog.Info(1, "starting service")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск службы CloudPosBridge")
+	elog.Info(1, "Запуск службы CloudPosBridge")
+
 	run := svc.Run
 	if isDebug {
 		run = debug.Run
 	}
-	err = run("MyService", &myService{})
+
+	err = run("CloudPosBridge", &myService{})
 	if err != nil {
-		elog.Error(1, fmt.Sprintf("service failed: %v", err))
+		errorMsg := fmt.Sprintf("Служба завершилась с ошибкой: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(errorMsg)
+		elog.Error(1, errorMsg)
 		return
 	}
-	elog.Info(1, "service stopped")
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Служба CloudPosBridge остановлена")
+	elog.Info(1, "Служба CloudPosBridge остановлена")
 }

@@ -8,6 +8,8 @@ logs/*.txt
 # Директории сборки
 bin/
 build/
+install/
+!install/CloudPosBridge_setup.iss
 
 # Кэш модулей Go
 #go.sum

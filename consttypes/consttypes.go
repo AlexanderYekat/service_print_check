@@ -1,6 +1,9 @@
 package consttypes
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+)
 
 type TUserAttribute struct {
 	AttrName  string `json:"attrName"`
@@ -150,7 +153,7 @@ type TItemInfoCheckResultObject struct {
 }
 
 var DIROFJSONS = ".\\jsons\\works\\"
-var LOGSDIR = "./logs/"
+var LOGSDIR = filepath.Join(os.Getenv("ProgramData"), "CloudPosBridge", "logs") + string(os.PathSeparator)
 
 const LOGINFO = "info"
 const LOGINFO_WITHSTD = "info_std"
@@ -166,4 +169,9 @@ func DoesFileExist(fullFileName string) (found bool, err error) {
 		found = true
 	}
 	return
+}
+
+// Добавим функцию для создания директории логов, если она не существует
+func EnsureLogDirectoryExists() error {
+	return os.MkdirAll(LOGSDIR, 0755)
 }

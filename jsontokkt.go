@@ -210,7 +210,7 @@ func sendWebSocketResponse(conn *websocket.Conn, message string, fiscalDocumentN
 		Data    int    `json:"data"`
 		Message string `json:"message"`
 	}{
-		Type:    "printCheckResponse",
+		Type:    "success",
 		Data:    fdn,
 		Message: message,
 	}

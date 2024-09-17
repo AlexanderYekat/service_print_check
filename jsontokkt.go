@@ -100,11 +100,13 @@ func main() {
 	// Настройка CORS
 	c := cors.New(cors.Options{
 		//AllowedOrigins: []string{"http://localhost:8080"}, // Разрешаем все источники
-		AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
-		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
+		AllowedOrigins: []string{"http://localhost:8080"},
+		AllowedMethods: []string{"POST", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Access-Control-Allow-Private-Network"},
+		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"}
 		//AllowCredentials:    true,
-		AllowPrivateNetwork: true, // Добавляем это
+		//AllowPrivateNetwork: true, // Добавляем это
 	})
 
 	// Оборачиваем наш mux в CORS handler
@@ -147,12 +149,10 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Form:", r.Form)
 
 	// Устанавливаем CORS-заголовки
-	//w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-	//w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Set("Access-Control-Allow-Private-Network", "true")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8080, http://188.225.31.209:8080")
+	//w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	//w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	//w.Header().Set("Access-Control-Allow-Private-Network", "true")
+	//w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8080")
 
 	fmt.Println("CORS заголовки установлены")
 

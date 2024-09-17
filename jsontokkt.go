@@ -40,7 +40,7 @@ var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный ori
 //var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
 //var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
 
-const Version_of_program = "2024_09_16_02"
+const Version_of_program = "2024_09_17_01"
 
 type CheckItem struct {
 	Name     string `json:"name"`

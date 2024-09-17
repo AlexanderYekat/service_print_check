@@ -41,7 +41,7 @@ class WebSocketHandler implements MessageComponentInterface {
 
     public function onOpen(ConnectionInterface $conn) {
         $this->clients->attach($conn);
-        echo "New connection! ({$conn->resourceId})\n";
+        echo "Новое соединение! (" . $conn . ")\n";
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {
@@ -66,7 +66,7 @@ class WebSocketHandler implements MessageComponentInterface {
 
     public function onClose(ConnectionInterface $conn) {
         $this->clients->detach($conn);
-        echo "Connection {$conn->resourceId} has disconnected\n";
+        echo "Connection {. .} has disconnected\n";
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e) {
@@ -77,7 +77,7 @@ class WebSocketHandler implements MessageComponentInterface {
     protected function printCheck($checkData) {
         // Реализация печати чека
         // Здесь нужно будет использовать специфическую библиотеку для работы с кассовым аппаратом
-        return ['status' => 'success', 'message' => 'Чек успешно напечатан'];
+        return ['status' => 'success', 'message' => 'Чек успешно напечатан', 'data' => 123];
     }
 
     protected function closeShift($cashier) {

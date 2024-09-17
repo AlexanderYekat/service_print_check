@@ -26,3 +26,5 @@ Thumbs.db
 .aider*
 .cursorignore
 .env
+
+vendor/

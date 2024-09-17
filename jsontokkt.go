@@ -99,10 +99,11 @@ func main() {
 
 	// Настройка CORS
 	c := cors.New(cors.Options{
-		AllowedOrigins:      []string{"*"}, // Разрешаем все источники
-		AllowedMethods:      []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders:      []string{"Content-Type", "Authorization"},
-		AllowCredentials:    true,
+		//AllowedOrigins: []string{"http://localhost:8080"}, // Разрешаем все источники
+		AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
+		//AllowCredentials:    true,
 		AllowPrivateNetwork: true, // Добавляем это
 	})
 
@@ -110,7 +111,8 @@ func main() {
 	handler := c.Handler(mux)
 
 	fmt.Println("Настройки CORS:")
-	fmt.Printf("AllowedOrigins: %v\n", []string{"*"})
+	//fmt.Printf("AllowedOrigins: %v\n", []string{"http://188.225.31.209:8080"})
+	fmt.Printf("AllowedOrigins: %v\n", []string{"http://localhost:8080"})
 	fmt.Printf("AllowedMethods: %v\n", []string{"GET", "POST", "OPTIONS"})
 	fmt.Printf("AllowedHeaders: %v\n", []string{"Content-Type", "Authorization"})
 	fmt.Printf("AllowCredentials: %v\n", true)
@@ -124,6 +126,8 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("handlePrintCheck вызван")
 	fmt.Println("Метод запроса:", r.Method)
 	fmt.Println("URL запроса:", r.URL)
+	origin := r.Header.Get("Origin")
+	fmt.Println("Origin:", origin)
 	fmt.Println("Заголовки запроса:")
 	for name, values := range r.Header {
 		for _, value := range values {
@@ -143,11 +147,12 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Form:", r.Form)
 
 	// Устанавливаем CORS-заголовки
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+	//w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	//w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Allow-Private-Network", "true")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8080, http://188.225.31.209:8080")
 
 	fmt.Println("CORS заголовки установлены")
 
@@ -190,10 +195,10 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 
 func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 	// Устанавливаем CORS-заголовки
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	//w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-
+	w.Header().Set("Access-Control-Allow-Origin", "http://188.225.31.209:8080")
 	// Обрабатываем предварительный запрос OPTIONS
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
@@ -225,13 +230,17 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 
 func handleXReport(w http.ResponseWriter, r *http.Request) {
 	// Устанавливаем CORS-заголовки
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	fmt.Println("handleXReport вызван")
+	origin := r.Header.Get("Origin")
+	fmt.Println("Origin:", origin)
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 	w.Header().Set("Access-Control-Allow-Private-Network", "true")
+	w.Header().Set("Access-Control-Allow-Origin", "http://188.225.31.209:8080")
 
 	// Обрабатываем предварительный запрос OPTIONS
 	if r.Method == "OPTIONS" {
+		fmt.Println("Получен OPTIONS запрос")
 		w.WriteHeader(http.StatusOK)
 		return
 	}

@@ -10,8 +10,8 @@ bin/
 build/
 
 # Кэш модулей Go
-go.sum
-go.mod
+!go.sum
+!go.mod
 
 # Директории и файлы IDE
 .vscode/
@@ -22,7 +22,18 @@ go.mod
 .DS_Store
 Thumbs.db
 
+.aider.input.history
+.aider.chat.history.md
+.aider.tags.cache.v3/
+.cursorignore
+.env
+install/
+!install/CloudPosBridge_setup.iss
+vendor/
+
 # JSON задания
 jsons/works/*.json
 jsons/works/connection.txt
 jsons/works/printed.txt
+
+

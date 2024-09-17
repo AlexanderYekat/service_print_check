@@ -3,9 +3,9 @@ package main
 
 import (
 	"bufio"
-	consttypes "clientrabbit/consttypes"
-	fptr10 "clientrabbit/fptr"
-	logsmy "clientrabbit/packetlog"
+	consttypes "checkservice/consttypes"
+	fptr10 "checkservice/fptr"
+	logsmy "checkservice/packetlog"
 	"encoding/json"
 	"errors"
 	"flag"

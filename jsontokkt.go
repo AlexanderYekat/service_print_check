@@ -6,6 +6,7 @@ import (
 	consttypes "checkservice/consttypes"
 	fptr10 "checkservice/fptr"
 	logsmy "checkservice/packetlog"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -31,8 +32,9 @@ var emulation = flag.Bool("emul", false, "эмуляция")
 var dontprintrealfortest = flag.Bool("test", false, "тест - не печатать реальный чек")
 var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
 var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
+var useHTTPS = flag.Bool("https", false, "Использовать HTTPS (true) или HTTP (false)")
 
-const Version_of_program = "2024_07_30_02"
+const Version_of_program = "2024_09_17_01"
 
 type CheckItem struct {
 	Code     string `json:"code"`
@@ -93,36 +95,54 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/print-check", handlePrintCheck)
-	//mux.HandleFunc("/api/products", handlePrintCheck)
 	mux.HandleFunc("/api/close-shift", handleCloseShift)
 	mux.HandleFunc("/api/x-report", handleXReport)
+	mux.HandleFunc("/", handlermainhtml)
 
 	// Настройка CORS
 	c := cors.New(cors.Options{
 		//AllowedOrigins: []string{"http://localhost:8080"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
-		AllowedOrigins: []string{"http://localhost:8080"},
+		AllowedOrigins: []string{"http://188.225.31.209:8433"},
+		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"POST", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Access-Control-Allow-Private-Network"},
+		AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
 		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"}
 		//AllowCredentials:    true,
-		//AllowPrivateNetwork: true, // Добавляем это
+		AllowPrivateNetwork: true, // Добавляем это
 	})
 
-	// Оборачиваем наш mux в CORS handler
 	handler := c.Handler(mux)
 
-	fmt.Println("Настройки CORS:")
-	//fmt.Printf("AllowedOrigins: %v\n", []string{"http://188.225.31.209:8080"})
-	fmt.Printf("AllowedOrigins: %v\n", []string{"http://localhost:8080"})
-	fmt.Printf("AllowedMethods: %v\n", []string{"GET", "POST", "OPTIONS"})
-	fmt.Printf("AllowedHeaders: %v\n", []string{"Content-Type", "Authorization"})
-	fmt.Printf("AllowCredentials: %v\n", true)
+	if *useHTTPS {
+		// Настройка HTTPS
+		cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	fmt.Println("Сервер запущен на http://localhost:8081")
-	//log.Fatal(http.ListenAndServe(":8081", handler))
-	log.Fatal(http.ListenAndServe("0.0.0.0:8081", handler))
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
+
+		server := &http.Server{
+			Addr:      "0.0.0.0:8443",
+			Handler:   handler,
+			TLSConfig: tlsConfig,
+		}
+
+		fmt.Println("Сервер запущен на https://127.0.0.1:8443")
+		log.Fatal(server.ListenAndServeTLS("", ""))
+	} else {
+		// Запуск HTTP сервера
+		fmt.Println("Сервер запущен на http://127.0.0.1:8080")
+		log.Fatal(http.ListenAndServe(":8080", handler))
+	}
 } //main
+
+func handlermainhtml(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello, HTTPS world!")
+}
 
 func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("handlePrintCheck вызван")
@@ -148,16 +168,12 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Close:", r.Close)
 	fmt.Println("Form:", r.Form)
 
-	// Устанавливаем CORS-заголовки
-	//w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	//w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	//w.Header().Set("Access-Control-Allow-Private-Network", "true")
-	//w.Header().Set("Access-Control-Allow-Origin", "http://localhost:8080")
-
-	fmt.Println("CORS заголовки установлены")
-
 	// Обрабатываем предварительный запрос OPTIONS
 	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "access-control-request-private-network, content-type")
+		w.Header().Set("Access-Control-Allow-Origin", "http://127.0.0.1:8080")
+
 		fmt.Println("Получен OPTIONS запрос")
 		w.WriteHeader(http.StatusOK)
 		return
@@ -195,7 +211,6 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 
 func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 	// Устанавливаем CORS-заголовки
-	//w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 	w.Header().Set("Access-Control-Allow-Origin", "http://188.225.31.209:8080")

@@ -103,11 +103,13 @@ func main() {
 	c := cors.New(cors.Options{
 		//AllowedOrigins: []string{"http://localhost:8080"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
-		AllowedOrigins: []string{"http://188.225.31.209:8433"},
+		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
+		AllowedOrigins: []string{"https://188.225.31.209:8443"},
 		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"POST", "OPTIONS"},
-		AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
-		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"}
+		//AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
+		AllowedHeaders: []string{"content-type", "Access-Control-Allow-Private-Network"},
+		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"},
 		//AllowCredentials:    true,
 		AllowPrivateNetwork: true, // Добавляем это
 	})
@@ -135,8 +137,8 @@ func main() {
 		log.Fatal(server.ListenAndServeTLS("", ""))
 	} else {
 		// Запуск HTTP сервера
-		fmt.Println("Сервер запущен на http://127.0.0.1:8080")
-		log.Fatal(http.ListenAndServe(":8080", handler))
+		fmt.Println("Сервер запущен на http://127.0.0.1:8085")
+		log.Fatal(http.ListenAndServe(":8085", handler))
 	}
 } //main
 

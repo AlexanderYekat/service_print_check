@@ -36,8 +36,8 @@ type TProductCodesAtol struct {
 }
 
 type TPayment struct {
-	Type string  `json:"type"`
-	Sum  float64 `json:"sum"`
+	Type string `json:"type"` //cash - наличный расчет, card - безналичный расчет
+	Sum  int    `json:"sum"`
 }
 
 type TGenearaPosAndTag11921191 struct {
@@ -51,26 +51,6 @@ type TSupplierInfo struct {
 	Vatin  string   `json:"vatin"`
 	Name   string   `json:"name,omitempty"`
 	Phones []string `json:"phones,omitempty"`
-}
-
-type TPosition struct {
-	Type            string   `json:"type"`
-	Name            string   `json:"name"`
-	Price           float64  `json:"price"`
-	Quantity        float64  `json:"quantity"`
-	Amount          float64  `json:"amount"`
-	MeasurementUnit string   `json:"measurementUnit"`
-	PaymentMethod   string   `json:"paymentMethod"`
-	PaymentObject   string   `json:"paymentObject"`
-	Tax             *TTaxNDS `json:"tax,omitempty"`
-	//fot type tag1192 //AdditionalAttribute
-	Value        string             `json:"value,omitempty"`
-	Print        bool               `json:"print,omitempty"`
-	ProductCodes *TProductCodesAtol `json:"productCodes,omitempty"`
-	ImcParams    *TImcParams        `json:"imcParams,omitempty"`
-	//Mark         string             `json:"mark,omitempty"`
-	AgentInfo    *TAgentInfo    `json:"agentInfo,omitempty"`
-	SupplierInfo *TSupplierInfo `json:"supplierInfo,omitempty"`
 }
 
 type TAnsweChekcMark struct {
@@ -112,46 +92,62 @@ type TShiftStatus struct {
 	State          string `json:"state"`
 }
 
-type TTag1192_91 struct {
-	Type  string `json:"type"`
-	Name  string `json:"name,omitempty"`
-	Value string `json:"value,omitempty"`
-	Print bool   `json:"print,omitempty"`
-}
-
-type TOperator struct {
-	Name  string `json:"name"`
-	Vatin string `json:"vatin,omitempty"`
-}
-
-// При работе по ФФД ≥ 1.1 чеки коррекции имеют вид, аналогичный обычным чекам, но с
-// добавлением информации о коррекции: тип, описание, дата документа основания и
-// номер документа основания.
-type TCorrectionCheck struct {
-	Type string `json:"type"` //sellCorrection - чек коррекции прихода
-	//buyCorrection - чек коррекции расхода
-	//sellReturnCorrection - чек коррекции возврата прихода (ФФД ≥ 1.1)
-	//buyReturnCorrection - чек коррекции возврата расхода
-	Electronically       bool         `json:"electronically"`
-	TaxationType         string       `json:"taxationType,omitempty"`
-	ClientInfo           *TClientInfo `json:"clientInfo"`
-	CorrectionType       string       `json:"correctionType"` //
-	CorrectionBaseDate   string       `json:"correctionBaseDate"`
-	CorrectionBaseNumber string       `json:"correctionBaseNumber"`
-	Operator             TOperator    `json:"operator"`
-	//Items                []TPosition `json:"items"`
-	Items    []interface{} `json:"items"` //либо TTag1192_91, либо TPosition
-	Payments []TPayment    `json:"payments"`
-	Total    float64       `json:"total,omitempty"`
-}
-
+// структура результата проверки информации о товаре
 type TItemInfoCheckResultObject struct {
 	ItemInfoCheckResult TItemInfoCheckResult `json:"itemInfoCheckResult"`
 }
 
+type TPartMerc struct {
+	Numerator   int `json:"Numerator"`
+	Denominator int `json:"denominator"`
+}
+
+type TMcInfoMerc struct {
+	Mc             string     `json:"mc"`
+	Ean            string     `json:"ean,omitempty"`
+	ProcessingMode int        `json:"processingMode"`
+	PlannedStatus  int        `json:"plannedStatus"`
+	Part           *TPartMerc `json:"part,omitempty"`
+}
+
+// структура элемента чека
+type TCheckItem struct {
+	Name     string       `json:"name"`
+	Quantity int          `json:"quantity"`
+	Price    int          `json:"price"`
+	Mark     string       `json:"mark,omitempty"`
+	McInfo   *TMcInfoMerc `json:"mcInfo,omitempty"`
+	TaxNDS   string       `json:"taxNDS,omitempty"`
+}
+
+// структура данных чека
+type TCheckData struct {
+	TableData    []TCheckItem `json:"tableData"`
+	Cashier      string       `json:"cashier"`
+	Type         string       `json:"type"`         //тип чека sell - продажа, return - возврат
+	TaxationType string       `json:"taxationType"` //тип налогообложения osn - общая система налогообложения, usn_income - упрощенная система налогообложения (доход), usn_income_outcome - упрощенная система налогообложения (доход минус расход), envd - единый налог на вмененный доход, esn - единый сельскохозяйственный налог, patent - патентная система налогообложения
+	Payments     []TPayment   `json:"payments"`     //список оплат cash - наличный расчет, card - безналичный расчет, both - наличный и безналичный расчет
+}
+
+// структура ответа на печать чека
+type TPrintCheckResponse struct {
+	Status      string `json:"status"`      //success - чек успешно отправлен на печать, error - ошибка при отправке чека на печать
+	Message     string `json:"message"`     //сообщение об ошибке или успешном отправке чека на печать
+	CheckNumber string `json:"checkNumber"` //номер чека
+}
+
+// параметры эмуляции
+type TEmulationParams struct {
+	Emulation                bool `json:"emulation"`                //эмуляция работы с кассы
+	DontPrintRealForTest     bool `json:"dontPrintRealForTest"`     //не печатать реальный чек для тестирования
+	EmulateMistakesOpenCheck bool `json:"emulateMistakesOpenCheck"` //эмулировать ошибки при открытии чека
+}
+
+// директории
 var DIROFJSONS = ".\\jsons\\works\\"
 var LOGSDIR = "./logs/"
 
+// уровни логирования
 const LOGINFO = "info"
 const LOGINFO_WITHSTD = "info_std"
 const LOGERROR = "error"
@@ -159,6 +155,7 @@ const LOGSKIP_LINES = "skip_line"
 const LOGOTHER = "other"
 const LOG_PREFIX = "TASKS"
 
+// проверка наличия файла
 func DoesFileExist(fullFileName string) (found bool, err error) {
 	found = false
 	if _, err = os.Stat(fullFileName); err == nil {
@@ -166,4 +163,13 @@ func DoesFileExist(fullFileName string) (found bool, err error) {
 		found = true
 	}
 	return
+}
+
+// NewDefaultEmulationParams возвращает TEmulationParams с значениями по умолчанию
+func NewDefaultEmulationParams() TEmulationParams {
+	return TEmulationParams{
+		Emulation:                false,
+		DontPrintRealForTest:     false,
+		EmulateMistakesOpenCheck: false,
+	}
 }

@@ -41,6 +41,95 @@ var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный ori
 
 const Version_of_program = "2024_09_16_02"
 
+//fptr.ApplySingleSettings()
+//fptr.Open()
+//return fptr.IsOpened(), typeConnect
+
+type IFptr10Interface interface {
+	//NewSafe() (IFptr10Interface, error)
+	Destroy()
+	Close() error
+	Open() error
+	IsOpened() bool
+	ApplySingleSettings() error
+	SetSingleSetting(name string, value string)
+	ProcessJson() error
+	GetParamString(name int) string
+	SetParam(int32, interface{})
+	Version() string
+}
+
+type TFptr10Driver struct{}
+
+func (moduleFPRT TFptr10Driver) NewSafe(fptr IFptr10Interface) (IFptr10Interface, error) {
+	var err error
+	if fptr == nil {
+		fptr, err = fptr10.NewSafe()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return fptr, nil
+}
+
+func (moduleFPRT TFptr10Driver) Open(fptr IFptr10Interface) error {
+	return fptr.Open()
+}
+
+func (moduleFPRT TFptr10Driver) IsOpened(fptr IFptr10Interface) bool {
+	return fptr.IsOpened()
+}
+
+func (moduleFPRT TFptr10Driver) ApplySingleSettings(fptr IFptr10Interface) error {
+	return fptr.ApplySingleSettings()
+}
+
+func (moduleFPRT TFptr10Driver) Close(fptr IFptr10Interface) {
+	fptr.Close()
+}
+
+func (moduleFPRT TFptr10Driver) Destroy(fptr IFptr10Interface) {
+	fptr.Destroy()
+}
+
+type IAbstractPrinter interface {
+	PrintXReport(fptr IFptr10Interface) error
+}
+
+type TAbstractPrinter struct{}
+
+var glFptrDriver IFptr10Interface
+
+func (moduleFPRT TAbstractPrinter) PrintXReport(fptr IFptr10Interface) error {
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера ККТ")
+	//if err != nil {
+	//	return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+	//}
+	defer fptr.Destroy()
+
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		if !*emulation {
+			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
+	}
+	defer fptr.Close()
+
+	xReportJSON := `{"type": "reportX"}`
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("отправка команды печати X-отчета")
+	result, err := sendComandeAndGetAnswerFromKKT(fptr, xReportJSON)
+	if err != nil {
+		return fmt.Errorf("ошибка отправки команды печати X-отчета: %v", err)
+	}
+
+	if !successCommand(result) {
+		return fmt.Errorf("ошибка печати X-отчета: %v", result)
+	}
+
+	return nil
+	//return printXReport(fptr10Module) // Вызов вашей существующей функции
+}
+
 type CheckItem struct {
 	Name     string `json:"name"`
 	Quantity string `json:"quantity"`
@@ -117,10 +206,12 @@ func runServer() error {
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
 	addr := "localhost:8081"
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска HTTP сервера на %s", addr)
+	realPrinter := &TAbstractPrinter{}
+	xReportHandler := handleXReport(realPrinter)
 
 	http.HandleFunc("/api/print-check", handlePrintCheck)
 	http.HandleFunc("/api/close-shift", handleCloseShift)
-	http.HandleFunc("/api/x-report", handleXReport)
+	http.HandleFunc("/api/x-report", xReportHandler)
 
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
 	err := http.ListenAndServe(addr, nil)
@@ -186,21 +277,32 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Смена успешно закрыта"})
 }
 
-func handleXReport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
+// handleXReport is an HTTP handler function that prints an X-report.
+//
+// It expects a POST request and returns a JSON response indicating the status of the X-report printing operation.
+// If an error occurs during the printing, it returns a 500 Internal Server Error response with the error message.
+// If the printing is successful, it returns a 200 OK response with a JSON object containing the status and a success message.
+func handleXReport(printer IAbstractPrinter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		//func handleXReport(w http.ResponseWriter, r *http.Request) {
+		//logger := log.New(os.Stdout, "", log.LstdFlags)
+		//logger.Println("Начало выполнения функции handleXReport")
+		if r.Method != http.MethodPost {
+			http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+			return
+		}
 
-	err := printXReport()
-	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати X-отчета:", err)
-		http.Error(w, fmt.Sprintf("Ошибка печати X-отчета: %v", err), http.StatusInternalServerError)
-		return
-	}
+		err := printer.PrintXReport(glFptrDriver)
+		fmt.Println("err handleXReport", err)
+		if err != nil {
+			//logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати X-отчета:", err)
+			http.Error(w, fmt.Sprintf("Ошибка печати X-отчета: %v", err), http.StatusInternalServerError)
+			return
+		}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "X-отчет успешно напечатан"})
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "X-отчет успешно напечатан"})
+	}
 }
 
 func printCheck(checkData CheckData) (int, error) {
@@ -329,11 +431,11 @@ func formatCheckJSON(checkData CheckData) string {
 	return string(jsonBytes)
 }
 
-func sendComandeAndGetAnswerFromKKT(fptr *fptr10.IFptr, comJson string) (string, error) {
+func sendComandeAndGetAnswerFromKKT(fptr IFptr10Interface, comJson string) (string, error) {
 	var err error
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начало процедуры sendComandeAndGetAnswerFromKKT")
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начало процедуры sendComandeAndGetAnswerFromKKT")
 	//return "", nil
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("отправка команды на кассу: %s", comJson)
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("отправка команды на кассу: %s", comJson)
 	fptr.SetParam(fptr10.LIBFPTR_PARAM_JSON_DATA, comJson)
 	//fptr.ValidateJson()
 	if !*emulation {
@@ -342,43 +444,44 @@ func sendComandeAndGetAnswerFromKKT(fptr *fptr10.IFptr, comJson string) (string,
 	if err != nil {
 		if !*emulation {
 			desrError := fmt.Sprintf("ошибка (%v) выполнение команды %v на кассе", err, comJson)
-			logsmy.Logsmap[consttypes.LOGERROR].Println(desrError)
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("конец процедуры sendComandeAndGetAnswerFromKKT c ошибкой: %v", err)
+			//logsmy.Logsmap[consttypes.LOGERROR].Println(desrError)
+			//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("конец процедуры sendComandeAndGetAnswerFromKKT c ошибкой: %v", err)
 			return desrError, err
 		}
 	}
 	result := fptr.GetParamString(fptr10.LIBFPTR_PARAM_JSON_DATA)
 	if strings.Contains(result, "Нет связи") {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("нет связи: переподключаемся")
+		//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("нет связи: переподключаемся")
 		if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
 			descrErr := fmt.Sprintf("ошибка соединения с кассовым аппаратом %v", typepodkluch)
-			logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
+			fmt.Println(descrErr)
+			//logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
 			if !*emulation {
 				println("Нажмите любую клавишу...")
 				//input.Scan()
-				logsmy.Logsmap[consttypes.LOGERROR].Panic(descrErr)
+				//logsmy.Logsmap[consttypes.LOGERROR].Panic(descrErr)
 			}
 		} else {
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе на порт %v прошло успешно", *comport)
+			//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе на порт %v прошло успешно", *comport)
 		}
 	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("конец процедуры sendComandeAndGetAnswerFromKKT без ошибки")
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("конец процедуры sendComandeAndGetAnswerFromKKT без ошибки")
 	return result, nil
 } //sendComandeAndGetAnswerFromKKT
 
 func successCommand(resulJson string) bool {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали проверку успешности выполнения команды")
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали проверку успешности выполнения команды")
 	res := true
 	indOsh := strings.Contains(resulJson, "ошибка")
 	indErr := strings.Contains(resulJson, "error")
 	if indErr || indOsh {
 		res = false
 	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку успешности ыполнения команды")
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку успешности ыполнения команды")
 	return res
 } //successCommand
 
-func connectWithKassa(fptr *fptr10.IFptr, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string) {
+func connectWithKassa(fptr IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string) {
 	//if !strings.Contains(comport, "COM") {
 	//	sComPorta = "COM" + comport
 	//}
@@ -500,36 +603,6 @@ func closeShift(cashier string) error {
 
 	if !successCommand(result) {
 		return fmt.Errorf("ошибка закрытия смены: %v", result)
-	}
-
-	return nil
-}
-
-func printXReport() error {
-	fptr, err := fptr10.NewSafe()
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера ККТ")
-	if err != nil {
-		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
-	}
-	defer fptr.Destroy()
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		if !*emulation {
-			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	defer fptr.Close()
-
-	xReportJSON := `{"type": "reportX"}`
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("отправка команды печати X-отчета")
-	result, err := sendComandeAndGetAnswerFromKKT(fptr, xReportJSON)
-	if err != nil {
-		return fmt.Errorf("ошибка отправки команды печати X-отчета: %v", err)
-	}
-
-	if !successCommand(result) {
-		return fmt.Errorf("ошибка печати X-отчета: %v", result)
 	}
 
 	return nil
@@ -684,10 +757,30 @@ func openBrowser(url string) error {
 }
 
 func main() {
+	var err error
 	fmt.Println("начало работы программы")
+	fmt.Println("инициализация драйвера")
+	glFptrDriver, err = TFptr10Driver{}.NewSafe(nil)
+	if err != nil {
+		fmt.Printf("Не удалось создать экземпляр драйвера FPTR: %v", err)
+		return
+	}
+	fmt.Println("инициализация драйвера прошла успешно")
+	defer func() {
+		if glFptrDriver != nil {
+			fmt.Println("Выполняется Destroy()")
+			glFptrDriver.Destroy()
+			fmt.Println("Destroy() выполнен")
+		}
+	}()
+
+	fmt.Printf("Версия драйвера: %v\n", glFptrDriver.Version())
+	fmt.Println("инициализация директории для логов")
 	if err := consttypes.EnsureLogDirectoryExists(); err != nil {
 		fmt.Printf("Не удалось создать директорию для логов: %v", err)
 	}
+	fmt.Println("инициализация директории для логов прошла успешно")
+	fmt.Println("инициализация логов")
 	descrMistake, logPath, err := logsmy.InitializationsLogs(*clearLogsProgramm, *LogsDebugs)
 	defer logsmy.CloseDescrptorsLogs()
 	if err != nil {
@@ -703,11 +796,14 @@ func main() {
 		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
 	}
 	if isService {
+		fmt.Println("запускаем службу")
 		runService(false)
 		return
 	}
 
+	fmt.Println("запускаем как обычное приложение")
 	// Запускаем как обычное приложение
+	fmt.Println("инициализация http сервера")
 	http.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "templates/settings.html")
 	})
@@ -718,7 +814,7 @@ func main() {
 			saveSettingsHandler(w, r)
 		}
 	})
-
+	fmt.Println("инициализация http сервера прошла успешно")
 	http.HandleFunc("/api/restart", restartServiceHandler)
 	http.HandleFunc("/api/logpath", getLogPathHandler)
 	http.HandleFunc("/api/openlogs", openLogsHandler)

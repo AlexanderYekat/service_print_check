@@ -105,7 +105,6 @@ func (moduleFPRT TAbstractPrinter) PrintXReport(fptr IFptr10Interface) error {
 	//if err != nil {
 	//	return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
 	//}
-	defer fptr.Destroy()
 
 	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {

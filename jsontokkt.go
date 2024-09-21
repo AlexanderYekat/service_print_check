@@ -794,6 +794,9 @@ func main() {
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
 	}
+	runServerTest()
+	fmt.Println("завершение работы программы")
+	return
 	if isService {
 		fmt.Println("запускаем службу")
 		runService(false)
@@ -814,9 +817,9 @@ func main() {
 		}
 	})
 	fmt.Println("инициализация http сервера прошла успешно")
-	http.HandleFunc("/api/restart", restartServiceHandler)
-	http.HandleFunc("/api/logpath", getLogPathHandler)
-	http.HandleFunc("/api/openlogs", openLogsHandler)
+	http.HandleFunc("/api/restart", enableCORS(restartServiceHandler))
+	http.HandleFunc("/api/logpath", enableCORS(getLogPathHandler))
+	http.HandleFunc("/api/openlogs", enableCORS(openLogsHandler))
 
 	// Добавляем обработку статических файлов
 	fs := http.FileServer(http.Dir("static"))
@@ -878,4 +881,40 @@ func runService(isDebug bool) {
 
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Служба CloudPosBridge остановлена")
 	elog.Info(1, "Служба CloudPosBridge остановлена")
+}
+
+func enableCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "https://localhost:8443")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Private-Network")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	}
+}
+
+func runServerTest() error {
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
+	addr := ":8081"
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска HTTP сервера на %s", addr)
+	realPrinter := &TAbstractPrinter{}
+	xReportHandler := handleXReport(realPrinter)
+
+	http.HandleFunc("/api/print-check", handlePrintCheck)
+	http.HandleFunc("/api/close-shift", handleCloseShift)
+	http.HandleFunc("/api/x-report", xReportHandler)
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
+	err := http.ListenAndServe(addr, nil)
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
+		return err
+	}
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
+	return nil
 }

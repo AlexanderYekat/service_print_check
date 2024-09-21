@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/cors"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -203,26 +204,67 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 
 func runServer() error {
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
-	addr := "localhost:8081"
+	addr := ":8081"
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска HTTP сервера на %s", addr)
 	realPrinter := &TAbstractPrinter{}
 	xReportHandler := handleXReport(realPrinter)
 
-	http.HandleFunc("/api/print-check", handlePrintCheck)
-	http.HandleFunc("/api/close-shift", handleCloseShift)
-	http.HandleFunc("/api/x-report", xReportHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/print-check", handlePrintCheck)
+	mux.HandleFunc("/api/close-shift", handleCloseShift)
+	mux.Handle("/api/x-report", xReportHandler)
+	//mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик
+	//mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик
+	//mux.HandleFunc("/", handlermainhtml)
+	// Настройка CORS
+	c := cors.New(cors.Options{
+		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
+		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
+		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
+		AllowedOrigins: []string{"https://188.225.31.209:8443/"},
+		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
+		AllowedMethods: []string{"POST", "OPTIONS"},
+		//AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
+		AllowedHeaders: []string{"content-type", "Access-Control-Allow-Private-Network, Access-Control-Allow-Origin"},
+		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"},
+		//AllowCredentials:    true,
+		AllowPrivateNetwork: true, // Добавляем это
+	})
 
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
-	err := http.ListenAndServe(addr, nil)
+	handler := c.Handler(mux)
+
+	fmt.Printf("Сервер запущен на %v\n", addr)
+	err := http.ListenAndServe(addr, handler)
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
 		return err
 	}
+
+	//http.HandleFunc("/api/print-check", handlePrintCheck)
+	//http.HandleFunc("/api/close-shift", handleCloseShift)
+	//http.HandleFunc("/api/x-report", xReportHandler)
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
+	//err := http.ListenAndServe(addr, nil)
+	//if err != nil {
+	//	logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
+	//	return err
+	//}
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
 	return nil
 }
 
 func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "access-control-request-private-network, content-type")
+		w.Header().Set("Access-Control-Allow-Origin", "https://188.225.31.209:8443/")
+
+		fmt.Println("Получен OPTIONS запрос")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
@@ -885,7 +927,7 @@ func runService(isDebug bool) {
 
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "https://localhost:8443")
+		w.Header().Set("Access-Control-Allow-Origin", "https://188.225.31.209:8443/")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Private-Network")
 
@@ -905,16 +947,47 @@ func runServerTest() error {
 	realPrinter := &TAbstractPrinter{}
 	xReportHandler := handleXReport(realPrinter)
 
-	http.HandleFunc("/api/print-check", handlePrintCheck)
-	http.HandleFunc("/api/close-shift", handleCloseShift)
-	http.HandleFunc("/api/x-report", xReportHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/print-check", handlePrintCheck)
+	mux.HandleFunc("/api/close-shift", handleCloseShift)
+	mux.Handle("/api/x-report", xReportHandler)
+	//mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик
+	//mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик
+	//mux.HandleFunc("/", handlermainhtml)
+	// Настройка CORS
+	c := cors.New(cors.Options{
+		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
+		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
+		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
+		AllowedOrigins: []string{"https://188.225.31.209:8443/"},
+		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
+		AllowedMethods: []string{"POST", "OPTIONS"},
+		//AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
+		AllowedHeaders: []string{"content-type", "Access-Control-Allow-Private-Network, Access-Control-Allow-Origin"},
+		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"},
+		//AllowCredentials:    true,
+		AllowPrivateNetwork: true, // Добавляем это
+	})
 
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
-	err := http.ListenAndServe(addr, nil)
+	handler := c.Handler(mux)
+
+	fmt.Printf("Сервер запущен ЕСТ на %v\n", addr)
+	err := http.ListenAndServe(addr, handler)
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
 		return err
 	}
+
+	//http.HandleFunc("/api/print-check", handlePrintCheck)
+	//http.HandleFunc("/api/close-shift", handleCloseShift)
+	//http.HandleFunc("/api/x-report", xReportHandler)
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
+	//err := http.ListenAndServe(addr, nil)
+	//if err != nil {
+	//	logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
+	//	return err
+	//}
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
 	return nil
 }

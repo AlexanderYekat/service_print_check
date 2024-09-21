@@ -1,11 +1,11 @@
 package logmodules
 
 import (
-	consttypes "clientrabbit/consttypes"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	consttypes "service_print_check/consttypes"
 	"strings"
 )
 

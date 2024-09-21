@@ -2,9 +2,6 @@
 package main
 
 import (
-	consttypes "clientrabbit/consttypes"
-	fptr10 "clientrabbit/fptr"
-	logsmy "clientrabbit/packetlog"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,11 +13,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	consttypes "service_print_check/consttypes"
+	fptr10 "service_print_check/fptr"
+	logsmy "service_print_check/packetlog"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -58,17 +57,6 @@ type CheckData struct {
 	Cashier   string      `json:"cashier"`
 	Payments  []Payment   `json:"payments"`
 	Type      string      `json:"type"`
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получен WebSocket запрос с origin: %s, URL: %s", origin, r.URL.String())
-		if currentSettings.AllowedOrigin != "" {
-			return origin == currentSettings.AllowedOrigin
-		}
-		return true // Разрешаем все запросы, если AllowedOrigin не указан
-	},
 }
 
 type myService struct{}
@@ -128,156 +116,91 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 func runServer() error {
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
 	addr := "localhost:8081"
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска WebSocket сервера на %s", addr)
-	http.HandleFunc("/", handleWebSocket)
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания WebSocket соединений")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска HTTP сервера на %s", addr)
+
+	http.HandleFunc("/api/print-check", handlePrintCheck)
+	http.HandleFunc("/api/close-shift", handleCloseShift)
+	http.HandleFunc("/api/x-report", handleXReport)
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске WebSocket сервера: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
 		return err
 	}
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
 	return nil
 }
 
-func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получен запрос на WebSocket соединение от %s", r.RemoteAddr)
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при установке WebSocket соединения: %v", err)
+func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
 	}
-	defer conn.Close()
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("WebSocket соединение установлено с %s", conn.RemoteAddr())
 
-	// Увеличим таймаут до 5 минут
-	conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-
-	// Добавим пинг-понг
-	go func() {
-		for {
-			time.Sleep(30 * time.Second)
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
-			}
-		}
-	}()
-
-	for {
-		_, p, err := conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при чтении сообщения: %v", err)
-			} else {
-				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Соединение закрыто клиентом: %v", err)
-			}
-			return
-		}
-		conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получено сообщение: %s", string(p))
-
-		var message struct {
-			Command string      `json:"command"`
-			Data    interface{} `json:"data"`
-		}
-
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Unmarshal-ing сообщения: %v", p)
-		if err := json.Unmarshal(p, &message); err != nil {
-			logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при разборе JSON:", err)
-			sendWebSocketError(conn, fmt.Sprintf("Ошибка при разборе JSON: %v", err))
-			continue
-		}
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Unmarshal-ed сообщения: %v", message)
-
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("команда: %v", message.Command)
-		switch message.Command {
-		case "printCheck":
-			var checkData CheckData
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("маршалинг данных чека %v", message.Data)
-			checkDataJSON, _ := json.Marshal(message.Data)
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("отмаршалили данные чека %v", checkDataJSON)
-			if err := json.Unmarshal(checkDataJSON, &checkData); err != nil {
-				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при разборе данных чека:", err)
-				sendWebSocketError(conn, "Ошибка при разборе данных чека")
-				continue
-			}
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Unmarshal данные чека %v", checkData)
-
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали выполнение команды печати чека")
-			fdn, err := printCheck(checkData)
-			if err != nil {
-				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати чека:", err)
-				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати чека: %v", err))
-			} else {
-				sendWebSocketResponse(conn, "Чек успешно напечатан", fdn)
-			}
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("выполнили команду печати чека")
-		case "closeShift":
-			var requestData struct {
-				Cashier string `json:"cashier"`
-			}
-			dataJSON, _ := json.Marshal(message.Data)
-			if err := json.Unmarshal(dataJSON, &requestData); err != nil {
-				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при разборе данных закрытия смены:", err)
-				sendWebSocketError(conn, "Ошибка при разборе данных закрыти смены")
-				continue
-			}
-
-			err := closeShift(requestData.Cashier)
-			if err != nil {
-				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при закрытии смены:", err)
-				sendWebSocketError(conn, fmt.Sprintf("Ошибка закрытия смены: %v", err))
-			} else {
-				sendWebSocketResponse(conn, "Смена успешно закрыта")
-			}
-
-		case "xReport":
-			err := printXReport()
-			if err != nil {
-				logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати X-отчета:", err)
-				sendWebSocketError(conn, fmt.Sprintf("Ошибка печати X-отчета: %v", err))
-			} else {
-				sendWebSocketResponse(conn, "X-отчет успешно напечатан")
-			}
-
-		default:
-			logsmy.Logsmap[consttypes.LOGERROR].Println("Неизвестный тип сообщения:", message.Command)
-		}
+	var checkData CheckData
+	if err := json.NewDecoder(r.Body).Decode(&checkData); err != nil {
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
 	}
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали выполнение команды печати чека")
+	fdn, err := printCheck(checkData)
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати чека:", err)
+		http.Error(w, fmt.Sprintf("Ошибка печати чека: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Чек успешно напечатан",
+		"fdn":     fdn,
+	})
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("выполнили команду печати чека")
 }
 
-func sendWebSocketResponse(conn *websocket.Conn, message string, fiscalDocumentNumber ...int) {
-	var fdn int
-	if len(fiscalDocumentNumber) > 0 {
-		fdn = fiscalDocumentNumber[0]
+func handleCloseShift(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
 	}
 
-	response := struct {
-		Type    string `json:"type"`
-		Data    int    `json:"data"`
-		Message string `json:"message"`
-	}{
-		Type:    "success",
-		Data:    fdn,
-		Message: message,
+	var requestData struct {
+		Cashier string `json:"cashier"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
 	}
 
-	if err := conn.WriteJSON(response); err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при отправке ответа:", err)
+	err := closeShift(requestData.Cashier)
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при закрытии смены:", err)
+		http.Error(w, fmt.Sprintf("Ошибка закрытия смены: %v", err), http.StatusInternalServerError)
+		return
 	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Смена успешно закрыта"})
 }
 
-func sendWebSocketError(conn *websocket.Conn, errorMessage string) {
-	response := struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-	}{
-		Type:    "error",
-		Message: errorMessage,
+func handleXReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
 	}
-	if err := conn.WriteJSON(response); err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при отправке сообщения об ошибке:", err)
+
+	err := printXReport()
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати X-отчета:", err)
+		http.Error(w, fmt.Sprintf("Ошибка печати X-отчета: %v", err), http.StatusInternalServerError)
+		return
 	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "X-отчет успешно напечатан"})
 }
 
 func printCheck(checkData CheckData) (int, error) {

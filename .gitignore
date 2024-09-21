@@ -26,3 +26,6 @@ Thumbs.db
 .aider*
 .cursorignore
 .env
+
+server.crt
+server.key

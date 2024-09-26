@@ -6,6 +6,8 @@ import (
 
 	"service_print_check/internal/config"
 	"service_print_check/internal/handlers"
+	"service_print_check/internal/kkt"
+	"service_print_check/internal/printer"
 	"service_print_check/internal/service"
 
 	"golang.org/x/sys/windows/svc"
@@ -24,6 +26,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Не удалось определить, запущена ли программа как служба: %v", err)
 	}
+
+	// Создание сервисов
+	kktService := kkt.NewService(fptrDriver)
+	printerService := printer.NewService(kktService)
+	// Инициализация обработчиков
+	h := handlers.NewHandler(printerService, logg.Sugar().Desugar())
 
 	if isService {
 		log.Println("Запуск службы")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	consttypes "service_print_check/consttypes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ type TTestMockPrinter struct {
 	mock.Mock
 }
 
-func (m *TTestMockPrinter) PrintXReport(IFptr10Interface) error {
+func (m *TTestMockPrinter) PrintXReport(consttypes.IFptr10Interface) error {
 	args := m.Called()
 	return args.Error(0)
 }

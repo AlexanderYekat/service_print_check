@@ -169,6 +169,24 @@ func DoesFileExist(fullFileName string) (found bool, err error) {
 	return
 }
 
+type IFptr10Interface interface {
+	//NewSafe() (IFptr10Interface, error)
+	Destroy()
+	Close() error
+	Open() error
+	IsOpened() bool
+	ApplySingleSettings() error
+	SetSingleSetting(name string, value string)
+	ProcessJson() error
+	GetParamString(name int) string
+	SetParam(int32, interface{})
+	Version() string
+}
+
+type IAbstractPrinter interface {
+	PrintXReport(fptr IFptr10Interface) error
+}
+
 // Добавим функцию для создания директории логов, если она не существует
 func EnsureLogDirectoryExists() error {
 	return os.MkdirAll(LOGSDIR, 0755)

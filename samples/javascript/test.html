@@ -25,96 +25,227 @@
         }
         .result {
             margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
+            padding: 15px;
             border-radius: 4px;
+            font-size: 14px;
+        }
+        .result.success {
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+            color: #3c763d;
+        }
+        .result.error {
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            color: #a94442;
+        }
+        .result-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .result-details {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 4px;
+        }
+        .connection-status {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
         }
     </style>
 </head>
 <body>
     <h1>Тест сервиса печати чеков</h1>
     
+    <div id="connection-status" class="connection-status disconnected">
+        Статус соединения: Отключено
+    </div>
+
     <button class="button" onclick="printCheck()">Печать чека</button>
     <button class="button" onclick="closeShift()">Закрыть смену</button>
     <button class="button" onclick="printXReport()">X-отчет</button>
+    <button class="button" onclick="cashIn()">внесение</button>
+    <button class="button" onclick="cashOut()">выплата</button>
 
     <div id="result" class="result"></div>
 
     <script>
         const API_URL = 'https://localhost:8081';
+        const WS_URL = 'ws://localhost:8081/ws';
+        let socket = null;
 
-        async function printCheck() {
-            try {
-                const response = await fetch(`${API_URL}/api/print-check`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        tableData: [
-                            {
-                                name: 'Товар 1',
-                                quantity: '2',
-                                price: '100.00'
-                            },
-                            {
-                                name: 'Товар 2',
-                                quantity: '1',
-                                price: '200.00'
-                            }
-                        ],
-                        cashier: 'Иван Иванов',
-                        payments: [
-                            {
-                                type: 'cash',
-                                amount: 300.00
-                            },
-                            {
-                                type: 'electronically',
-                                amount: 100.00
-                            }
-                        ],
-                        type: 'sell'
-                    })
-                });
-                const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
-            }
-        }
+        function connect() {
+            socket = new WebSocket(WS_URL);
 
-        async function closeShift() {
-            try {
-                const response = await fetch(`${API_URL}/api/close-shift`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        cashier: 'Иван Иванов'
-                    })
-                });
-                const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
-            }
-        }
+            socket.onopen = function() {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = 'Статус соединения: Подключено';
+                statusElement.className = 'connection-status connected';
+            };
 
-        async function printXReport() {
-            try {
-                const response = await fetch(`${API_URL}/api/x-report`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
+            socket.onclose = function() {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = 'Статус соединения: Отключено';
+                statusElement.className = 'connection-status disconnected';
+                
+                // Попытка переподключения через 5 секунд
+                setTimeout(connect, 5000);
+            };
+
+            socket.onmessage = function(event) {
+                const response = JSON.parse(event.data);
+                const resultElement = document.getElementById('result');
+                
+                // Очищаем предыдущий результат
+                resultElement.innerHTML = '';
+                
+                // Устанавливаем класс в зависимости от типа ответа
+                resultElement.className = 'result ' + (response.type === 'success' ? 'success' : 'error');
+                
+                // Создаем заголовок
+                const titleElement = document.createElement('div');
+                titleElement.className = 'result-title';
+                titleElement.textContent = response.message;
+                resultElement.appendChild(titleElement);
+                
+                // Если есть дополнительные данные, показываем их
+                if (response.data) {
+                    const detailsElement = document.createElement('div');
+                    detailsElement.className = 'result-details';
+                    
+                    if (response.data.fiscalDocumentNumber) {
+                        detailsElement.textContent = `Фискальный номер документа: ${response.data.fiscalDocumentNumber}`;
                     }
-                });
-                const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+                    
+                    resultElement.appendChild(detailsElement);
+                }
+            };
+
+            socket.onerror = function(error) {
+                const resultElement = document.getElementById('result');
+                resultElement.className = 'result error';
+                resultElement.innerHTML = `
+                    <div class="result-title">Ошибка соединения</div>
+                    <div class="result-details">Произошла ошибка при подключении к серверу</div>
+                `;
+            };
+        }
+
+        // Подключаемся при загрузке страницы
+        connect();
+
+        function printCheck() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
             }
+
+            const checkData = {
+                command: 'printCheck',
+                data: {
+                    tableData: [
+                        {
+                            name: 'Товар 1',
+                            quantity: '2',
+                            price: '100.00',
+                            taxNDS: '5'
+                        },
+                        {
+                            name: 'Товар 2',
+                            quantity: '1',
+                            price: '200.00',
+                            taxNDS: '5'
+                        }
+                    ],
+                    cashier: 'Иван Иванов',
+                    payments: [
+                        {
+                            type: 'cash',
+                            amount: 300.00
+                        },
+                        {
+                            type: 'electronically',
+                            amount: 100.00
+                        }
+                    ],
+                    type: 'sell'
+                }
+            };
+
+            socket.send(JSON.stringify(checkData));
+        }
+
+        function closeShift() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const closeShiftData = {
+                command: 'closeShift',
+                data: {
+                    cashier: 'Иван Иванов'
+                }
+            };
+
+            socket.send(JSON.stringify(closeShiftData));
+        }
+
+        function printXReport() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const xReportData = {
+                command: 'xReport'
+            };
+
+            socket.send(JSON.stringify(xReportData));
+        }
+        function cashIn() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const cashInData = {
+                command: 'cashIn',
+                data: {
+                    cashier: 'Иван Иванов',
+                    cashSum: '200'
+                }
+            };
+
+            socket.send(JSON.stringify(cashInData));
+        }
+        function cashOut() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const cashInData = {
+                command: 'cashOut',
+                data: {
+                    cashier: 'Иван Иванов',
+                    cashSum: '200'
+                }
+            };
+
+            socket.send(JSON.stringify(cashInData));
         }
     </script>
 </body>

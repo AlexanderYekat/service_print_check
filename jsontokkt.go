@@ -15,7 +15,9 @@ import (
 	"runtime"
 	consttypes "service_print_check/consttypes"
 	fptr10 "service_print_check/fptr"
+	"service_print_check/models"
 	logsmy "service_print_check/packetlog"
+	mywebsocket "service_print_check/websocket"
 	"strconv"
 	"strings"
 	"time"
@@ -40,29 +42,15 @@ var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный ori
 //var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
 //var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
 
-const Version_of_program = "2025_03_19_02"
+const Version_of_program = "2025_03_19_05"
 
 //fptr.ApplySingleSettings()
 //fptr.Open()
 //return fptr.IsOpened(), typeConnect
 
-type IFptr10Interface interface {
-	//NewSafe() (IFptr10Interface, error)
-	Destroy()
-	Close() error
-	Open() error
-	IsOpened() bool
-	ApplySingleSettings() error
-	SetSingleSetting(name string, value string)
-	ProcessJson() error
-	GetParamString(name int) string
-	SetParam(int32, interface{})
-	Version() string
-}
-
 type TFptr10Driver struct{}
 
-func (moduleFPRT TFptr10Driver) NewSafe(fptr IFptr10Interface) (IFptr10Interface, error) {
+func (moduleFPRT TFptr10Driver) NewSafe(fptr consttypes.IFptr10Interface) (consttypes.IFptr10Interface, error) {
 	var err error
 	if fptr == nil {
 		fptr, err = fptr10.NewSafe()
@@ -73,35 +61,31 @@ func (moduleFPRT TFptr10Driver) NewSafe(fptr IFptr10Interface) (IFptr10Interface
 	return fptr, nil
 }
 
-func (moduleFPRT TFptr10Driver) Open(fptr IFptr10Interface) error {
+func (moduleFPRT TFptr10Driver) Open(fptr consttypes.IFptr10Interface) error {
 	return fptr.Open()
 }
 
-func (moduleFPRT TFptr10Driver) IsOpened(fptr IFptr10Interface) bool {
+func (moduleFPRT TFptr10Driver) IsOpened(fptr consttypes.IFptr10Interface) bool {
 	return fptr.IsOpened()
 }
 
-func (moduleFPRT TFptr10Driver) ApplySingleSettings(fptr IFptr10Interface) error {
+func (moduleFPRT TFptr10Driver) ApplySingleSettings(fptr consttypes.IFptr10Interface) error {
 	return fptr.ApplySingleSettings()
 }
 
-func (moduleFPRT TFptr10Driver) Close(fptr IFptr10Interface) {
+func (moduleFPRT TFptr10Driver) Close(fptr consttypes.IFptr10Interface) {
 	fptr.Close()
 }
 
-func (moduleFPRT TFptr10Driver) Destroy(fptr IFptr10Interface) {
+func (moduleFPRT TFptr10Driver) Destroy(fptr consttypes.IFptr10Interface) {
 	fptr.Destroy()
-}
-
-type IAbstractPrinter interface {
-	PrintXReport(fptr IFptr10Interface) error
 }
 
 type TAbstractPrinter struct{}
 
-var glFptrDriver IFptr10Interface
+var glFptrDriver consttypes.IFptr10Interface
 
-func (moduleFPRT TAbstractPrinter) PrintXReport(fptr IFptr10Interface) error {
+func (moduleFPRT TAbstractPrinter) PrintXReport(fptr consttypes.IFptr10Interface) error {
 	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера ККТ")
 	//if err != nil {
 	//	return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
@@ -128,24 +112,6 @@ func (moduleFPRT TAbstractPrinter) PrintXReport(fptr IFptr10Interface) error {
 
 	return nil
 	//return printXReport(fptr10Module) // Вызов вашей существующей функции
-}
-
-type TCheckItem struct {
-	Name     string `json:"name"`
-	Quantity string `json:"quantity"`
-	Price    string `json:"price"`
-}
-
-type TPayment struct {
-	Type   string  `json:"type"`
-	Amount float64 `json:"amount"`
-}
-
-type TCheckData struct {
-	TableData []TCheckItem `json:"tableData"`
-	Cashier   string       `json:"cashier"`
-	Payments  []TPayment   `json:"payments"`
-	Type      string       `json:"type"`
 }
 
 type myService struct{}
@@ -238,15 +204,32 @@ func runServer() error {
 	mux.HandleFunc("/api/print-check", handlePrintCheck)
 	mux.HandleFunc("/api/close-shift", handleCloseShift)
 	mux.Handle("/api/x-report", xReportHandler)
-	//mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик
-	//mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик
-	//mux.HandleFunc("/", handlermainhtml)
+	mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик для внесения наличных
+	mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик для выплаты наличных
+
+	// Создаем обработчик веб-сокетов
+	wsHandler := mywebsocket.NewHandler(
+		comport,
+		ipaddresskkt,
+		portkktatol,
+		ipaddressservrkkt,
+		emulation,
+		formatCheckJSON,
+		closeShift,
+		connectWithKassa,
+		sendComandeAndGetAnswerFromKKT,
+		successCommand,
+		glFptrDriver,
+		cashInOut,
+	)
+	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
+
 	// Настройка CORS
 	c := cors.New(cors.Options{
 		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
 		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"https://188.225.31.209:8443", "http://localhost:8081", "http://localhost"},
+		AllowedOrigins: []string{"http://localhost:8081"},
 		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"POST", "OPTIONS"},
 		AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
@@ -289,7 +272,14 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "access-control-request-private-network, content-type")
-		w.Header().Set("Access-Control-Allow-Origin", "https://188.225.31.209:8443/")
+		allowedOrigins := []string{"http://localhost:8081", "http://localhost", "localhost:8081"}
+		origin := r.Header.Get("Origin")
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
 
 		fmt.Println("Получен OPTIONS запрос")
 		w.WriteHeader(http.StatusOK)
@@ -301,7 +291,7 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var checkData TCheckData
+	var checkData models.CheckData
 	if err := json.NewDecoder(r.Body).Decode(&checkData); err != nil {
 		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
 		return
@@ -358,8 +348,8 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 // It expects a POST request and returns a JSON response indicating the status of the X-report printing operation.
 // If an error occurs during the printing, it returns a 500 Internal Server Error response with the error message.
 // If the printing is successful, it returns a 200 OK response with a JSON object containing the status and a success message.
-func handleXReport(printer IAbstractPrinter) http.HandlerFunc {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report %s", Version_of_program)
+func handleXReport(printer consttypes.IAbstractPrinter) http.HandlerFunc {
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report %s", Version_of_program)
 	return func(w http.ResponseWriter, r *http.Request) {
 		//func handleXReport(w http.ResponseWriter, r *http.Request) {
 		logger := log.New(os.Stdout, "", log.LstdFlags)
@@ -385,7 +375,7 @@ func handleXReport(printer IAbstractPrinter) http.HandlerFunc {
 	}
 }
 
-func printCheck(checkData TCheckData) (int, error) {
+func printCheck(checkData models.CheckData) (int, error) {
 	var fptr *fptr10.IFptr
 	var err error
 
@@ -466,11 +456,29 @@ func printCheck(checkData TCheckData) (int, error) {
 	return resultJSON.FiscalDocumentNumber, nil
 }
 
-func formatCheckJSON(checkData TCheckData) string {
+func formatCheckJSON(checkData models.CheckData) string {
 	// Здесь формируем JSON для печати чека в соответствии с форматом, ожидаемым ККТ
 	// Пример:
+	//none - налогом не облагается
+	//vat0 - НДС 0%
+	//vat10 - НДС 10%
+	//vat110 - НДС 10/110
+	//vat20 - НДС 20%
+	//vat120 - НДС 20/120
+	//vat5 - НДС 5%
+	//vat105 - НДС 5/105
+	//vat7 - НДС 7%
+	//vat107 - НДС 7/107	+
 	checkItems := make([]map[string]interface{}, len(checkData.TableData))
 	for i, item := range checkData.TableData {
+		var taxType string
+		if item.TaxNDS == "" {
+			taxType = "none" // Если TaxNDS пустой, устанавливаем "none"
+		} else if !strings.HasPrefix(item.TaxNDS, "vat") {
+			taxType = "vat" + item.TaxNDS // Добавляем префикс "vat", если его нет
+		} else {
+			taxType = item.TaxNDS // Возвращаем TaxNDS, если он уже с префиксом
+		}
 		quantity, _ := strconv.ParseFloat(item.Quantity, 64)
 		price, _ := strconv.ParseFloat(item.Price, 64)
 		checkItems[i] = map[string]interface{}{
@@ -479,6 +487,9 @@ func formatCheckJSON(checkData TCheckData) string {
 			"price":    price,
 			"quantity": quantity,
 			"amount":   price * quantity,
+			"tax": map[string]interface{}{
+				"type": taxType, //
+			},
 		}
 	}
 
@@ -522,11 +533,16 @@ func formatCheckJSON(checkData TCheckData) string {
 		"payments": payments,
 	}
 
+	// Добавляем поле taxationType только если оно не пустое
+	if checkData.TaxationType != "" {
+		checkJSON["taxationType"] = checkData.TaxationType
+	}
+
 	jsonBytes, _ := json.Marshal(checkJSON)
 	return string(jsonBytes)
 }
 
-func sendComandeAndGetAnswerFromKKT(fptr IFptr10Interface, comJson string) (string, error) {
+func sendComandeAndGetAnswerFromKKT(fptr consttypes.IFptr10Interface, comJson string) (string, error) {
 	var err error
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начало процедуры sendComandeAndGetAnswerFromKKT")
 	//return "", nil
@@ -577,7 +593,7 @@ func successCommand(resulJson string) bool {
 	return res
 } //successCommand
 
-func connectWithKassa(fptr IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string) {
+func connectWithKassa(fptr consttypes.IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string) {
 	//if !strings.Contains(comport, "COM") {
 	//	sComPorta = "COM" + comport
 	//}
@@ -695,7 +711,9 @@ func closeShift(cashier string) error {
 
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
 		logsmy.LogginInFile(fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
-		return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		if !*emulation {
+			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
 	}
 	defer func() {
 		if fptr != nil {
@@ -734,7 +752,7 @@ type Settings struct {
 	AllowedOrigin string `json:"allowedOrigin"`
 }
 
-var currentSettings Settings
+var currentSettings models.Settings
 
 // Обработчик для получения текущих настроек
 func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
@@ -1007,7 +1025,25 @@ func runService(isDebug bool) {
 
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "https://188.225.31.209:8443/")
+		allowedOrigins := []string{
+			//"https://188.225.31.209:8443",
+			"http://localhost:8080",
+			"http://localhost",
+			"http://localhost:8081",
+			"localhost:8081",
+		}
+
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Cors!!")
+		origin := r.Header.Get("Origin")
+		fmt.Println("origin:", origin)
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("origin!!", origin)
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Private-Network")
 
@@ -1032,15 +1068,15 @@ func runServerTest() error {
 	mux.HandleFunc("/api/print-check", handlePrintCheck)
 	mux.HandleFunc("/api/close-shift", handleCloseShift)
 	mux.Handle("/api/x-report", xReportHandler)
-	//mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик
-	//mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик
-	//mux.HandleFunc("/", handlermainhtml)
+	mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик для внесения наличных
+	mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик для выплаты наличных
+
 	// Настройка CORS
 	c := cors.New(cors.Options{
 		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
 		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"https://188.225.31.209:8443", "http://localhost:8081", "http://localhost"},
+		AllowedOrigins: []string{"localhost:8081"},
 		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
@@ -1071,4 +1107,123 @@ func runServerTest() error {
 	//}
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
 	return nil
+}
+
+// Функция внесения наличных
+func cashInOut(cashier string, cashSum float64, cashIn bool) error {
+	strOperation := "внесение"
+	if !cashIn {
+		strOperation = "выплата"
+	}
+	fptr, err := fptr10.NewSafe()
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("ошибка инициализации драйвера ККТ: %v", err))
+		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+	}
+	defer func() {
+		if fptr != nil {
+			logsmy.LogginInFile("выполняем освобождение ресурсов драйвера ККТ")
+			fptr.Destroy()
+			logsmy.LogginInFile("освобождение ресурсов драйвера ККТ выполнено")
+		}
+	}()
+
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		logsmy.LogginInFile(fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
+		if !*emulation {
+			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
+	}
+	defer func() {
+		if fptr != nil {
+			logsmy.LogginInFile("выполняем закрытие соединения с кассой")
+			fptr.Close()
+			logsmy.LogginInFile("закрытие соединения с кассой выполнено")
+		}
+	}()
+
+	strCashIn := "cashIn"
+	if !cashIn {
+		strCashIn = "cashOut"
+	}
+	cashInJSON := fmt.Sprintf(`{"type": %s, "operator": {"name": "%s"}, "cashSum": %.2f}`, strCashIn, cashier, cashSum)
+	result, err := sendComandeAndGetAnswerFromKKT(fptr, cashInJSON)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("ошибка отправки команды %s наличных: %v", strOperation, err))
+		return fmt.Errorf("ошибка отправки команды %s наличных: %v", strOperation, err)
+	}
+
+	if !successCommand(result) {
+		logsmy.LogginInFile(fmt.Sprintf("ошибка %s наличных: %v", strOperation, result))
+		return fmt.Errorf("ошибка %s наличных: %v", strOperation, result)
+	}
+
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("%s наличных выполнено успешно: %.2f", strOperation, cashSum)
+	return nil
+}
+
+// Обработчик для внесения наличных
+func handleCashIn(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды внесения наличных. Версия: %s", Version_of_program))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Cashier string  `json:"cashier"`
+		CashSum float64 `json:"cashSum"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("начали внесение наличных. Кассир: %s, Сумма: %.2f", requestData.Cashier, requestData.CashSum))
+	cashIn := true
+	err := cashInOut(requestData.Cashier, requestData.CashSum, cashIn)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при внесении наличных: %v", err))
+		http.Error(w, fmt.Sprintf("Ошибка внесения наличных: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("завершили внесение наличных"))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Наличные успешно внесены"})
+}
+
+// Обработчик для выплаты наличных
+func handleCashOut(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды выплаты наличных. Версия: %s", Version_of_program))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Cashier string  `json:"cashier"`
+		CashSum float64 `json:"cashSum"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("начали выплату наличных. Кассир: %s, Сумма: %.2f", requestData.Cashier, requestData.CashSum))
+	cashIn := false
+	err := cashInOut(requestData.Cashier, requestData.CashSum, cashIn)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при выплате наличных: %v", err))
+		http.Error(w, fmt.Sprintf("Ошибка выплаты наличных: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("завершили выплату наличных"))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Наличные успешно выплачены"})
 }

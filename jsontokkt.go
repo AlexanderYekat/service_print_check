@@ -40,7 +40,7 @@ var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный ori
 //var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
 //var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
 
-const Version_of_program = "2024_09_21_01"
+const Version_of_program = "2025_03_19_02"
 
 //fptr.ApplySingleSettings()
 //fptr.Open()
@@ -228,7 +228,7 @@ func runServer() error {
 	defer elog.Close()
 
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск службы CloudPosBridge")
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение:", Version_of_program)
 	addr := ":8081"
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска HTTP сервера на %s", addr)
 	realPrinter := &TAbstractPrinter{}
@@ -246,7 +246,7 @@ func runServer() error {
 		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
 		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"https://188.225.31.209:8443"},
+		AllowedOrigins: []string{"https://188.225.31.209:8443", "http://localhost:8081", "http://localhost"},
 		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"POST", "OPTIONS"},
 		AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
@@ -325,6 +325,7 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCloseShift(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды закрытия смены. Версия: %s", Version_of_program))
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 		return
@@ -358,14 +359,18 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 // If an error occurs during the printing, it returns a 500 Internal Server Error response with the error message.
 // If the printing is successful, it returns a 200 OK response with a JSON object containing the status and a success message.
 func handleXReport(printer IAbstractPrinter) http.HandlerFunc {
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report %s", Version_of_program)
 	return func(w http.ResponseWriter, r *http.Request) {
 		//func handleXReport(w http.ResponseWriter, r *http.Request) {
-		//logger := log.New(os.Stdout, "", log.LstdFlags)
-		//logger.Println("Начало выполнения функции handleXReport")
+		logger := log.New(os.Stdout, "", log.LstdFlags)
+		logger.Println("Начало выполнения функции handleXReport")
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report1 %s", r.Method)
 		if r.Method != http.MethodPost {
 			http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
 			return
 		}
+
+		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report2 %s", r.Method)
 
 		err := printer.PrintXReport(glFptrDriver)
 		fmt.Println("err handleXReport", err)
@@ -1016,7 +1021,8 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func runServerTest() error {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
+	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServerTest начала выполнение: ", Version_of_program)
 	addr := ":8081"
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска TЕСТ HTTP сервера на %s", addr)
 	realPrinter := &TAbstractPrinter{}
@@ -1034,7 +1040,7 @@ func runServerTest() error {
 		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
 		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"https://188.225.31.209:8443"},
+		AllowedOrigins: []string{"https://188.225.31.209:8443", "http://localhost:8081", "http://localhost"},
 		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},

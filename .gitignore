@@ -1,6 +1,7 @@
 # Бинарные файлы
 *.exe
 *.exe.manifest
+samples/screenshots/
 
 # Логи
 logs/*.txt
@@ -29,3 +30,4 @@ Thumbs.db
 
 server.crt
 server.key
+.qodo

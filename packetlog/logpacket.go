@@ -17,6 +17,7 @@ var err error
 var DeegreOfDebug int
 
 func LogginInFile(loggin string) {
+	fmt.Println(loggin)
 	if DeegreOfDebug > 0 {
 		Logsmap[consttypes.LOGINFO].Println(loggin)
 	}

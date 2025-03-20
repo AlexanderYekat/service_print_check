@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"service_print_check/beznal"
 	consttypes "service_print_check/consttypes"
 	"service_print_check/models"
 	logsmy "service_print_check/packetlog"
@@ -125,6 +126,12 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			h.handleWSCashInOut(conn, wsMsg.Data, true)
 		case "cashOut":
 			h.handleWSCashInOut(conn, wsMsg.Data, false)
+		case "payMany":
+			h.handleWSPayMany(conn, wsMsg.Data)
+		case "returnMany":
+			h.handleWSReturnMany(conn, wsMsg.Data)
+		case "closeShiftTerminal":
+			h.handleWSCloseShiftTerminal(conn, wsMsg.Data)
 		default:
 			h.sendWSError(conn, fmt.Sprintf("Неизвестная команда: %s", wsMsg.Command))
 		}
@@ -258,6 +265,107 @@ func (h *Handler) handleWSCashInOut(conn *websocket.Conn, data map[string]any, c
 	}
 
 	h.sendWSResponse(conn, "success", "Наличные успешно внесены/выплачены", nil)
+}
+
+func (h *Handler) handleWSPayMany(conn *websocket.Conn, data map[string]any) {
+	var amount int
+
+	// Обработка разных возможных типов данных
+	switch v := data["amount"].(type) {
+	case int:
+		amount = v
+	case int64:
+		amount = int(v)
+	case float64:
+		amount = int(v)
+	case string:
+		var err error
+		amount, err = strconv.Atoi(v)
+		if err != nil {
+			h.sendWSError(conn, fmt.Sprintf("Не удалось преобразовать строку в число: %v", err))
+			return
+		}
+	case map[string]interface{}:
+		// Это для отладки - выведем информацию о том, что приходит в данном случае
+		h.sendWSError(conn, fmt.Sprintf("Получен объект вместо числа: %v", v))
+		return
+	default:
+		h.sendWSError(conn, fmt.Sprintf("Неподдерживаемый тип данных для суммы: %T", v))
+		return
+	}
+
+	if amount == 0 {
+		h.sendWSError(conn, fmt.Sprintf("Сумма платежа не может быть 0"))
+		return
+	}
+
+	receipt, err := beznal.PayMoney(amount)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при оплате по безналу: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("Ошибка при оплате по безналу: %v", err))
+		return
+	}
+
+	h.sendWSResponse(conn, "success", "Оплата по карте прошла успешно", map[string]interface{}{
+		"slip": receipt,
+	})
+}
+
+func (h *Handler) handleWSReturnMany(conn *websocket.Conn, data map[string]any) {
+	var amount int
+	// Обработка разных возможных типов данных
+	switch v := data["amount"].(type) {
+	case int:
+		amount = v
+	case int64:
+		amount = int(v)
+	case float64:
+		amount = int(v)
+	case string:
+		var err error
+		amount, err = strconv.Atoi(v)
+		if err != nil {
+			h.sendWSError(conn, fmt.Sprintf("Не удалось преобразовать строку в число: %v", err))
+			return
+		}
+	case map[string]interface{}:
+		// Это для отладки - выведем информацию о том, что приходит в данном случае
+		h.sendWSError(conn, fmt.Sprintf("Получен объект вместо числа: %v", v))
+		return
+	default:
+		h.sendWSError(conn, fmt.Sprintf("Неподдерживаемый тип данных для суммы: %T", v))
+		return
+	}
+
+	if amount == 0 {
+		h.sendWSError(conn, fmt.Sprintf("Сумма платежа не может быть 0"))
+		return
+	}
+
+	receipt, err := beznal.ReturnMoney(amount)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при возврате по безналу: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("Ошибка при возврате по безналу: %v", err))
+		return
+	}
+
+	h.sendWSResponse(conn, "success", "Возврат по карте прошел успешно", map[string]interface{}{
+		"slip": receipt,
+	})
+}
+
+func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn, data map[string]any) {
+
+	receipt, err := beznal.CloseShiftTerminal()
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии банковской смены: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("Ошибка при закрытии банковской смены: %v", err))
+		return
+	}
+
+	h.sendWSResponse(conn, "success", "Банковская смена успешно закрыта", map[string]interface{}{
+		"slip": receipt,
+	})
 }
 
 func (h *Handler) sendWSError(conn *websocket.Conn, message string) {

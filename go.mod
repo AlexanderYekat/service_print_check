@@ -3,6 +3,7 @@ module service_print_check
 go 1.21.4
 
 require (
+	github.com/go-ole/go-ole v1.3.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rs/cors v1.11.1

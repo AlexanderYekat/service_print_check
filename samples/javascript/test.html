@@ -78,6 +78,9 @@
     <button class="button" onclick="printXReport()">X-отчет</button>
     <button class="button" onclick="cashIn()">внесение</button>
     <button class="button" onclick="cashOut()">выплата</button>
+    <button class="button" onclick="payMany()">Оплата по безналу</button>
+    <button class="button" onclick="returnMany()">Возврат по безналу</button>
+    <button class="button" onclick="closeShiftTerminal()">Закрыть банковскую смену</button>
 
     <div id="result" class="result"></div>
 
@@ -246,6 +249,51 @@
             };
 
             socket.send(JSON.stringify(cashInData));
+        }
+
+        function payMany() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const payManyData = {
+                command: 'payMany',
+                data: {
+                    amount: 10000 // 100 рублей в копейках
+                }
+            };
+
+            socket.send(JSON.stringify(payManyData));
+        }
+
+        function returnMany() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const returnManyData = {
+                command: 'returnMany',
+                data: {
+                    amount: 10000 // 100 рублей в копейках
+                }
+            };
+
+            socket.send(JSON.stringify(returnManyData));
+        }
+
+        function closeShiftTerminal() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const closeShiftTerminalData = {
+                command: 'closeShiftTerminal'
+            };
+
+            socket.send(JSON.stringify(closeShiftTerminalData));
         }
     </script>
 </body>

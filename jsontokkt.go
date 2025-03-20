@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"service_print_check/beznal"
 	consttypes "service_print_check/consttypes"
 	fptr10 "service_print_check/fptr"
 	"service_print_check/models"
@@ -42,7 +43,7 @@ var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный ori
 //var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
 //var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
 
-const Version_of_program = "2025_03_19_05"
+const Version_of_program = "2025_03_20_01"
 
 //fptr.ApplySingleSettings()
 //fptr.Open()
@@ -1070,6 +1071,10 @@ func runServerTest() error {
 	mux.Handle("/api/x-report", xReportHandler)
 	mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик для внесения наличных
 	mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик для выплаты наличных
+	//безнал
+	mux.HandleFunc("/api/pay-many", habdlePayMany)
+	mux.HandleFunc("/api/return-many", habdleReturnMany)
+	mux.HandleFunc("/api/close-shift-terminal", habdleCloseShiftTerminal)
 
 	// Настройка CORS
 	c := cors.New(cors.Options{
@@ -1226,4 +1231,103 @@ func handleCashOut(w http.ResponseWriter, r *http.Request) {
 	logsmy.LogginInFile(fmt.Sprintf("завершили выплату наличных"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Наличные успешно выплачены"})
+}
+
+// обработчик безнальной оплаты
+func habdlePayMany(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали выполнение оплаты по терминалу. Версия: %s", Version_of_program))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Amount int `json:"amount"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("начали оплату по безналу на сумму %.2f", requestData.Amount/100))
+
+	receipt, err := beznal.PayMoney(requestData.Amount)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при оплате по безналу: %v", err))
+		http.Error(w, fmt.Sprintf("Ошибка при оплате по безналу: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("Опалта по безналу прошла удачно"))
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Опалта по безналу прошла удачно",
+		"slip":    receipt,
+	})
+}
+
+func habdleReturnMany(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали выполнение возврата по терминалу. Версия: %s", Version_of_program))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Amount int `json:"amount"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("начали возврата по безналу на сумму %.2f", requestData.Amount/100))
+
+	receipt, err := beznal.ReturnMoney(requestData.Amount)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при возрате на карту по терминалу: %v", err))
+		http.Error(w, fmt.Sprintf("Ошибка при возрате на карту по терминалу: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("Возврат по безналу прошол удачно"))
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Возврат по безналу прошол удачно",
+		"slip":    receipt,
+	})
+}
+
+func habdleCloseShiftTerminal(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали выполнение закрытия смены по терминалу. Версия: %s", Version_of_program))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("начали закрытие смены по терминалу"))
+
+	receipt, err := beznal.CloseShiftTerminal()
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии смены по терминалу: %v", err))
+		http.Error(w, fmt.Sprintf("Ошибка при закрытии смены по терминалу: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("Закрытие смены по терминалу прошло удачно"))
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Закрытие смены по терминалу прошло удачно",
+		"slip":    receipt,
+	})
 }

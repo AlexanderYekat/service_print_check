@@ -6,7 +6,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/rs/cors v1.11.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sys v0.16.0
 )

@@ -6,22 +6,17 @@ import (
 	"net/http"
 	"service_print_check/beznal"
 	consttypes "service_print_check/consttypes"
+	fptr10 "service_print_check/fptr"
+	"service_print_check/kktutils"
 	"service_print_check/models"
 	logsmy "service_print_check/packetlog"
-
 	"strconv"
 
 	"github.com/gorilla/websocket"
 	"github.com/mitchellh/mapstructure"
 )
 
-// TAbstractPrinter представляет интерфейс для печати отчетов
-type TAbstractPrinter interface {
-	PrintXReport(fptr consttypes.IFptr10Interface) error
-	PrintSlip(fptr consttypes.IFptr10Interface, slip string) error
-	PrintText(fptr consttypes.IFptr10Interface, text string) error
-}
-
+// Используем интерфейс IAbstractPrinter из пакета kktutils
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -45,19 +40,13 @@ type WSResponse struct {
 
 // Handler представляет обработчик веб-сокетов
 type Handler struct {
-	comport                        *int
-	ipaddresskkt                   *string
-	portkktatol                    *int
-	ipaddressservrkkt              *string
-	emulation                      *bool
-	formatCheckJSON                func(checkData models.CheckData) string
-	closeShift                     func(cashier string) (int, error)
-	connectWithKassa               func(fptr consttypes.IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string)
-	sendComandeAndGetAnswerFromKKT func(fptr consttypes.IFptr10Interface, comJson string) (string, error)
-	successCommand                 func(resulJson string) bool
-	glFptrDriver                   consttypes.IFptr10Interface
-	printer                        TAbstractPrinter
-	cashInOut                      func(cashier string, cashSum float64, cashIn bool) error
+	comport           *int
+	ipaddresskkt      *string
+	portkktatol       *int
+	ipaddressservrkkt *string
+	emulation         *bool
+	FptrDriver        consttypes.IFptr10Interface
+	printer           kktutils.IAbstractPrinter
 }
 
 // NewHandler создает новый обработчик веб-сокетов
@@ -67,30 +56,29 @@ func NewHandler(
 	portkktatol *int,
 	ipaddressservrkkt *string,
 	emulation *bool,
-	formatCheckJSON func(checkData models.CheckData) string,
-	closeShift func(cashier string) (int, error),
-	connectWithKassa func(fptr consttypes.IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string),
-	sendComandeAndGetAnswerFromKKT func(fptr consttypes.IFptr10Interface, comJson string) (string, error),
-	successCommand func(resulJson string) bool,
-	glFptrDriver consttypes.IFptr10Interface,
-	cashInOut func(cashier string, cashSum float64, cashIn bool) error,
+	FptrDriver consttypes.IFptr10Interface,
 ) *Handler {
 	h := &Handler{
-		comport:                        comport,
-		ipaddresskkt:                   ipaddresskkt,
-		portkktatol:                    portkktatol,
-		ipaddressservrkkt:              ipaddressservrkkt,
-		emulation:                      emulation,
-		formatCheckJSON:                formatCheckJSON,
-		closeShift:                     closeShift,
-		connectWithKassa:               connectWithKassa,
-		sendComandeAndGetAnswerFromKKT: sendComandeAndGetAnswerFromKKT,
-		successCommand:                 successCommand,
-		glFptrDriver:                   glFptrDriver,
-		cashInOut:                      cashInOut,
+		comport:           comport,
+		ipaddresskkt:      ipaddresskkt,
+		portkktatol:       portkktatol,
+		ipaddressservrkkt: ipaddressservrkkt,
+		emulation:         emulation,
+		FptrDriver:        FptrDriver,
 	}
-	h.printer = &PrinterImpl{handler: h}
+	h.printer = kktutils.NewPrinter(comport, ipaddresskkt, portkktatol, ipaddressservrkkt, emulation)
 	return h
+}
+
+// GetDriver возвращает драйвер ККТ
+func (h *Handler) GetDriver() (consttypes.IFptr10Interface, error) {
+	if h.FptrDriver == nil {
+		err := h.initializeDriver()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return h.FptrDriver, nil
 }
 
 // HandleWebSocket обрабатывает веб-сокет соединения
@@ -134,6 +122,10 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			h.handleWSReturnMany(conn, wsMsg.Data)
 		case "closeShiftTerminal":
 			h.handleWSCloseShiftTerminal(conn)
+		case "printSlip":
+			h.handleWSPrintSlip(conn, wsMsg.Data)
+		case "printText":
+			h.handleWSPrintText(conn, wsMsg.Data)
 		default:
 			h.sendWSError(conn, fmt.Sprintf("Неизвестная команда: %s", wsMsg.Command))
 		}
@@ -147,43 +139,67 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 		Result:           &checkData,
 	})
 	if err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при создании декодера: %v", err))
+		err := fmt.Errorf("Ошибка при создании декодера: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if err := decoder.Decode(data); err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при разборе данных чека: %v", err))
+		err := fmt.Errorf("Ошибка при разборе данных чека: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	// Проверяем обязательные поля
 	if checkData.Cashier == "" {
-		h.sendWSError(conn, "Не указано имя кассира")
+		err := fmt.Errorf("Не указано имя кассира")
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 	if len(checkData.TableData) == 0 {
-		h.sendWSError(conn, "Отсутствуют позиции в чеке")
+		err := fmt.Errorf("Отсутствуют позиции в чеке")
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	// Форматирование и отправка данных чека
-	checkJSON := h.formatCheckJSON(checkData)
+	checkJSON := kktutils.FormatCheckJSON(checkData)
 
-	// Подключение к кассе
-	if ok, typepodkluch := h.connectWithKassa(h.glFptrDriver, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка подключения к кассе: %v", typepodkluch))
-		return
-	}
-	defer h.glFptrDriver.Close()
-
-	result, err := h.sendComandeAndGetAnswerFromKKT(h.glFptrDriver, checkJSON)
+	fptr, err := h.GetDriver()
 	if err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при печати чека: %v", err))
+		err := fmt.Errorf("Ошибка при инициализации драйвера ККТ: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
-	if !h.successCommand(result) {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при печати чека: %v", result))
+	// Подключаемся к кассе
+	if ok, typepodkluch := kktutils.ConnectWithKassa(fptr, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
+		err := fmt.Errorf("Ошибка подключения к кассе: %v", typepodkluch)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
+		return
+	}
+
+	defer kktutils.CloseKassa(fptr)
+
+	// Печатаем чек
+	result, err := kktutils.SendCommandAndGetAnswerFromKKT(fptr, checkJSON, *h.emulation)
+	if err != nil {
+		err := fmt.Errorf("Ошибка при печати чека: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
+		return
+	}
+
+	if !kktutils.SuccessCommand(result) {
+		err := fmt.Errorf("Ошибка при печати чека: %v", result)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
@@ -195,7 +211,9 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 	}
 	if err := json.Unmarshal([]byte(result), &resultJSON); err != nil {
 		if !*h.emulation {
-			h.sendWSError(conn, fmt.Sprintf("Ошибка при разборе JSON результата: %v", err))
+			err := fmt.Errorf("Ошибка при разборе JSON результата: %v", err)
+			logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+			h.sendWSError(conn, err.Error())
 			return
 		} else {
 			resultJSON.FiscalParams.FiscalDocumentNumber = 123
@@ -214,9 +232,29 @@ func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) 
 		return
 	}
 
-	fiscalDocumentNumber, err := h.closeShift(cashier)
+	fptr, err := h.GetDriver()
 	if err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при закрытии смены: %v", err))
+		err := fmt.Errorf("Ошибка при инициализации драйвера ККТ: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
+		return
+	}
+	defer kktutils.CloseKassa(fptr)
+
+	// Подключаемся к кассе
+	if ok, typepodkluch := kktutils.ConnectWithKassa(fptr, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
+		err := fmt.Errorf("Ошибка подключения к кассе: %v", typepodkluch)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
+		return
+	}
+
+	// Закрываем смену
+	fiscalDocumentNumber, err := kktutils.CloseShift(fptr, cashier, *h.emulation)
+	if err != nil {
+		err := fmt.Errorf("Ошибка при закрытии смены: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
@@ -226,7 +264,12 @@ func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) 
 }
 
 func (h *Handler) handleWSXReport(conn *websocket.Conn) {
-	if err := h.printer.PrintXReport(h.glFptrDriver); err != nil {
+	fptr, err := h.GetDriver()
+	if err != nil {
+		h.sendWSError(conn, fmt.Sprintf("Ошибка при инициализации драйвера ККТ: %v", err))
+		return
+	}
+	if err := h.printer.PrintXReport(fptr); err != nil {
 		h.sendWSError(conn, fmt.Sprintf("Ошибка при печати X-отчета: %v", err))
 		return
 	}
@@ -265,7 +308,21 @@ func (h *Handler) handleWSCashInOut(conn *websocket.Conn, data map[string]any, c
 		return
 	}
 
-	err := h.cashInOut(cashier, cashSum, cashIn)
+	fptr, err := h.GetDriver()
+	if err != nil {
+		h.sendWSError(conn, fmt.Sprintf("Ошибка при инициализации драйвера ККТ: %v", err))
+		return
+	}
+	defer kktutils.CloseKassa(fptr)
+
+	// Подключаемся к кассе
+	if ok, typepodkluch := kktutils.ConnectWithKassa(fptr, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
+		h.sendWSError(conn, fmt.Sprintf("Ошибка подключения к кассе: %v", typepodkluch))
+		return
+	}
+
+	// Выполняем операцию
+	err = kktutils.CashInOut(fptr, cashier, cashSum, cashIn, *h.emulation)
 	if err != nil {
 		h.sendWSError(conn, fmt.Sprintf("Ошибка при внесении/выплате наличных: %v", err))
 		return
@@ -294,26 +351,33 @@ func (h *Handler) handleWSPayMany(conn *websocket.Conn, data map[string]any) {
 		}
 	case map[string]interface{}:
 		// Это для отладки - выведем информацию о том, что приходит в данном случае
-		h.sendWSError(conn, fmt.Sprintf("Получен объект вместо числа: %v", v))
+		err := fmt.Errorf("Получен объект вместо числа: %v", v)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	default:
-		h.sendWSError(conn, fmt.Sprintf("Неподдерживаемый тип данных для суммы: %T", v))
+		err := fmt.Errorf("Неподдерживаемый тип данных для суммы: %T", v)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if amount == 0 {
-		h.sendWSError(conn, fmt.Sprintf("Сумма платежа не может быть 0"))
+		err := fmt.Errorf("Сумма платежа не может быть 0")
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	receipt, err := beznal.PayMoney(amount)
 	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при оплате по безналу: %v", err))
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при оплате по безналу: %v", err))
+		err := fmt.Errorf("Ошибка при оплате по безналу: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
-	h.sendWSResponse(conn, "success", "Оплата по карте прошла успешно", map[string]interface{}{
+	h.sendWSResponse(conn, "success", "Оплата по безналу прошла успешно", map[string]interface{}{
 		"slip": receipt,
 	})
 }
@@ -337,22 +401,29 @@ func (h *Handler) handleWSReturnMany(conn *websocket.Conn, data map[string]any) 
 		}
 	case map[string]interface{}:
 		// Это для отладки - выведем информацию о том, что приходит в данном случае
-		h.sendWSError(conn, fmt.Sprintf("Получен объект вместо числа: %v", v))
+		err := fmt.Errorf("Получен объект вместо числа: %v", v)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	default:
-		h.sendWSError(conn, fmt.Sprintf("Неподдерживаемый тип данных для суммы: %T", v))
+		err := fmt.Errorf("Неподдерживаемый тип данных для суммы: %T", v)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if amount == 0 {
-		h.sendWSError(conn, fmt.Sprintf("Сумма платежа не может быть 0"))
+		err := fmt.Errorf("Сумма возврата не может быть 0")
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	receipt, err := beznal.ReturnMoney(amount)
 	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при возврате по безналу: %v", err))
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при возврате по безналу: %v", err))
+		err := fmt.Errorf("Ошибка при возрате на карту по терминалу: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
 	}
 
@@ -362,24 +433,13 @@ func (h *Handler) handleWSReturnMany(conn *websocket.Conn, data map[string]any) 
 }
 
 func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn) {
-
+	// Закрываем банковскую смену
 	receipt, err := beznal.CloseShiftTerminal()
 	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии банковской смены: %v", err))
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при закрытии банковской смены: %v", err))
+		err := fmt.Errorf("Ошибка при закрытии смены по терминалу: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		h.sendWSError(conn, err.Error())
 		return
-	}
-
-	// Печатаем слип, если он есть
-	if receipt != "" {
-		// Используем имеющийся экземпляр принтера
-		if err := h.printer.PrintSlip(h.glFptrDriver, receipt); err != nil {
-			logsmy.LogginInFile(fmt.Sprintf("Ошибка при печати банковского слипа: %v", err))
-			h.sendWSError(conn, fmt.Sprintf("Ошибка при печати банковского слипа: %v", err))
-			return
-		}
-
-		logsmy.LogginInFile("Банковский слип успешно напечатан")
 	}
 
 	h.sendWSResponse(conn, "success", "Банковская смена успешно закрыта", map[string]interface{}{
@@ -404,6 +464,19 @@ func (h *Handler) sendWSResponse(conn *websocket.Conn, responseType, message str
 		Data:    data,
 	}
 	if err := conn.WriteJSON(response); err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при отправке ответа: %v", err)
+		err := fmt.Errorf("Ошибка при отправке ответа: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 	}
+}
+
+func (h *Handler) initializeDriver() error {
+	// Реализация инициализации драйвера ККТ
+	fptr, err := fptr10.NewSafe()
+	if err != nil {
+		err := fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
+		return err
+	}
+	h.FptrDriver = fptr
+	return nil
 }

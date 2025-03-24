@@ -1,9 +1,7 @@
-//go:generate ./resource/goversioninfo.exe -icon=resource/icon.ico -manifest=resource/goversioninfo.exe.manifest
 package main
 
 import (
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,17 +11,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"service_print_check/beznal"
-	consttypes "service_print_check/consttypes"
-	fptr10 "service_print_check/fptr"
+	"service_print_check/consttypes"
+	"service_print_check/kktutils"
 	"service_print_check/models"
 	logsmy "service_print_check/packetlog"
 	mywebsocket "service_print_check/websocket"
-	"strconv"
-	"strings"
+
 	"time"
 
-	"github.com/rs/cors"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -39,154 +34,13 @@ var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервер
 var emulation = flag.Bool("emul", false, "эмуляция")
 var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-//var dontprintrealfortest = flag.Bool("test", false, "тест - не печатать реальный чек")
-//var emulatmistakes = flag.Bool("emulmist", false, "эмуляция ошибок")
-//var emulatmistakesOpenCheck = flag.Bool("emulmistopencheck", false, "эмуляция ошибок открытия чека")
-
 const Version_of_program = "2025_03_20_01"
 
-//fptr.ApplySingleSettings()
-//fptr.Open()
-//return fptr.IsOpened(), typeConnect
-
-type TFptr10Driver struct{}
-
-func (moduleFPRT TFptr10Driver) NewSafe(fptr consttypes.IFptr10Interface) (consttypes.IFptr10Interface, error) {
-	var err error
-	if fptr == nil {
-		fptr, err = fptr10.NewSafe()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return fptr, nil
-}
-
-func (moduleFPRT TFptr10Driver) Open(fptr consttypes.IFptr10Interface) error {
-	return fptr.Open()
-}
-
-func (moduleFPRT TFptr10Driver) IsOpened(fptr consttypes.IFptr10Interface) bool {
-	return fptr.IsOpened()
-}
-
-func (moduleFPRT TFptr10Driver) ApplySingleSettings(fptr consttypes.IFptr10Interface) error {
-	return fptr.ApplySingleSettings()
-}
-
-func (moduleFPRT TFptr10Driver) Close(fptr consttypes.IFptr10Interface) {
-	fptr.Close()
-}
-
-func (moduleFPRT TFptr10Driver) Destroy(fptr consttypes.IFptr10Interface) {
-	fptr.Destroy()
-}
-
-type TAbstractPrinter struct{}
-
-var glFptrDriver consttypes.IFptr10Interface
-
-// PrintSlip печатает банковский слип или другой текст в формате JSON
-func (moduleFPRT TAbstractPrinter) PrintSlip(fptr consttypes.IFptr10Interface, slip string) error {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		if !*emulation {
-			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	defer fptr.Close()
-
-	// Формируем JSON для печати слипа
-	lines := strings.Split(slip, "\n")
-	items := make([]map[string]string, 0)
-	
-	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			items = append(items, map[string]string{
-				"type":      "text",
-				"text":      line,
-				"alignment": "left", // Выравнивание по левому краю для основного интерфейса
-			})
-		}
-	}
-	
-	slipData := map[string]interface{}{
-		"type":  "nonFiscal",
-		"items": items,
-	}
-	
-	slipJSON, err := json.Marshal(slipData)
-	if err != nil {
-		return fmt.Errorf("ошибка формирования JSON для печати слипа: %v", err)
-	}
-	
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("печать слипа на ККТ")
-	result, err := sendComandeAndGetAnswerFromKKT(fptr, string(slipJSON))
-	if err != nil {
-		return fmt.Errorf("ошибка печати слипа на ККТ: %v", err)
-	}
-
-	if !successCommand(result) {
-		return fmt.Errorf("ошибка печати слипа на ККТ: %v", result)
-	}
-
-	return nil
-}
-
-func (moduleFPRT TAbstractPrinter) PrintText(fptr consttypes.IFptr10Interface, text string) error {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		if !*emulation {
-			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	defer fptr.Close()
-
-	// Формируем JSON для печати слипа
-	fptr.SetParam(fptr10.LIBFPTR_PARAM_TEXT, text)
-	err := fptr.PrintText()
-
-	if err != nil {
-		return fmt.Errorf("ошибка печати слипа на ККТ: %v", err)
-	}
-
-	return nil
-	//return printXReport(fptr10Module) // Вызов вашей существующей функции
-}
-
-func (moduleFPRT TAbstractPrinter) PrintXReport(fptr consttypes.IFptr10Interface) error {
-	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера ККТ")
-	//if err != nil {
-	//	return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
-	//}
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		if !*emulation {
-			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	defer fptr.Close()
-
-	xReportJSON := `{"type": "reportX"}`
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("отправка команды печати X-отчета")
-	result, err := sendComandeAndGetAnswerFromKKT(fptr, xReportJSON)
-	if err != nil {
-		return fmt.Errorf("ошибка отправки команды печати X-отчета: %v", err)
-	}
-
-	if !successCommand(result) {
-		return fmt.Errorf("ошибка печати X-отчета: %v", result)
-	}
-
-	return nil
-	//return printXReport(fptr10Module) // Вызов вашей существующей функции
-}
+var glFptrDriver kktutils.TFptr10Driver
 
 type myService struct{}
 
 func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	// Настройка логирования
 	logsmy.LogginInFile("Execute начало")
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Настройка логирования")
 	logFile, err := os.OpenFile(filepath.Join(os.TempDir(), "CloudPosBridge_service.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -204,9 +58,7 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 	changes <- svc.Status{State: svc.StartPending}
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Статус изменен на StartPending")
 
-	// Попытка инициализации
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало инициализации")
-	// Здесь можно добавить код инициализации, если он есть
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Инициализация завершена")
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
@@ -229,6 +81,8 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 				changes <- c.CurrentStatus
 			case svc.Stop, svc.Shutdown:
 				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получена команда %v", c.Cmd)
+				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Освобождение ресурсов драйвера ККТ")
+				glFptrDriver.Destroy()
 				return
 			default:
 				logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Получена неизвестная команда %d", c)
@@ -254,7 +108,8 @@ func runServerWithRetry(maxRetries int, retryInterval time.Duration) error {
 }
 
 func runServer() error {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("runServer начало")
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск службы CloudPosBridge, версия:", Version_of_program)
+
 	elog, err := eventlog.Open("CloudPosBridge")
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Не удалось открыть журнал событий: %v", err)
@@ -262,603 +117,42 @@ func runServer() error {
 	}
 	defer elog.Close()
 
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск службы CloudPosBridge")
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение:", Version_of_program)
 	addr := ":8081"
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска HTTP сервера на %s", addr)
-	realPrinter := &TAbstractPrinter{}
-	xReportHandler := handleXReport(realPrinter)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска сервера на %s", addr)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/print-check", handlePrintCheck)
-	mux.HandleFunc("/api/close-shift", handleCloseShift)
-	mux.Handle("/api/x-report", xReportHandler)
-	mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик для внесения наличных
-	mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик для выплаты наличных
-	//печать текста, например слипа
-	mux.HandleFunc("/api/print-slip", handlePrintSlip)
-	//безнал
-	mux.HandleFunc("/api/pay-many", handlePayMany)
-	mux.HandleFunc("/api/return-many", handleReturnMany)
-	mux.HandleFunc("/api/close-shift-terminal", handleCloseShiftTerminal)
 
-	// Создаем обработчик веб-сокетов
+	// Инициализируем драйвер ККТ
+	err = glFptrDriver.NewSafe()
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при инициализации драйвера ККТ: %v", err)
+		return err
+	}
+
 	wsHandler := mywebsocket.NewHandler(
 		comport,
 		ipaddresskkt,
 		portkktatol,
 		ipaddressservrkkt,
 		emulation,
-		formatCheckJSON,
-		closeShift,
-		connectWithKassa,
-		sendComandeAndGetAnswerFromKKT,
-		successCommand,
-		glFptrDriver,
-		cashInOut,
+		glFptrDriver.GetFptr10(), // Передаем инициализированный драйвер
 	)
 	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
 
-	// Настройка CORS
-	c := cors.New(cors.Options{
-		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
-		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
-		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"http://localhost:8081"},
-		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
-		AllowedMethods: []string{"POST", "OPTIONS"},
-		AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
-		//AllowedHeaders: []string{"content-type", "Access-Control-Allow-Private-Network, Access-Control-Allow-Origin"},
-		//AllowedHeaders: []string{"Access-Control-Allow-Private-Network"},
-		//AllowCredentials:    true,
-		AllowPrivateNetwork: true, // Добавляем это
-		//Debug:               true,
-		//AllowOriginRequestFunc: func(r *http.Request, origin string) bool {
-		//	fmt.Println("********************origin******************", origin)
-		//	return origin == "https://188.225.31.209:8443"
-		//},
-	})
-	handler := c.Handler(mux)
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("handler", handler)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
 
-	fmt.Printf("Сервер запущен на %v\n", addr)
-	err = http.ListenAndServe(addr, handler)
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("err", err)
+	err = server.ListenAndServe()
 	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске сервера: %v", err)
 		return err
 	}
 
-	//http.HandleFunc("/api/print-check", handlePrintCheck)
-	//http.HandleFunc("/api/close-shift", handleCloseShift)
-	//http.HandleFunc("/api/x-report", xReportHandler)
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
-	//err := http.ListenAndServe(addr, nil)
-	//if err != nil {
-	//	logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
-	//	return err
-	//}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
 	return nil
 }
 
-func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "OPTIONS" {
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "access-control-request-private-network, content-type")
-		allowedOrigins := []string{"http://localhost:8081", "http://localhost", "localhost:8081"}
-		origin := r.Header.Get("Origin")
-		for _, allowed := range allowedOrigins {
-			if origin == allowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				break
-			}
-		}
-
-		fmt.Println("Получен OPTIONS запрос")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var checkData models.CheckData
-	if err := json.NewDecoder(r.Body).Decode(&checkData); err != nil {
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали выполнение команды печати чека")
-	fdn, err := printCheck(checkData)
-	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати чека:", err)
-		http.Error(w, fmt.Sprintf("Ошибка печати чека: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Чек успешно напечатан",
-		"fdn":     fdn,
-	})
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("выполнили команду печати чека")
-}
-
-func handleCloseShift(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды закрытия смены. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Cashier string `json:"cashier"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды закрытия смены. Кассир: %s", requestData.Cashier))
-	fiscalDocumentNumber, err := closeShift(requestData.Cashier)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии смены: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка закрытия смены: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("завершили выполнение команды закрытия смены. Номер фискального документа: %d", fiscalDocumentNumber))
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Смена успешно закрыта",
-		"fdn":     fiscalDocumentNumber,
-	})
-}
-
-// handleXReport is an HTTP handler function that prints an X-report.
-//
-// It expects a POST request and returns a JSON response indicating the status of the X-report printing operation.
-// If an error occurs during the printing, it returns a 500 Internal Server Error response with the error message.
-// If the printing is successful, it returns a 200 OK response with a JSON object containing the status and a success message.
-func handleXReport(printer consttypes.IAbstractPrinter) http.HandlerFunc {
-	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report %s", Version_of_program)
-	return func(w http.ResponseWriter, r *http.Request) {
-		//func handleXReport(w http.ResponseWriter, r *http.Request) {
-		logger := log.New(os.Stdout, "", log.LstdFlags)
-		logger.Println("Начало выполнения функции handleXReport")
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report1 %s", r.Method)
-		if r.Method != http.MethodPost {
-			http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-			return
-		}
-
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("X-report2 %s", r.Method)
-
-		err := printer.PrintXReport(glFptrDriver)
-		fmt.Println("err handleXReport", err)
-		if err != nil {
-			logsmy.Logsmap[consttypes.LOGERROR].Println("Ошибка при печати X-отчета:", err)
-			http.Error(w, fmt.Sprintf("Ошибка печати X-отчета: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "X-отчет успешно напечатан"})
-	}
-}
-
-func printCheck(checkData models.CheckData) (int, error) {
-	var fptr *fptr10.IFptr
-	var err error
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали инициализацию драйвера ККТ")
-	fptr, err = fptr10.NewSafe()
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка инициализации драйвера ККТ: %v", err))
-		return 0, fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили инициализацию драйвера ККТ")
-	defer func() {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали уничтожение драйвера ККТ")
-		fptr.Destroy()
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили уничтожение драйвера ККТ")
-	}()
-
-	// Подключение к кассе
-	logsmy.LogginInFile("начали подключение к кассе")
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
-		if !*emulation {
-			return 0, fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	logsmy.LogginInFile("подключение к кассе прошло успешно")
-	defer func() {
-		logsmy.LogginInFile("отключение от кассы")
-		if err := fptr.Close(); err != nil {
-			logsmy.Logsmap[consttypes.LOGERROR].Printf("ошибка закрытия соединения с кассой: %v", err)
-		}
-	}()
-
-	// Проверка открытия смены
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("начали проверку/открытие смены. Кассир: %s", checkData.Cashier)
-	_, err = checkOpenShift(fptr, true, checkData.Cashier)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка проверки/открытия смены: %v", err))
-		if !*emulation {
-			return 0, fmt.Errorf("ошибка проверки/открытия смены: %v", err)
-		}
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку/открытие смены")
-	// Формирование JSON для печати чека
-	checkJSON := formatCheckJSON(checkData)
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали отправку команды печати чека")
-	// Отправка команды печати чека
-	result, err := sendComandeAndGetAnswerFromKKT(fptr, checkJSON)
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("получили результат отправки команды печати чека: %s", result)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка отправки команды печати чека: %v", err))
-		return 0, fmt.Errorf("ошибка отправки команды печати чека: %v", err)
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили отправку команды печати чека")
-
-	if !successCommand(result) {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка печати чека: %v", result))
-		return 0, fmt.Errorf("ошибка печати чека: %v", result)
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали преобразование результата отправки команды печати чека в структуру JSON")
-	// Преобразуем result в структуру JSON
-	var resultJSON struct {
-		FiscalParams struct {
-			FiscalDocumentDateTime string `json:"fiscalDocumentDateTime"`
-			FiscalDocumentNumber   int    `json:"fiscalDocumentNumber"`
-			FiscalDocumentSign     string `json:"fiscalDocumentSign"`
-			FnNumber               string `json:"fnNumber"`
-			RegistrationNumber     string `json:"registrationNumber"`
-			ShiftNumber            int    `json:"shiftNumber"`
-			ReceiptsCount          int    `json:"receiptsCount"`
-			FnsUrl                 string `json:"fnsUrl"`
-		} `json:"fiscalParams"`
-		Warnings struct {
-			NotPrinted bool `json:"notPrinted"`
-		} `json:"warnings"`
-	}
-	err = json.Unmarshal([]byte(result), &resultJSON)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка при разборе JSON результата: %v", err))
-		if !*emulation {
-			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при разборе JSON результата: %v", err)
-			return 0, fmt.Errorf("ошибка при разборе JSON результата: %v", err)
-		} else {
-			resultJSON.FiscalParams.FiscalDocumentNumber = 123
-		}
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили преобразование результата отправки команды печати чека в структуру JSON")
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Номер фискального документа: %d", resultJSON.FiscalParams.FiscalDocumentNumber)
-
-	fmt.Println("Номер фискального документа:", resultJSON.FiscalParams.FiscalDocumentNumber)
-	return resultJSON.FiscalParams.FiscalDocumentNumber, nil
-}
-
-func formatCheckJSON(checkData models.CheckData) string {
-	// Здесь формируем JSON для печати чека в соответствии с форматом, ожидаемым ККТ
-	// Пример:
-	//none - налогом не облагается
-	//vat0 - НДС 0%
-	//vat10 - НДС 10%
-	//vat110 - НДС 10/110
-	//vat20 - НДС 20%
-	//vat120 - НДС 20/120
-	//vat5 - НДС 5%
-	//vat105 - НДС 5/105
-	//vat7 - НДС 7%
-	//vat107 - НДС 7/107	+
-	checkItems := make([]map[string]interface{}, len(checkData.TableData))
-	for i, item := range checkData.TableData {
-		var taxType string
-		if item.TaxNDS == "" {
-			taxType = "none" // Если TaxNDS пустой, устанавливаем "none"
-		} else if !strings.HasPrefix(item.TaxNDS, "vat") {
-			taxType = "vat" + item.TaxNDS // Добавляем префикс "vat", если его нет
-		} else {
-			taxType = item.TaxNDS // Возвращаем TaxNDS, если он уже с префиксом
-		}
-		quantity, _ := strconv.ParseFloat(item.Quantity, 64)
-		price, _ := strconv.ParseFloat(item.Price, 64)
-		checkItems[i] = map[string]interface{}{
-			"type":     "position",
-			"name":     item.Name,
-			"price":    price,
-			"quantity": quantity,
-			"amount":   price * quantity,
-			"tax": map[string]interface{}{
-				"type": taxType, //
-			},
-		}
-	}
-
-	// Формируем массив оплат
-	payments := make([]map[string]interface{}, 0)
-	totalAmount := 0.0
-
-	// Вычисляем общую сумму чека
-	for _, item := range checkData.TableData {
-		quantity, _ := strconv.ParseFloat(item.Quantity, 64)
-		price, _ := strconv.ParseFloat(item.Price, 64)
-		totalAmount += quantity * price
-	}
-
-	if len(checkData.Payments) == 0 {
-		// Если платежи не переданы, используем оплату наличными по умолчанию
-		payments = append(payments, map[string]interface{}{
-			"type": "cash",
-			"sum":  totalAmount,
-		})
-	} else {
-		for _, payment := range checkData.Payments {
-			payments = append(payments, map[string]interface{}{
-				"type": payment.Type,
-				"sum":  payment.Amount,
-			})
-		}
-	}
-
-	checkType := "sell"
-	if checkData.Type != "" {
-		checkType = checkData.Type
-	}
-
-	checkJSON := map[string]interface{}{
-		"type": checkType,
-		"operator": map[string]string{
-			"name": checkData.Cashier,
-		},
-		"items":    checkItems,
-		"payments": payments,
-	}
-
-	// Добавляем поле taxationType только если оно не пустое
-	if checkData.TaxationType != "" {
-		checkJSON["taxationType"] = checkData.TaxationType
-	}
-
-	jsonBytes, _ := json.Marshal(checkJSON)
-	return string(jsonBytes)
-}
-
-func sendComandeAndGetAnswerFromKKT(fptr consttypes.IFptr10Interface, comJson string) (string, error) {
-	var err error
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начало процедуры sendComandeAndGetAnswerFromKKT")
-	//return "", nil
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("отправка команды на кассу: %s", comJson)
-	fptr.SetParam(fptr10.LIBFPTR_PARAM_JSON_DATA, comJson)
-	//fptr.ValidateJson()
-	if !*emulation {
-		err = fptr.ProcessJson()
-	}
-	if err != nil {
-		if !*emulation {
-			desrError := fmt.Sprintf("ошибка (%v) выполнение команды %v на кассе", err, comJson)
-			logsmy.Logsmap[consttypes.LOGERROR].Println(desrError)
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("конец процедуры sendComandeAndGetAnswerFromKKT c ошибкой: %v", err)
-			return desrError, err
-		}
-	}
-	result := fptr.GetParamString(fptr10.LIBFPTR_PARAM_JSON_DATA)
-	if strings.Contains(result, "Нет связи") {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("нет связи: переподключаемся")
-		if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-			descrErr := fmt.Sprintf("ошибка соединения с кассовым аппаратом %v", typepodkluch)
-			fmt.Println(descrErr)
-			logsmy.Logsmap[consttypes.LOGERROR].Println(descrErr)
-			if !*emulation {
-				logsmy.LogginInFile(descrErr)
-				println("Нажмите любую клавишу...")
-				//input.Scan()
-				//logsmy.Logsmap[consttypes.LOGERROR].Panic(descrErr)
-			}
-		} else {
-			logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("подключение к кассе а порт %v прошло успешно", *comport)
-		}
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("конец процедуры sendComandeAndGetAnswerFromKKT без ошибки")
-	return result, nil
-} //sendComandeAndGetAnswerFromKKT
-
-func successCommand(resulJson string) bool {
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали проверку успешности выполнения команды")
-	res := true
-	indOsh := strings.Contains(resulJson, "ошибка")
-	indErr := strings.Contains(resulJson, "error")
-	if indErr || indOsh {
-		res = false
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили проверку успешности ыполнения команды")
-	return res
-} //successCommand
-
-func connectWithKassa(fptr consttypes.IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string) {
-	//if !strings.Contains(comport, "COM") {
-	//	sComPorta = "COM" + comport
-	//}
-	typeConnect := ""
-	fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_MODEL, strconv.Itoa(fptr10.LIBFPTR_MODEL_ATOL_AUTO))
-	if ipaddresssrvkktper != "" {
-		fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_REMOTE_SERVER_ADDR, ipaddresssrvkktper)
-		typeConnect = fmt.Sprintf("через сервер ККТ по IP %v", ipaddresssrvkktper)
-	}
-	if comportint == 0 {
-		if ipaddresskktper != "" {
-			fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_PORT, strconv.Itoa(fptr10.LIBFPTR_PORT_TCPIP))
-			fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_IPADDRESS, ipaddresskktper)
-			typeConnect = fmt.Sprintf("%v по IP %v ККТ на порт %v", typeConnect, ipaddresskktper, portkktper)
-			if portkktper != 0 {
-				fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_IPPORT, strconv.Itoa(portkktper))
-			}
-		} else {
-			fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_PORT, strconv.Itoa(fptr10.LIBFPTR_PORT_USB))
-			typeConnect = fmt.Sprintf("%v по USB", typeConnect)
-		}
-	} else {
-		sComPorta := "COM" + strconv.Itoa(comportint)
-		typeConnect = fmt.Sprintf("%v по COM порту %v", typeConnect, sComPorta)
-		fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_PORT, strconv.Itoa(fptr10.LIBFPTR_PORT_COM))
-		fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_COM_FILE, sComPorta)
-		fptr.SetSingleSetting(fptr10.LIBFPTR_SETTING_BAUDRATE, strconv.Itoa(fptr10.LIBFPTR_PORT_BR_115200))
-	}
-	fptr.ApplySingleSettings()
-	fptr.Open()
-	return fptr.IsOpened(), typeConnect
-}
-
-func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (bool, error) {
-	if fptr == nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Println("fptr is nil")
-		return false, fmt.Errorf("fptr is nil")
-	}
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("получаем статус ККТ")
-	fmt.Println("получаем статус ККТ")
-	getStatusKKTJson := "{\"type\": \"getDeviceStatus\"}"
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("отправляем команду getDeviceStatus")
-	resgetStatusKKT, err := sendComandeAndGetAnswerFromKKT(fptr, getStatusKKTJson)
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("получили результат отправки команды getDeviceStatus: %s", resgetStatusKKT)
-	if err != nil {
-		errorDescr := fmt.Sprintf("ошибка (%v) получения статуса кассы", err)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-		return false, err
-	}
-	fmt.Println("получили статус кассы")
-	if !successCommand(resgetStatusKKT) {
-		errorDescr := fmt.Sprintf("ошибка (%v) получения статуса кассы", resgetStatusKKT)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-		logsmy.LogginInFile(errorDescr)
-		return false, errors.New(errorDescr)
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("получили статус кассы")
-	//проверяем - открыта ли смена
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали распарсивание статуса кассы")
-	var answerOfGetStatusofShift consttypes.TAnswerGetStatusOfShift
-	err = json.Unmarshal([]byte(resgetStatusKKT), &answerOfGetStatusofShift)
-	if err != nil {
-		errorDescr := fmt.Sprintf("ошибка (%v) распарсивания статуса кассы", err)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-		return false, err
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили распарсивание статуса кассы")
-	if answerOfGetStatusofShift.ShiftStatus.State == "expired" {
-		errorDescr := "ошибка - смена на кассе уже истекла. Закройте смену"
-		logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-		return false, errors.New(errorDescr)
-	}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("проверяем - закрыта ли смена на кассе")
-	if answerOfGetStatusofShift.ShiftStatus.State == "closed" {
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("смена на кассе закрыта. Открываем смену")
-		if openShiftIfClose {
-			if kassir == "" {
-				errorDescr := "не указано имя кассира для открытия смены"
-				logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-				return false, errors.New(errorDescr)
-			}
-			jsonOpenShift := fmt.Sprintf("{\"type\": \"openShift\",\"operator\": {\"name\": \"%v\"}}", kassir)
-			resOpenShift, err := sendComandeAndGetAnswerFromKKT(fptr, jsonOpenShift)
-			if err != nil {
-				errorDescr := fmt.Sprintf("ошбика (%v) - не удалось открыть смену", err)
-				logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-				return false, errors.New(errorDescr)
-			}
-			if !successCommand(resOpenShift) {
-				errorDescr := fmt.Sprintf("ошбика (%v) - не удалось открыть смену", resOpenShift)
-				logsmy.Logsmap[consttypes.LOGERROR].Println(errorDescr)
-				return false, errors.New(errorDescr)
-			}
-		} else {
-			return false, nil
-		}
-	}
-	return true, nil
-} //checkOpenShift
-
-func closeShift(cashier string) (int, error) {
-	fptr, err := fptr10.NewSafe()
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка инициализации драйвера ККТ: %v", err))
-		return 0, fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
-	}
-	defer func() {
-		if fptr != nil {
-			logsmy.LogginInFile("выполняем освобождение ресурсов драйвера ККТ")
-			fptr.Destroy()
-			logsmy.LogginInFile("освобождение ресурсов драйвера ККТ выполнено")
-		}
-	}()
-
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
-		if !*emulation {
-			return 0, fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	defer func() {
-		if fptr != nil {
-			logsmy.LogginInFile("выполняем закрытие соединения с кассой")
-			fptr.Close()
-			logsmy.LogginInFile("закрытие соединения с кассой выполнено")
-		}
-	}()
-
-	closeShiftJSON := fmt.Sprintf(`{"type": "closeShift", "operator": {"name": "%s"}}`, cashier)
-	result, err := sendComandeAndGetAnswerFromKKT(fptr, closeShiftJSON)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка отправки команды закрытия смены: %v", err))
-		return 0, fmt.Errorf("ошибка отправки команды закрытия смены: %v", err)
-	}
-
-	if !successCommand(result) {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка закрытия смены: %v", result))
-		return 0, fmt.Errorf("ошибка закрытия смены: %v", result)
-	}
-
-	// Преобразуем result в структуру JSON
-	var resultJSON struct {
-		FiscalParams struct {
-			FiscalDocumentDateTime string `json:"fiscalDocumentDateTime"`
-			FiscalDocumentNumber   int    `json:"fiscalDocumentNumber"`
-			FiscalDocumentSign     string `json:"fiscalDocumentSign"`
-			FnNumber               string `json:"fnNumber"`
-			RegistrationNumber     string `json:"registrationNumber"`
-			ShiftNumber            int    `json:"shiftNumber"`
-			ReceiptsCount          int    `json:"receiptsCount"`
-			FnsUrl                 string `json:"fnsUrl"`
-		} `json:"fiscalParams"`
-		Warnings struct {
-			NotPrinted bool `json:"notPrinted"`
-		} `json:"warnings"`
-	}
-	err = json.Unmarshal([]byte(result), &resultJSON)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка при разборе JSON результата: %v", err))
-		if !*emulation {
-			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при разборе JSON результата: %v", err)
-			return 0, fmt.Errorf("ошибка при разборе JSON результата: %v", err)
-		} else {
-			resultJSON.FiscalParams.FiscalDocumentNumber = 123
-		}
-	}
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("смена закрыта успешно")
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Номер фискального документа: %d", resultJSON.FiscalParams.FiscalDocumentNumber)
-	return resultJSON.FiscalParams.FiscalDocumentNumber, nil
-}
-
-// Структура для хранения настроек
 type Settings struct {
 	ClearLogs     bool   `json:"clearlogs"`
 	Debug         int    `json:"debug"`
@@ -873,12 +167,10 @@ type Settings struct {
 
 var currentSettings models.Settings
 
-// Обработчик для получения текущих настроек
 func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(currentSettings)
 }
 
-// Обработчик для сохранения настроек
 func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -892,7 +184,6 @@ func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Обновляем глобальные переменные
 	*clearLogsProgramm = currentSettings.ClearLogs
 	*LogsDebugs = currentSettings.Debug
 	*comport = currentSettings.Com
@@ -902,8 +193,6 @@ func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	*ipaddressservrkkt = currentSettings.IpServKKT
 	*emulation = currentSettings.Emulation
 	*allowedOrigin = currentSettings.AllowedOrigin
-
-	// Здесь вы можете добавить логику для сохранения настроек в файл или базу данных
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
@@ -919,7 +208,6 @@ func restartServiceHandler(w http.ResponseWriter, r *http.Request) {
 	serviceName := "CloudPosBridge"
 
 	if runtime.GOOS == "windows" {
-		// Останавливаем службу
 		cmd = exec.Command("net", "stop", serviceName)
 		err := cmd.Run()
 		if err != nil {
@@ -929,7 +217,6 @@ func restartServiceHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Запускаем службу
 		cmd = exec.Command("net", "start", serviceName)
 		err = cmd.Run()
 		if err != nil {
@@ -939,7 +226,6 @@ func restartServiceHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// Для других ОС оставляем текущую реализацию
 		cmd = exec.Command("systemctl", "restart", serviceName+".service")
 		err := cmd.Run()
 		if err != nil {
@@ -1014,22 +300,6 @@ func main() {
 	}
 	fmt.Println("путь исполняемого файла:", execPath)
 	fmt.Println("начало работы программы")
-	fmt.Println("инициализация драйвера")
-	glFptrDriver, err = TFptr10Driver{}.NewSafe(nil)
-	if err != nil {
-		fmt.Printf("Не удалось создать экземпляр драйвера FPTR: %v", err)
-		return
-	}
-	fmt.Println("инициализация драйвера прошла успешно")
-	defer func() {
-		if glFptrDriver != nil {
-			fmt.Println("Выполняется Destroy()")
-			glFptrDriver.Destroy()
-			fmt.Println("Destroy() выполнен")
-		}
-	}()
-
-	fmt.Printf("Версия драйвера: %v\n", glFptrDriver.Version())
 	fmt.Println("инициализация директории для логов")
 	if err := consttypes.EnsureLogDirectoryExists(); err != nil {
 		fmt.Printf("Не удалось создать директорию для логов: %v", err)
@@ -1048,14 +318,10 @@ func main() {
 	logsmy.LogginInFile("Начало работы программы")
 	logsmy.LogginInFile(fmt.Sprintf("путь исполняемого файла: %v", execPath))
 	logsmy.LogginInFile(fmt.Sprintf("Версия программы: %v", Version_of_program))
-	logsmy.LogginInFile(fmt.Sprintf("версия драйвера: %v", glFptrDriver.Version()))
 	isService, err := svc.IsWindowsService()
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
 	}
-	//runServerTest()
-	//fmt.Println("завершение работы программы")
-	//return
 	if isService {
 		fmt.Println("запускаем службу")
 		runService(false)
@@ -1063,8 +329,6 @@ func main() {
 	}
 
 	fmt.Println("запускаем как обычное приложение")
-	// Запускаем как обычное приложение
-	fmt.Println("инициализация http сервера")
 	http.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "templates/settings.html")
 	})
@@ -1075,24 +339,19 @@ func main() {
 			saveSettingsHandler(w, r)
 		}
 	})
-	fmt.Println("инициализация http сервера прошла успешно")
 	http.HandleFunc("/api/restart", enableCORS(restartServiceHandler))
 	http.HandleFunc("/api/logpath", enableCORS(getLogPathHandler))
 	http.HandleFunc("/api/openlogs", enableCORS(openLogsHandler))
 
-	// Добавляем обработку статических файлов
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// Добавляем обработку статических файлов
 	fsjs := http.FileServer(http.Dir("static/js"))
 	http.Handle("/static/js/", http.StripPrefix("/static/js/", fsjs))
 
-	// Добавляем обработку статических файлов
 	fscss := http.FileServer(http.Dir("static/css"))
 	http.Handle("/static/css/", http.StripPrefix("/static/css/", fscss))
 
-	// Запускаем сервер в отдельной горутине
 	go func() {
 		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск веб-сервера на http://localhost:8080")
 		if err := http.ListenAndServe(":8080", nil); err != nil {
@@ -1100,17 +359,42 @@ func main() {
 		}
 	}()
 
-	// Даем серверу время на запуск
 	time.Sleep(100 * time.Millisecond)
 
-	// Открываем страницу настроек в браузере
 	url := "http://localhost:8080/settings"
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Открытие страницы настроек в браузере: %s", url)
 	if err := openBrowser(url); err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при открытии браузера: %v", err)
 	}
 
-	// Держим приложение запущенным
+	_, bErr := svc.IsWindowsService()
+	if bErr == nil {
+		fmt.Println("IsWindowsService()")
+	}
+	logsmy.LogginInFile("Начало работы программы")
+	logsmy.LogginInFile(fmt.Sprintf("путь исполняемого файла: %v", execPath))
+	logsmy.LogginInFile(fmt.Sprintf("Версия программы: %v", Version_of_program))
+
+	// Инициализируем драйвер ККТ через kktutils
+	glFptrDriver.NewSafe()
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("Не удалось инициализировать драйвер ККТ: %v", err)
+		return
+	} else {
+		defer glFptrDriver.Destroy() // Освобождаем ресурсы при завершении программы
+		logsmy.LogginInFile(fmt.Sprintf("версия драйвера: %v", glFptrDriver.Version()))
+	}
+
+	isService, err = svc.IsWindowsService()
+	if err != nil {
+		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
+	}
+	if isService {
+		fmt.Println("запускаем службу")
+		runService(false)
+		return
+	}
+
 	select {}
 }
 
@@ -1145,17 +429,13 @@ func runService(isDebug bool) {
 func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowedOrigins := []string{
-			//"https://188.225.31.209:8443",
 			"http://localhost:8080",
 			"http://localhost",
 			"http://localhost:8081",
 			"localhost:8081",
 		}
 
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Cors!!")
 		origin := r.Header.Get("Origin")
-		fmt.Println("origin:", origin)
-		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("origin!!", origin)
 		for _, allowed := range allowedOrigins {
 			if origin == allowed {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -1173,310 +453,4 @@ func enableCORS(next http.HandlerFunc) http.HandlerFunc {
 
 		next.ServeHTTP(w, r)
 	}
-}
-
-func runServerTest() error {
-	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer начала выполнение")
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServerTest начала выполнение: ", Version_of_program)
-	addr := ":8081"
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска TЕСТ HTTP сервера на %s", addr)
-	realPrinter := &TAbstractPrinter{}
-	xReportHandler := handleXReport(realPrinter)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/print-check", handlePrintCheck)
-	mux.HandleFunc("/api/close-shift", handleCloseShift)
-	mux.Handle("/api/x-report", xReportHandler)
-	mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик для внесения наличных
-	mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик для выплаты наличных
-	//безнал
-	mux.HandleFunc("/api/pay-many", habdlePayMany)
-	mux.HandleFunc("/api/return-many", habdleReturnMany)
-	mux.HandleFunc("/api/close-shift-terminal", habdleCloseShiftTerminal)
-
-	// Настройка CORS
-	c := cors.New(cors.Options{
-		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
-		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
-		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"localhost:8081"},
-		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"*"},
-		Debug:          true,
-		AllowOriginRequestFunc: func(r *http.Request, origin string) bool {
-			return true
-		},
-	})
-
-	handler := c.Handler(mux)
-
-	fmt.Printf("Сервер запущен ЕСТ на %v\n", addr)
-	err := http.ListenAndServe(addr, handler)
-	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
-		return err
-	}
-
-	//http.HandleFunc("/api/print-check", handlePrintCheck)
-	//http.HandleFunc("/api/close-shift", handleCloseShift)
-	//http.HandleFunc("/api/x-report", xReportHandler)
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Начало прослушивания HTTP соединений")
-	//err := http.ListenAndServe(addr, nil)
-	//if err != nil {
-	//	logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске HTTP сервера: %v", err)
-	//	return err
-	//}
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Функция runServer завершила выполнение")
-	return nil
-}
-
-// Функция внесения наличных
-func cashInOut(cashier string, cashSum float64, cashIn bool) error {
-	strOperation := "внесение"
-	if !cashIn {
-		strOperation = "выплата"
-	}
-	fptr, err := fptr10.NewSafe()
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка инициализации драйвера ККТ: %v", err))
-		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
-	}
-	defer func() {
-		if fptr != nil {
-			logsmy.LogginInFile("выполняем освобождение ресурсов драйвера ККТ")
-			fptr.Destroy()
-			logsmy.LogginInFile("освобождение ресурсов драйвера ККТ выполнено")
-		}
-	}()
-
-	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
-		if !*emulation {
-			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
-		}
-	}
-	defer func() {
-		if fptr != nil {
-			logsmy.LogginInFile("выполняем закрытие соединения с кассой")
-			fptr.Close()
-			logsmy.LogginInFile("закрытие соединения с кассой выполнено")
-		}
-	}()
-
-	strCashIn := "cashIn"
-	if !cashIn {
-		strCashIn = "cashOut"
-	}
-	cashInJSON := fmt.Sprintf(`{"type": %s, "operator": {"name": "%s"}, "cashSum": %.2f}`, strCashIn, cashier, cashSum)
-	result, err := sendComandeAndGetAnswerFromKKT(fptr, cashInJSON)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка отправки команды %s наличных: %v", strOperation, err))
-		return fmt.Errorf("ошибка отправки команды %s наличных: %v", strOperation, err)
-	}
-
-	if !successCommand(result) {
-		logsmy.LogginInFile(fmt.Sprintf("ошибка %s наличных: %v", strOperation, result))
-		return fmt.Errorf("ошибка %s наличных: %v", strOperation, result)
-	}
-
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("%s наличных выполнено успешно: %.2f", strOperation, cashSum)
-	return nil
-}
-
-// Обработчик для внесения наличных
-func handleCashIn(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды внесения наличных. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Cashier string  `json:"cashier"`
-		CashSum float64 `json:"cashSum"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали внесение наличных. Кассир: %s, Сумма: %.2f", requestData.Cashier, requestData.CashSum))
-	cashIn := true
-	err := cashInOut(requestData.Cashier, requestData.CashSum, cashIn)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при внесении наличных: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка внесения наличных: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("завершили внесение наличных"))
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Наличные успешно внесены"})
-}
-
-// Обработчик для выплаты наличных
-func handleCashOut(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды выплаты наличных. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Cashier string  `json:"cashier"`
-		CashSum float64 `json:"cashSum"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали выплату наличных. Кассир: %s, Сумма: %.2f", requestData.Cashier, requestData.CashSum))
-	cashIn := false
-	err := cashInOut(requestData.Cashier, requestData.CashSum, cashIn)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при выплате наличных: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка выплаты наличных: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("завершили выплату наличных"))
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Наличные успешно выплачены"})
-}
-
-func handlePrintSlip(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали печати текста. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Receipt string `json:"receipt"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали печать текста. Чек: %s", requestData.Receipt))
-	realPrinter := &TAbstractPrinter{}
-	err := realPrinter.PrintSlip(glFptrDriver, requestData.Receipt)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при печати текста: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка при печати текста: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("завершили печать текста"))
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Текста успешно распечатан"})
-}
-
-// обработчик безнальной оплаты
-func handlePayMany(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение оплаты по терминалу. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Amount int `json:"amount"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали оплату по безналу на сумму %.2f", requestData.Amount/100))
-
-	receipt, err := beznal.PayMoney(requestData.Amount)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при оплате по безналу: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка при оплате по безналу: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("Опалта по безналу прошла удачно"))
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Опалта по безналу прошла удачно",
-		"slip":    receipt,
-	})
-}
-
-func handleReturnMany(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение возврата по терминалу. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestData struct {
-		Amount int `json:"amount"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
-		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали возврата по безналу на сумму %.2f", requestData.Amount/100))
-
-	receipt, err := beznal.ReturnMoney(requestData.Amount)
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при возрате на карту по терминалу: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка при возрате на карту по терминалу: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("Возврат по безналу прошол удачно"))
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Возврат по безналу прошол удачно",
-		"slip":    receipt,
-	})
-}
-
-func handleCloseShiftTerminal(w http.ResponseWriter, r *http.Request) {
-	logsmy.LogginInFile(fmt.Sprintf("начали выполнение закрытия смены по терминалу. Версия: %s", Version_of_program))
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("начали закрытие смены по терминалу"))
-
-	receipt, err := beznal.CloseShiftTerminal()
-	if err != nil {
-		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии смены по терминалу: %v", err))
-		http.Error(w, fmt.Sprintf("Ошибка при закрытии смены по терминалу: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	logsmy.LogginInFile(fmt.Sprintf("Закрытие смены по терминалу прошло удачно"))
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "success",
-		"message": "Закрытие смены по терминалу прошло удачно",
-		"slip":    receipt,
-	})
 }

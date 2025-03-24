@@ -131,6 +131,10 @@
                     if (response.data.fiscalDocumentNumber) {
                         detailsElement.textContent = `Фискальный номер документа: ${response.data.fiscalDocumentNumber}`;
                     }
+
+                    if (response.data.slip) {
+                        detailsElement.textContent += `, Банковский лип: ${response.data.slip}`;
+                    }
                     
                     resultElement.appendChild(detailsElement);
                 }

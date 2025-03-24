@@ -22,6 +22,16 @@ func (m *TTestMockPrinter) PrintXReport(consttypes.IFptr10Interface) error {
 	return args.Error(0)
 }
 
+func (m *TTestMockPrinter) PrintSlip(consttypes.IFptr10Interface, string) error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *TTestMockPrinter) PrintText(consttypes.IFptr10Interface, string) error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 type TTestMockFptr struct {
 	mock.Mock
 }

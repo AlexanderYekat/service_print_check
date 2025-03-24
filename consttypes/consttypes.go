@@ -180,11 +180,14 @@ type IFptr10Interface interface {
 	ProcessJson() error
 	GetParamString(name int) string
 	SetParam(int32, interface{})
+	PrintText() error
 	Version() string
 }
 
 type IAbstractPrinter interface {
 	PrintXReport(fptr IFptr10Interface) error
+	PrintSlip(fptr IFptr10Interface, slip string) error
+	PrintText(fptr IFptr10Interface, text string) error
 }
 
 // Добавим функцию для создания директории логов, если она не существует

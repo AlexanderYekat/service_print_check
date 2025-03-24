@@ -86,6 +86,74 @@ type TAbstractPrinter struct{}
 
 var glFptrDriver consttypes.IFptr10Interface
 
+// PrintSlip печатает банковский слип или другой текст в формате JSON
+func (moduleFPRT TAbstractPrinter) PrintSlip(fptr consttypes.IFptr10Interface, slip string) error {
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		if !*emulation {
+			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
+	}
+	defer fptr.Close()
+
+	// Формируем JSON для печати слипа
+	lines := strings.Split(slip, "\n")
+	items := make([]map[string]string, 0)
+	
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			items = append(items, map[string]string{
+				"type":      "text",
+				"text":      line,
+				"alignment": "left", // Выравнивание по левому краю для основного интерфейса
+			})
+		}
+	}
+	
+	slipData := map[string]interface{}{
+		"type":  "nonFiscal",
+		"items": items,
+	}
+	
+	slipJSON, err := json.Marshal(slipData)
+	if err != nil {
+		return fmt.Errorf("ошибка формирования JSON для печати слипа: %v", err)
+	}
+	
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("печать слипа на ККТ")
+	result, err := sendComandeAndGetAnswerFromKKT(fptr, string(slipJSON))
+	if err != nil {
+		return fmt.Errorf("ошибка печати слипа на ККТ: %v", err)
+	}
+
+	if !successCommand(result) {
+		return fmt.Errorf("ошибка печати слипа на ККТ: %v", result)
+	}
+
+	return nil
+}
+
+func (moduleFPRT TAbstractPrinter) PrintText(fptr consttypes.IFptr10Interface, text string) error {
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("подключение к кассе")
+	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
+		if !*emulation {
+			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+		}
+	}
+	defer fptr.Close()
+
+	// Формируем JSON для печати слипа
+	fptr.SetParam(fptr10.LIBFPTR_PARAM_TEXT, text)
+	err := fptr.PrintText()
+
+	if err != nil {
+		return fmt.Errorf("ошибка печати слипа на ККТ: %v", err)
+	}
+
+	return nil
+	//return printXReport(fptr10Module) // Вызов вашей существующей функции
+}
+
 func (moduleFPRT TAbstractPrinter) PrintXReport(fptr consttypes.IFptr10Interface) error {
 	//logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("инициализация драйвера ККТ")
 	//if err != nil {
@@ -207,6 +275,12 @@ func runServer() error {
 	mux.Handle("/api/x-report", xReportHandler)
 	mux.HandleFunc("/api/cash-in", handleCashIn)   // Новый обработчик для внесения наличных
 	mux.HandleFunc("/api/cash-out", handleCashOut) // Новый обработчик для выплаты наличных
+	//печать текста, например слипа
+	mux.HandleFunc("/api/print-slip", handlePrintSlip)
+	//безнал
+	mux.HandleFunc("/api/pay-many", handlePayMany)
+	mux.HandleFunc("/api/return-many", handleReturnMany)
+	mux.HandleFunc("/api/close-shift-terminal", handleCloseShiftTerminal)
 
 	// Создаем обработчик веб-сокетов
 	wsHandler := mywebsocket.NewHandler(
@@ -332,16 +406,20 @@ func handleCloseShift(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logsmy.LogginInFile(fmt.Sprintf("начали выполнение команды закрытия смены. Кассир: %s", requestData.Cashier))
-	err := closeShift(requestData.Cashier)
+	fiscalDocumentNumber, err := closeShift(requestData.Cashier)
 	if err != nil {
 		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии смены: %v", err))
 		http.Error(w, fmt.Sprintf("Ошибка закрытия смены: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	logsmy.LogginInFile(fmt.Sprintf("завершили выполнение команды закрытия смены"))
+	logsmy.LogginInFile(fmt.Sprintf("завершили выполнение команды закрытия смены. Номер фискального документа: %d", fiscalDocumentNumber))
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Смена успешно закрыта"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Смена успешно закрыта",
+		"fdn":     fiscalDocumentNumber,
+	})
 }
 
 // handleXReport is an HTTP handler function that prints an X-report.
@@ -438,7 +516,19 @@ func printCheck(checkData models.CheckData) (int, error) {
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("начали преобразование результата отправки команды печати чека в структуру JSON")
 	// Преобразуем result в структуру JSON
 	var resultJSON struct {
-		FiscalDocumentNumber int `json:"fiscalDocumentNumber"`
+		FiscalParams struct {
+			FiscalDocumentDateTime string `json:"fiscalDocumentDateTime"`
+			FiscalDocumentNumber   int    `json:"fiscalDocumentNumber"`
+			FiscalDocumentSign     string `json:"fiscalDocumentSign"`
+			FnNumber               string `json:"fnNumber"`
+			RegistrationNumber     string `json:"registrationNumber"`
+			ShiftNumber            int    `json:"shiftNumber"`
+			ReceiptsCount          int    `json:"receiptsCount"`
+			FnsUrl                 string `json:"fnsUrl"`
+		} `json:"fiscalParams"`
+		Warnings struct {
+			NotPrinted bool `json:"notPrinted"`
+		} `json:"warnings"`
 	}
 	err = json.Unmarshal([]byte(result), &resultJSON)
 	if err != nil {
@@ -447,14 +537,14 @@ func printCheck(checkData models.CheckData) (int, error) {
 			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при разборе JSON результата: %v", err)
 			return 0, fmt.Errorf("ошибка при разборе JSON результата: %v", err)
 		} else {
-			resultJSON.FiscalDocumentNumber = 123
+			resultJSON.FiscalParams.FiscalDocumentNumber = 123
 		}
 	}
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("завершили преобразование результата отправки команды печати чека в структуру JSON")
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Номер фискального документа: %d", resultJSON.FiscalDocumentNumber)
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Номер фискального документа: %d", resultJSON.FiscalParams.FiscalDocumentNumber)
 
-	fmt.Println("Номер фискального документа:", resultJSON.FiscalDocumentNumber)
-	return resultJSON.FiscalDocumentNumber, nil
+	fmt.Println("Номер фискального документа:", resultJSON.FiscalParams.FiscalDocumentNumber)
+	return resultJSON.FiscalParams.FiscalDocumentNumber, nil
 }
 
 func formatCheckJSON(checkData models.CheckData) string {
@@ -696,11 +786,11 @@ func checkOpenShift(fptr *fptr10.IFptr, openShiftIfClose bool, kassir string) (b
 	return true, nil
 } //checkOpenShift
 
-func closeShift(cashier string) error {
+func closeShift(cashier string) (int, error) {
 	fptr, err := fptr10.NewSafe()
 	if err != nil {
 		logsmy.LogginInFile(fmt.Sprintf("ошибка инициализации драйвера ККТ: %v", err))
-		return fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+		return 0, fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
 	}
 	defer func() {
 		if fptr != nil {
@@ -713,7 +803,7 @@ func closeShift(cashier string) error {
 	if ok, typepodkluch := connectWithKassa(fptr, *comport, *ipaddresskkt, *portkktatol, *ipaddressservrkkt); !ok {
 		logsmy.LogginInFile(fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
 		if !*emulation {
-			return fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
+			return 0, fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
 		}
 	}
 	defer func() {
@@ -728,16 +818,44 @@ func closeShift(cashier string) error {
 	result, err := sendComandeAndGetAnswerFromKKT(fptr, closeShiftJSON)
 	if err != nil {
 		logsmy.LogginInFile(fmt.Sprintf("ошибка отправки команды закрытия смены: %v", err))
-		return fmt.Errorf("ошибка отправки команды закрытия смены: %v", err)
+		return 0, fmt.Errorf("ошибка отправки команды закрытия смены: %v", err)
 	}
 
 	if !successCommand(result) {
 		logsmy.LogginInFile(fmt.Sprintf("ошибка закрытия смены: %v", result))
-		return fmt.Errorf("ошибка закрытия смены: %v", result)
+		return 0, fmt.Errorf("ошибка закрытия смены: %v", result)
+	}
+
+	// Преобразуем result в структуру JSON
+	var resultJSON struct {
+		FiscalParams struct {
+			FiscalDocumentDateTime string `json:"fiscalDocumentDateTime"`
+			FiscalDocumentNumber   int    `json:"fiscalDocumentNumber"`
+			FiscalDocumentSign     string `json:"fiscalDocumentSign"`
+			FnNumber               string `json:"fnNumber"`
+			RegistrationNumber     string `json:"registrationNumber"`
+			ShiftNumber            int    `json:"shiftNumber"`
+			ReceiptsCount          int    `json:"receiptsCount"`
+			FnsUrl                 string `json:"fnsUrl"`
+		} `json:"fiscalParams"`
+		Warnings struct {
+			NotPrinted bool `json:"notPrinted"`
+		} `json:"warnings"`
+	}
+	err = json.Unmarshal([]byte(result), &resultJSON)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("ошибка при разборе JSON результата: %v", err))
+		if !*emulation {
+			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при разборе JSON результата: %v", err)
+			return 0, fmt.Errorf("ошибка при разборе JSON результата: %v", err)
+		} else {
+			resultJSON.FiscalParams.FiscalDocumentNumber = 123
+		}
 	}
 
 	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("смена закрыта успешно")
-	return nil
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Номер фискального документа: %d", resultJSON.FiscalParams.FiscalDocumentNumber)
+	return resultJSON.FiscalParams.FiscalDocumentNumber, nil
 }
 
 // Структура для хранения настроек
@@ -1233,8 +1351,39 @@ func handleCashOut(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Наличные успешно выплачены"})
 }
 
+func handlePrintSlip(w http.ResponseWriter, r *http.Request) {
+	logsmy.LogginInFile(fmt.Sprintf("начали печати текста. Версия: %s", Version_of_program))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Receipt string `json:"receipt"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка разбора JSON: %v", err))
+		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("начали печать текста. Чек: %s", requestData.Receipt))
+	realPrinter := &TAbstractPrinter{}
+	err := realPrinter.PrintSlip(glFptrDriver, requestData.Receipt)
+	if err != nil {
+		logsmy.LogginInFile(fmt.Sprintf("Ошибка при печати текста: %v", err))
+		http.Error(w, fmt.Sprintf("Ошибка при печати текста: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logsmy.LogginInFile(fmt.Sprintf("завершили печать текста"))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Текста успешно распечатан"})
+}
+
 // обработчик безнальной оплаты
-func habdlePayMany(w http.ResponseWriter, r *http.Request) {
+func handlePayMany(w http.ResponseWriter, r *http.Request) {
 	logsmy.LogginInFile(fmt.Sprintf("начали выполнение оплаты по терминалу. Версия: %s", Version_of_program))
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -1270,7 +1419,7 @@ func habdlePayMany(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func habdleReturnMany(w http.ResponseWriter, r *http.Request) {
+func handleReturnMany(w http.ResponseWriter, r *http.Request) {
 	logsmy.LogginInFile(fmt.Sprintf("начали выполнение возврата по терминалу. Версия: %s", Version_of_program))
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -1306,7 +1455,7 @@ func habdleReturnMany(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func habdleCloseShiftTerminal(w http.ResponseWriter, r *http.Request) {
+func handleCloseShiftTerminal(w http.ResponseWriter, r *http.Request) {
 	logsmy.LogginInFile(fmt.Sprintf("начали выполнение закрытия смены по терминалу. Версия: %s", Version_of_program))
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)

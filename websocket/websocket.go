@@ -18,6 +18,8 @@ import (
 // TAbstractPrinter представляет интерфейс для печати отчетов
 type TAbstractPrinter interface {
 	PrintXReport(fptr consttypes.IFptr10Interface) error
+	PrintSlip(fptr consttypes.IFptr10Interface, slip string) error
+	PrintText(fptr consttypes.IFptr10Interface, text string) error
 }
 
 var upgrader = websocket.Upgrader{
@@ -49,7 +51,7 @@ type Handler struct {
 	ipaddressservrkkt              *string
 	emulation                      *bool
 	formatCheckJSON                func(checkData models.CheckData) string
-	closeShift                     func(cashier string) error
+	closeShift                     func(cashier string) (int, error)
 	connectWithKassa               func(fptr consttypes.IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string)
 	sendComandeAndGetAnswerFromKKT func(fptr consttypes.IFptr10Interface, comJson string) (string, error)
 	successCommand                 func(resulJson string) bool
@@ -66,7 +68,7 @@ func NewHandler(
 	ipaddressservrkkt *string,
 	emulation *bool,
 	formatCheckJSON func(checkData models.CheckData) string,
-	closeShift func(cashier string) error,
+	closeShift func(cashier string) (int, error),
 	connectWithKassa func(fptr consttypes.IFptr10Interface, comportint int, ipaddresskktper string, portkktper int, ipaddresssrvkktper string) (bool, string),
 	sendComandeAndGetAnswerFromKKT func(fptr consttypes.IFptr10Interface, comJson string) (string, error),
 	successCommand func(resulJson string) bool,
@@ -131,7 +133,7 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case "returnMany":
 			h.handleWSReturnMany(conn, wsMsg.Data)
 		case "closeShiftTerminal":
-			h.handleWSCloseShiftTerminal(conn, wsMsg.Data)
+			h.handleWSCloseShiftTerminal(conn)
 		default:
 			h.sendWSError(conn, fmt.Sprintf("Неизвестная команда: %s", wsMsg.Command))
 		}
@@ -187,19 +189,21 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 
 	// Парсим результат и получаем fiscalDocumentNumber
 	var resultJSON struct {
-		FiscalDocumentNumber int `json:"fiscalDocumentNumber"`
+		FiscalParams struct {
+			FiscalDocumentNumber int `json:"fiscalDocumentNumber"`
+		} `json:"fiscalParams"`
 	}
 	if err := json.Unmarshal([]byte(result), &resultJSON); err != nil {
 		if !*h.emulation {
 			h.sendWSError(conn, fmt.Sprintf("Ошибка при разборе JSON результата: %v", err))
 			return
 		} else {
-			resultJSON.FiscalDocumentNumber = 123
+			resultJSON.FiscalParams.FiscalDocumentNumber = 123
 		}
 	}
 
 	h.sendWSResponse(conn, "success", "Чек успешно напечатан", map[string]interface{}{
-		"fiscalDocumentNumber": resultJSON.FiscalDocumentNumber,
+		"fiscalDocumentNumber": resultJSON.FiscalParams.FiscalDocumentNumber,
 	})
 }
 
@@ -210,12 +214,15 @@ func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) 
 		return
 	}
 
-	if err := h.closeShift(cashier); err != nil {
+	fiscalDocumentNumber, err := h.closeShift(cashier)
+	if err != nil {
 		h.sendWSError(conn, fmt.Sprintf("Ошибка при закрытии смены: %v", err))
 		return
 	}
 
-	h.sendWSResponse(conn, "success", "Смена успешно закрыта", nil)
+	h.sendWSResponse(conn, "success", "Смена успешно закрыта", map[string]interface{}{
+		"fiscalDocumentNumber": fiscalDocumentNumber,
+	})
 }
 
 func (h *Handler) handleWSXReport(conn *websocket.Conn) {
@@ -354,13 +361,25 @@ func (h *Handler) handleWSReturnMany(conn *websocket.Conn, data map[string]any) 
 	})
 }
 
-func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn, data map[string]any) {
+func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn) {
 
 	receipt, err := beznal.CloseShiftTerminal()
 	if err != nil {
 		logsmy.LogginInFile(fmt.Sprintf("Ошибка при закрытии банковской смены: %v", err))
 		h.sendWSError(conn, fmt.Sprintf("Ошибка при закрытии банковской смены: %v", err))
 		return
+	}
+
+	// Печатаем слип, если он есть
+	if receipt != "" {
+		// Используем имеющийся экземпляр принтера
+		if err := h.printer.PrintSlip(h.glFptrDriver, receipt); err != nil {
+			logsmy.LogginInFile(fmt.Sprintf("Ошибка при печати банковского слипа: %v", err))
+			h.sendWSError(conn, fmt.Sprintf("Ошибка при печати банковского слипа: %v", err))
+			return
+		}
+
+		logsmy.LogginInFile("Банковский слип успешно напечатан")
 	}
 
 	h.sendWSResponse(conn, "success", "Банковская смена успешно закрыта", map[string]interface{}{

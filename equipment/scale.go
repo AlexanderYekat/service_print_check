@@ -7,8 +7,8 @@ import (
 	"github.com/go-ole/go-ole/oleutil"
 )
 
-// PayMoney выполняет оплату по безналу
-func GetWeight() (string, error) {
+// GetWeight получает вес
+func GetWeight(comPort int) (string, error) {
 	ole.CoInitialize(0)
 	defer ole.CoUninitialize()
 
@@ -24,7 +24,7 @@ func GetWeight() (string, error) {
 	}
 	defer scale.Release()
 
-	_, err = oleutil.PutProperty(scale, "PortNumber", 1)
+	_, err = oleutil.PutProperty(scale, "PortNumber", comPort)
 	if err != nil {
 		return "", fmt.Errorf("error setting PortNumber property: %v", err)
 	}

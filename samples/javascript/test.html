@@ -364,7 +364,10 @@
             }
 
             const getWeightData = {
-                command: 'getWeight'
+                command: 'getWeight',
+                data: {
+                    com: '1'
+                }
             };
 
             socket.send(JSON.stringify(getWeightData));

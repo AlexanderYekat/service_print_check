@@ -34,7 +34,7 @@ var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервер
 var emulation = flag.Bool("emul", false, "эмуляция")
 var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-const Version_of_program = "2025_03_24_08"
+const Version_of_program = "2025_03_24_09"
 
 var glFptrDriver kktutils.TFptr10Driver
 

@@ -143,7 +143,7 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		case "printText":
 			h.handleWSPrintText(conn, wsMsg.Data)
 		case "getWeight":
-			h.handleWSGetWeight(conn)
+			h.handleWSGetWeight(conn, wsMsg.Data)
 		default:
 			h.sendWSError(conn, fmt.Sprintf("Неизвестная команда: %s", wsMsg.Command))
 		}
@@ -465,8 +465,19 @@ func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn) {
 	})
 }
 
-func (h *Handler) handleWSGetWeight(conn *websocket.Conn) {
-	weight, err := equipment.GetWeight()
+func (h *Handler) handleWSGetWeight(conn *websocket.Conn, data map[string]interface{}) {
+	comPortInt := 1
+	comPort, ok := data["com"].(string)
+	if ok {
+		var err error
+		comPortInt, err = strconv.Atoi(comPort)
+		if err != nil {
+			h.sendWSError(conn, fmt.Sprintf("ошибка: не удалось преобразовать COM-порт в число: %v", err))
+			return
+		}
+	}
+
+	weight, err := equipment.GetWeight(comPortInt)
 	if err != nil {
 		h.sendWSError(conn, fmt.Sprintf("ошибка: ошибка при получении веса: %v", err))
 		return

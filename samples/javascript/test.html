@@ -87,6 +87,7 @@
     <button class="button" onclick="returnMany()">Возврат по безналу</button>
     <button class="button" onclick="closeShiftTerminal()">Закрыть банковскую смену</button>
     <button class="button" onclick="printSlip()">Печать банковского слипа</button>
+    <button class="button" onclick="getWeight()">Получить вес</button>
 
     <div id="result" class="result"></div>
 
@@ -158,6 +159,14 @@
 
                     if (response.data.slip) {
                         detailsElement.textContent += `, Банковский лип: ${response.data.slip}`;
+                    }
+                    
+                    if (response.data.weight) {
+                        // Если текст уже есть, добавляем запятую
+                        if (detailsElement.textContent) {
+                            detailsElement.textContent += `, `;
+                        }
+                        detailsElement.textContent += `Вес: ${response.data.weight}`;
                     }
                     
                     resultElement.appendChild(detailsElement);
@@ -346,6 +355,19 @@
             };
         
             socket.send(JSON.stringify(data));
+        }
+
+        function getWeight() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+
+            const getWeightData = {
+                command: 'getWeight'
+            };
+
+            socket.send(JSON.stringify(getWeightData));
         }
     </script>
 </body>

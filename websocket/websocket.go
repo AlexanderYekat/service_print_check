@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"service_print_check/beznal"
 	consttypes "service_print_check/consttypes"
+	"service_print_check/equipment"
 	fptr10 "service_print_check/fptr"
 	"service_print_check/kktutils"
 	"service_print_check/models"
@@ -95,8 +95,8 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Отправляем версию программы клиенту при подключении
 	h.sendWSResponse(conn, "version", "", map[string]interface{}{
-		"version":    h.version,
-		"emulation":  *h.emulation,
+		"version":   h.version,
+		"emulation": *h.emulation,
 	})
 
 	for {
@@ -142,6 +142,8 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			h.handleWSPrintSlip(conn, wsMsg.Data)
 		case "printText":
 			h.handleWSPrintText(conn, wsMsg.Data)
+		case "getWeight":
+			h.handleWSGetWeight(conn)
 		default:
 			h.sendWSError(conn, fmt.Sprintf("Неизвестная команда: %s", wsMsg.Command))
 		}
@@ -155,14 +157,14 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 		Result:           &checkData,
 	})
 	if err != nil {
-		err := fmt.Errorf("Ошибка при создании декодера: %v", err)
+		err := fmt.Errorf("ошибка при создании декодера: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if err := decoder.Decode(data); err != nil {
-		err := fmt.Errorf("Ошибка при разборе данных чека: %v", err)
+		err := fmt.Errorf("ошибка при разборе данных чека: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -170,13 +172,13 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 
 	// Проверяем обязательные поля
 	if checkData.Cashier == "" {
-		err := fmt.Errorf("Не указано имя кассира")
+		err := fmt.Errorf("не указано имя кассира")
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 	if len(checkData.TableData) == 0 {
-		err := fmt.Errorf("Отсутствуют позиции в чеке")
+		err := fmt.Errorf("отсутствуют позиции в чеке")
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -187,7 +189,7 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 
 	fptr, err := h.GetDriver()
 	if err != nil {
-		err := fmt.Errorf("Ошибка при инициализации драйвера ККТ: %v", err)
+		err := fmt.Errorf("ошибка при инициализации драйвера ККТ: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -195,7 +197,7 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 
 	// Подключаемся к кассе
 	if ok, typepodkluch := kktutils.ConnectWithKassa(fptr, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
-		err := fmt.Errorf("Ошибка подключения к кассе: %v", typepodkluch)
+		err := fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -206,14 +208,14 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 	// Печатаем чек
 	result, err := kktutils.SendCommandAndGetAnswerFromKKT(fptr, checkJSON, *h.emulation)
 	if err != nil {
-		err := fmt.Errorf("Ошибка при печати чека: %v", err)
+		err := fmt.Errorf("ошибка при печати чека: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if !kktutils.SuccessCommand(result) {
-		err := fmt.Errorf("Ошибка при печати чека: %v", result)
+		err := fmt.Errorf("ошибка при печати чека: %v", result)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -227,7 +229,7 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 	}
 	if err := json.Unmarshal([]byte(result), &resultJSON); err != nil {
 		if !*h.emulation {
-			err := fmt.Errorf("Ошибка при разборе JSON результата: %v", err)
+			err := fmt.Errorf("ошибка при разборе JSON результата: %v", err)
 			logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 			h.sendWSError(conn, err.Error())
 			return
@@ -244,13 +246,13 @@ func (h *Handler) handleWSPrintCheck(conn *websocket.Conn, data map[string]any) 
 func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) {
 	cashier, ok := data["cashier"].(string)
 	if !ok {
-		h.sendWSError(conn, "Не указано имя кассира")
+		h.sendWSError(conn, "не указано имя кассира")
 		return
 	}
 
 	fptr, err := h.GetDriver()
 	if err != nil {
-		err := fmt.Errorf("Ошибка при инициализации драйвера ККТ: %v", err)
+		err := fmt.Errorf("ошибка при инициализации драйвера ККТ: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -259,7 +261,7 @@ func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) 
 
 	// Подключаемся к кассе
 	if ok, typepodkluch := kktutils.ConnectWithKassa(fptr, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
-		err := fmt.Errorf("Ошибка подключения к кассе: %v", typepodkluch)
+		err := fmt.Errorf("ошибка подключения к кассе: %v", typepodkluch)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -268,7 +270,7 @@ func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) 
 	// Закрываем смену
 	fiscalDocumentNumber, err := kktutils.CloseShift(fptr, cashier, *h.emulation)
 	if err != nil {
-		err := fmt.Errorf("Ошибка при закрытии смены: %v", err)
+		err := fmt.Errorf("ошибка при закрытии смены: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -282,11 +284,11 @@ func (h *Handler) handleWSCloseShift(conn *websocket.Conn, data map[string]any) 
 func (h *Handler) handleWSXReport(conn *websocket.Conn) {
 	fptr, err := h.GetDriver()
 	if err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при инициализации драйвера ККТ: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("ошибка при инициализации драйвера ККТ: %v", err))
 		return
 	}
 	if err := h.printer.PrintXReport(fptr); err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при печати X-отчета: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("ошибка при печати X-отчета: %v", err))
 		return
 	}
 
@@ -296,13 +298,13 @@ func (h *Handler) handleWSXReport(conn *websocket.Conn) {
 func (h *Handler) handleWSCashInOut(conn *websocket.Conn, data map[string]any, cashIn bool) {
 	cashier, ok := data["cashier"].(string)
 	if !ok || cashier == "" {
-		h.sendWSError(conn, "Не указано имя кассира")
+		h.sendWSError(conn, "не указано имя кассира")
 		return
 	}
 
 	cashSumInterface, ok := data["cashSum"]
 	if !ok {
-		h.sendWSError(conn, "Не указана сумма внесения")
+		h.sendWSError(conn, "не указана сумма внесения")
 		return
 	}
 
@@ -316,31 +318,31 @@ func (h *Handler) handleWSCashInOut(conn *websocket.Conn, data map[string]any, c
 		var err error
 		cashSum, err = strconv.ParseFloat(v, 64)
 		if err != nil {
-			h.sendWSError(conn, fmt.Sprintf("Ошибка при преобразовании суммы: %v", err))
+			h.sendWSError(conn, fmt.Sprintf("ошибка при преобразовании суммы: %v", err))
 			return
 		}
 	default:
-		h.sendWSError(conn, "Некорректный формат суммы")
+		h.sendWSError(conn, "ошибка: некорректный формат суммы")
 		return
 	}
 
 	fptr, err := h.GetDriver()
 	if err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при инициализации драйвера ККТ: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("ошибка при инициализации драйвера ККТ: %v", err))
 		return
 	}
 	defer kktutils.CloseKassa(fptr)
 
 	// Подключаемся к кассе
 	if ok, typepodkluch := kktutils.ConnectWithKassa(fptr, *h.comport, *h.ipaddresskkt, *h.portkktatol, *h.ipaddressservrkkt); !ok {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка подключения к кассе: %v", typepodkluch))
+		h.sendWSError(conn, fmt.Sprintf("ошибка подключения к кассе: %v", typepodkluch))
 		return
 	}
 
 	// Выполняем операцию
 	err = kktutils.CashInOut(fptr, cashier, cashSum, cashIn, *h.emulation)
 	if err != nil {
-		h.sendWSError(conn, fmt.Sprintf("Ошибка при внесении/выплате наличных: %v", err))
+		h.sendWSError(conn, fmt.Sprintf("ошибка при внесении/выплате наличных: %v", err))
 		return
 	}
 
@@ -362,32 +364,32 @@ func (h *Handler) handleWSPayMany(conn *websocket.Conn, data map[string]any) {
 		var err error
 		amount, err = strconv.Atoi(v)
 		if err != nil {
-			h.sendWSError(conn, fmt.Sprintf("Не удалось преобразовать строку в число: %v", err))
+			h.sendWSError(conn, fmt.Sprintf("ошибка: не удалось преобразовать строку в число: %v", err))
 			return
 		}
 	case map[string]interface{}:
 		// Это для отладки - выведем информацию о том, что приходит в данном случае
-		err := fmt.Errorf("Получен объект вместо числа: %v", v)
+		err := fmt.Errorf("ошибка: получен объект вместо числа: %v", v)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	default:
-		err := fmt.Errorf("Неподдерживаемый тип данных для суммы: %T", v)
+		err := fmt.Errorf("ошибка: неподдерживаемый тип данных для суммы: %T", v)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if amount == 0 {
-		err := fmt.Errorf("Сумма платежа не может быть 0")
+		err := fmt.Errorf("ошибка: сумма платежа не может быть 0")
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 
-	receipt, err := beznal.PayMoney(amount)
+	receipt, err := equipment.PayMoney(amount)
 	if err != nil {
-		err := fmt.Errorf("Ошибка при оплате по безналу: %v", err)
+		err := fmt.Errorf("ошибка: ошибка при оплате по безналу: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -412,32 +414,32 @@ func (h *Handler) handleWSReturnMany(conn *websocket.Conn, data map[string]any) 
 		var err error
 		amount, err = strconv.Atoi(v)
 		if err != nil {
-			h.sendWSError(conn, fmt.Sprintf("Не удалось преобразовать строку в число: %v", err))
+			h.sendWSError(conn, fmt.Sprintf("ошибка: не удалось преобразовать строку в число: %v", err))
 			return
 		}
 	case map[string]interface{}:
 		// Это для отладки - выведем информацию о том, что приходит в данном случае
-		err := fmt.Errorf("Получен объект вместо числа: %v", v)
+		err := fmt.Errorf("ошибка: получен объект вместо числа: %v", v)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	default:
-		err := fmt.Errorf("Неподдерживаемый тип данных для суммы: %T", v)
+		err := fmt.Errorf("ошибка: неподдерживаемый тип данных для суммы: %T", v)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 
 	if amount == 0 {
-		err := fmt.Errorf("Сумма возврата не может быть 0")
+		err := fmt.Errorf("ошибка: сумма возврата не может быть 0")
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
 	}
 
-	receipt, err := beznal.ReturnMoney(amount)
+	receipt, err := equipment.ReturnMoney(amount)
 	if err != nil {
-		err := fmt.Errorf("Ошибка при возрате на карту по терминалу: %v", err)
+		err := fmt.Errorf("ошибка: ошибка при возврате на карту по терминалу: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -450,9 +452,9 @@ func (h *Handler) handleWSReturnMany(conn *websocket.Conn, data map[string]any) 
 
 func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn) {
 	// Закрываем банковскую смену
-	receipt, err := beznal.CloseShiftTerminal()
+	receipt, err := equipment.CloseShiftTerminal()
 	if err != nil {
-		err := fmt.Errorf("Ошибка при закрытии смены по терминалу: %v", err)
+		err := fmt.Errorf("ошибка: ошибка при закрытии смены по терминалу: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		h.sendWSError(conn, err.Error())
 		return
@@ -460,6 +462,18 @@ func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn) {
 
 	h.sendWSResponse(conn, "success", "Банковская смена успешно закрыта", map[string]interface{}{
 		"slip": receipt,
+	})
+}
+
+func (h *Handler) handleWSGetWeight(conn *websocket.Conn) {
+	weight, err := equipment.GetWeight()
+	if err != nil {
+		h.sendWSError(conn, fmt.Sprintf("ошибка: ошибка при получении веса: %v", err))
+		return
+	}
+
+	h.sendWSResponse(conn, "success", "Вес успешно получен", map[string]interface{}{
+		"weight": weight,
 	})
 }
 
@@ -480,7 +494,7 @@ func (h *Handler) sendWSResponse(conn *websocket.Conn, responseType, message str
 		Data:    data,
 	}
 	if err := conn.WriteJSON(response); err != nil {
-		err := fmt.Errorf("Ошибка при отправке ответа: %v", err)
+		err := fmt.Errorf("ошибка: ошибка при отправке ответа: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 	}
 }
@@ -489,7 +503,7 @@ func (h *Handler) initializeDriver() error {
 	// Реализация инициализации драйвера ККТ
 	fptr, err := fptr10.NewSafe()
 	if err != nil {
-		err := fmt.Errorf("ошибка инициализации драйвера ККТ: %v", err)
+		err := fmt.Errorf("ошибка: ошибка инициализации драйвера ККТ: %v", err)
 		logsmy.Logsmap[consttypes.LOGERROR].Println(err.Error())
 		return err
 	}

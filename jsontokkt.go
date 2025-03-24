@@ -31,10 +31,10 @@ var CassirName = flag.String("cassir", "", "имя кассира")
 var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
 var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
 var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
-var emulation = flag.Bool("emul", true, "эмуляция")
+var emulation = flag.Bool("emul", false, "эмуляция")
 var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-const Version_of_program = "2025_03_24_03"
+const Version_of_program = "2025_03_24_08"
 
 var glFptrDriver kktutils.TFptr10Driver
 

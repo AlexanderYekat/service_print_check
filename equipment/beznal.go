@@ -1,4 +1,4 @@
-package beznal
+package equipment
 
 import (
 	"fmt"

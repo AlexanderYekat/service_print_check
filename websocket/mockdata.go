@@ -40,6 +40,10 @@ func GetMockResponse(command string, data map[string]any) (string, string, inter
 		return "success", "Слип успешно напечатан (эмуляция)", nil
 	case "printText":
 		return "success", "Текст успешно напечатан (эмуляция)", nil
+	case "getWeight":
+		return "success", "Вес успешно получен (эмуляция)", map[string]interface{}{
+			"weight": 1000,
+		}
 	default:
 		return "error", "Неизвестная команда в режиме эмуляции", nil
 	}

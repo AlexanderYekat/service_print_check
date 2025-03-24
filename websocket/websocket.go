@@ -47,6 +47,7 @@ type Handler struct {
 	emulation         *bool
 	FptrDriver        consttypes.IFptr10Interface
 	printer           kktutils.IAbstractPrinter
+	version           string
 }
 
 // NewHandler создает новый обработчик веб-сокетов
@@ -57,6 +58,7 @@ func NewHandler(
 	ipaddressservrkkt *string,
 	emulation *bool,
 	FptrDriver consttypes.IFptr10Interface,
+	version string,
 ) *Handler {
 	h := &Handler{
 		comport:           comport,
@@ -65,6 +67,7 @@ func NewHandler(
 		ipaddressservrkkt: ipaddressservrkkt,
 		emulation:         emulation,
 		FptrDriver:        FptrDriver,
+		version:           version,
 	}
 	h.printer = kktutils.NewPrinter(comport, ipaddresskkt, portkktatol, ipaddressservrkkt, emulation)
 	return h
@@ -90,6 +93,12 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Отправляем версию программы клиенту при подключении
+	h.sendWSResponse(conn, "version", "", map[string]interface{}{
+		"version":    h.version,
+		"emulation":  *h.emulation,
+	})
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -102,6 +111,13 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		var wsMsg models.WSMessage
 		if err := json.Unmarshal(message, &wsMsg); err != nil {
 			h.sendWSError(conn, "Ошибка при разборе JSON сообщения")
+			continue
+		}
+
+		// В режиме эмуляции возвращаем мок-данные
+		if *h.emulation {
+			responseType, message, data := GetMockResponse(wsMsg.Command, wsMsg.Data)
+			h.sendWSResponse(conn, responseType, message, data)
 			continue
 		}
 

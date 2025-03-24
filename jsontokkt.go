@@ -31,10 +31,10 @@ var CassirName = flag.String("cassir", "", "имя кассира")
 var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
 var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
 var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
-var emulation = flag.Bool("emul", false, "эмуляция")
+var emulation = flag.Bool("emul", true, "эмуляция")
 var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-const Version_of_program = "2025_03_20_01"
+const Version_of_program = "2025_03_24_03"
 
 var glFptrDriver kktutils.TFptr10Driver
 
@@ -136,6 +136,7 @@ func runServer() error {
 		ipaddressservrkkt,
 		emulation,
 		glFptrDriver.GetFptr10(), // Передаем инициализированный драйвер
+		Version_of_program,       // Передаем версию программы
 	)
 	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
 

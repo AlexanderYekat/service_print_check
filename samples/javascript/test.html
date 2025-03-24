@@ -64,6 +64,11 @@
             color: #a94442;
             border: 1px solid #ebccd1;
         }
+        .emulation {
+            background-color: #f7dc6f;
+            color: #8a6d3b;
+            border: 1px solid #f2c464;
+        }
     </style>
 </head>
 <body>
@@ -81,6 +86,7 @@
     <button class="button" onclick="payMany()">Оплата по безналу</button>
     <button class="button" onclick="returnMany()">Возврат по безналу</button>
     <button class="button" onclick="closeShiftTerminal()">Закрыть банковскую смену</button>
+    <button class="button" onclick="printSlip()">Печать банковского слипа</button>
 
     <div id="result" class="result"></div>
 
@@ -88,6 +94,7 @@
         const API_URL = 'https://localhost:8081';
         const WS_URL = 'ws://localhost:8081/ws';
         let socket = null;
+        let lastResponse = null;
 
         function connect() {
             socket = new WebSocket(WS_URL);
@@ -109,6 +116,23 @@
 
             socket.onmessage = function(event) {
                 const response = JSON.parse(event.data);
+                lastResponse = response;
+                
+                // Обработка сообщения о версии
+                if (response.type === "version") {
+                    const statusElement = document.getElementById('connection-status');
+                    const emulationStatus = response.data.emulation ? 'Эмуляция' : 'Боевой режим';
+                    statusElement.textContent = `Статус соединения: Подключено (Версия: ${response.data.version}, Режим: ${emulationStatus})`;
+                    
+                    // Изменяем класс в зависимости от режима
+                    if (response.data.emulation) {
+                        statusElement.className = 'connection-status connected emulation';
+                    } else {
+                        statusElement.className = 'connection-status connected';
+                    }
+                    return;
+                }
+
                 const resultElement = document.getElementById('result');
                 
                 // Очищаем предыдущий результат
@@ -299,6 +323,30 @@
 
             socket.send(JSON.stringify(closeShiftTerminalData));
         }
+
+        function printSlip() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                document.getElementById('result').textContent = 'Ошибка: нет соединения с сервером';
+                return;
+            }
+            
+            let slipText = '';
+            if (lastResponse && lastResponse.data && lastResponse.data.slip) {
+                slipText = lastResponse.data.slip;
+            } else {
+                slipText = 'Нет данных слипа. Сначала выполните операцию оплаты, возврата или закрытия смены по безналу.';
+            }
+            
+            const data = {
+                command: 'printSlip',
+                data: {
+                    cashier: 'Тестовый кассир',
+                    text: slipText
+                }
+            };
+        
+            socket.send(JSON.stringify(data));
+        }
     </script>
 </body>
-</html> 
+</html>

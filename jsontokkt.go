@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -34,7 +34,7 @@ var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервер
 var emulation = flag.Bool("emul", false, "эмуляция")
 var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-const Version_of_program = "2025_03_24_09"
+const Version_of_program = "2025_04_18_10"
 
 var glFptrDriver kktutils.TFptr10Driver
 
@@ -173,17 +173,20 @@ func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Ошибка чтения тела запроса", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Println("Получены настройки:", string(body))
+	fmt.Println("Текущие настройки:", currentSettings)
 	err = json.Unmarshal(body, &currentSettings)
 	if err != nil {
 		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
 		return
 	}
+	fmt.Println("Получены настройки:", currentSettings)
 
 	*clearLogsProgramm = currentSettings.ClearLogs
 	*LogsDebugs = currentSettings.Debug

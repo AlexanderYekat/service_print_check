@@ -466,6 +466,7 @@ func (h *Handler) handleWSCloseShiftTerminal(conn *websocket.Conn) {
 }
 
 func (h *Handler) handleWSGetWeight(conn *websocket.Conn, data map[string]interface{}) {
+	//weight2 := 500
 	comPortInt := 1
 	comPort, ok := data["com"].(string)
 	if ok {

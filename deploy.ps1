@@ -26,6 +26,7 @@ if (1 -eq 1) {
     # Копируем новый файл
     Write-Host "Копируем новый файл службы..."
     Copy-Item "$programPath\service_print_check.exe" -Destination "$installPath\service_CloudPosBridge.exe" -Force
+    Copy-Item "$programPath\service_print_check.exe" -Destination "$programPath\service_CloudPosBridge.exe" -Force
     
     # Запускаем службу
     Write-Host "Запускаем службу CloudPosBridge..."

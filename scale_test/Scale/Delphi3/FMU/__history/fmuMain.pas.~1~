@@ -1,0 +1,945 @@
+unit fmuMain;
+
+interface
+
+uses
+  // VCL
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, ComObj, ExtCtrls, ComCtrls, Grids, Menus, Spin,
+  // This
+  xScale,
+  cuUtils,
+  fmuDevice,
+  Scale1C_TLB;
+
+type
+  // TfmMain
+  TfmMain = class(TForm)
+    FontDialog: TFontDialog;
+    Label9: TLabel;
+    Label10: TLabel;
+    Shape1: TShape;
+    edtResultCode: TEdit;
+    edtResultDescription: TEdit;
+    btnDevices: TButton;
+    btnFont: TButton;
+    chkLockDevices: TCheckBox;
+    chkDeviceEnabled: TCheckBox;
+    btnProperties: TButton;
+    btnClose: TButton;
+    OpenDialog: TOpenDialog;
+    MemoPopupMenu: TPopupMenu;
+    piClear: TMenuItem;
+    Bevel1: TBevel;
+    PageControl: TPageControl;
+    TabSheet1: TTabSheet;
+    TabSheet2: TTabSheet;
+    btnZero: TButton;
+    btnReadWeight: TButton;
+    btnTare: TButton;
+    DataPanel: TPanel;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    Label8: TLabel;
+    edtWeight: TEdit;
+    edtUnitPrice: TEdit;
+    edtSalesPrice: TEdit;
+    edtTareWeight: TEdit;
+    Memo: TMemo;
+    chkUpdatePrice: TCheckBox;
+    btnSetTareWeight: TButton;
+    btnGetDeviceMetrics: TButton;
+    btnReset: TButton;
+    gbParams: TGroupBox;
+    Label11: TLabel;
+    Label12: TLabel;
+    sbValue: TSpinButton;
+    btnGetValue: TButton;
+    cbValuePurpose: TComboBox;
+    btnSetValue: TButton;
+    edtValue: TEdit;
+    ParamsPanel: TPanel;
+    Label5: TLabel;
+    Label6: TLabel;
+    chkDataEventEnabled: TCheckBox;
+    chkAutoDisable: TCheckBox;
+    chkAsyncMode: TCheckBox;
+    cbPollingInterval: TComboBox;
+    edtWeightStep: TEdit;
+    sbWeightStep: TSpinButton;
+    Label7: TLabel;
+    edtDataCount: TEdit;
+    Label13: TLabel;
+    edtEventNumber: TEdit;
+    WeightPanel: TPanel;
+    Label14: TLabel;
+    Label15: TLabel;
+    Label16: TLabel;
+    edtAsyncWeight: TEdit;
+    edtUnitPriceAsync: TEdit;
+    edtAsyncSalesPrice: TEdit;
+    FlagsPanel: TPanel;
+    chkNettoWeight: TCheckBox;
+    chkZeroScaleWeight: TCheckBox;
+    chkOutOfZero: TCheckBox;
+    chkNegWeight: TCheckBox;
+    chkBigWeight: TCheckBox;
+    chkNonStable: TCheckBox;
+    chkInvalidRange: TCheckBox;
+    Label17: TLabel;
+    chkDeleteEvents: TCheckBox;
+    edtAsyncTareWeight: TEdit;
+    Label18: TLabel;
+    btnGenerateAsyncMessage: TButton;
+    btnUpdate: TButton;
+    procedure ParamButtonClick(Sender: TObject);
+    procedure CloseButtonClick(Sender: TObject);
+    procedure ZeroButtonClick(Sender: TObject);
+    procedure TareButtonClick(Sender: TObject);
+    procedure btnReadWeightClick(Sender: TObject);
+    procedure btnTareClick(Sender: TObject);
+    procedure btnDevicesClick(Sender: TObject);
+    procedure btnCloseClick(Sender: TObject);
+    procedure chkLockDevicesClick(Sender: TObject);
+    procedure chkDeviceEnabledClick(Sender: TObject);
+    procedure btnFontClick(Sender: TObject);
+    procedure btnPropertiesClick(Sender: TObject);
+    procedure edtUnitPriceExit(Sender: TObject);
+    procedure edtTareWeightExit(Sender: TObject);
+    procedure btnSetTareWeightClick(Sender: TObject);
+    procedure btnGetDeviceMetricsClick(Sender: TObject);
+    procedure btnResetClick(Sender: TObject);
+    procedure cbValuePurposeChange(Sender: TObject);
+    procedure edtValueExit(Sender: TObject);
+    procedure btnGetValueClick(Sender: TObject);
+    procedure btnSetValueClick(Sender: TObject);
+    procedure chkAsyncModeClick(Sender: TObject);
+    procedure cbPollingIntervalChange(Sender: TObject);
+    procedure edtWeightStepExit(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure piClearClick(Sender: TObject);
+    procedure chkUpdatePriceClick(Sender: TObject);
+    procedure sbWeightStepUpClick(Sender: TObject);
+    procedure sbWeightStepDownClick(Sender: TObject);
+    procedure sbValueDownClick(Sender: TObject);
+    procedure sbValueUpClick(Sender: TObject);
+    procedure chkDataEventEnabledClick(Sender: TObject);
+    procedure chkAutoDisableClick(Sender: TObject);
+    procedure edoKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure edoKeyPress(Sender: TObject; var Key: Char);
+    procedure chkDeleteEventsClick(Sender: TObject);
+    procedure btnGenerateAsyncMessageClick(Sender: TObject);
+    procedure edtUnitPriceAsyncExit(Sender: TObject);
+    procedure btnUpdateClick(Sender: TObject);
+  private
+    FScaleX: TScaleX;
+    FScale45: TScale45;
+    FDeleteEvents: Boolean;
+    procedure EnableButtons(ButtonsEnabled: Boolean);
+    property ScaleX: TScaleX read FScaleX;
+  private
+    procedure HandleExceptions(Sender: TObject; E: Exception);
+    procedure ClearResult;
+    procedure UpdatePage;
+    procedure UpdateFont;
+  private
+    fWeightStep: Double;
+    procedure GetLastResult;
+    procedure GetLockDevices;
+    procedure GetDeviceEnabled;
+    procedure GetWeight;
+    procedure SetUnitPrice;
+    procedure SetUnitPriceAsync;
+    procedure GetUnitPrice;
+    procedure GetSalesPrice;
+    procedure GetTareWeight;
+    procedure SetTareWeight;
+    procedure GetDeviceMetrics;
+    procedure GetFlags;
+  private
+    // ValuePurpose
+    procedure GetValuePurpose;
+    procedure SetValuePurpose;
+  private
+    fCurrentControl: TWinControl;
+    // Value
+    fValue: Integer;
+    procedure GetValue;
+    procedure SetValueEdit;
+    // AsyncMode
+    procedure GetAsyncMode;
+    procedure SetAsyncMode;
+    // PollingInterval
+    procedure SetPollingInterval;
+    procedure GetPollingInterval;
+    // WeightStep
+    procedure GetWeightStep;
+    procedure SetWeightStepEdit;
+    // ScaleDataEvent
+    procedure ScaleDataEvent(Sender: TObject);
+    // UpdatePrice
+    procedure SetUpdatePrice;
+    procedure GetUpdatePrice;
+    // DataEventEnabled
+    procedure GetDataEventEnabled;
+    procedure SetDataEventEnabled;
+    // AutoDisable
+    procedure GetAutoDisable;
+    procedure SetAutoDisable;
+    // EventNumber
+    procedure GetEventNumber;
+    // DataCount
+    procedure GetDataCount;
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+  end;
+
+var
+  fmMain: TfmMain;
+  Scale: OleVariant;
+
+implementation
+
+{$R *.DFM}
+
+type
+  TExposeCustomEdit = class(TCustomEdit)
+  public
+    property OnChange;
+  end;
+
+procedure SafeSetComboBox(ComboBox: TComboBox; Value: Integer);
+var
+  SaveOnChange: TNotifyEvent;
+begin
+  SaveOnChange := ComboBox.OnChange;
+  ComboBox.OnChange := nil;
+  try
+    ComboBox.ItemIndex := Value;
+  finally
+    ComboBox.OnChange := SaveOnChange;
+  end;
+end;
+
+procedure SafeSetChecked(CheckBox: TCheckBox; Value: Boolean);
+var
+  SaveOnClick: TNotifyEvent;
+begin
+  SaveOnClick := CheckBox.OnClick;
+  CheckBox.OnClick := nil;
+  try
+    CheckBox.Checked := Value;
+  finally
+    CheckBox.OnClick := SaveOnClick;
+  end;
+end;
+
+procedure SafeSetEdit(Edit: TCustomEdit; const Value: String);
+var
+  SaveOnChange: TNotifyEvent;
+  TmpEdit: TExposeCustomEdit;
+begin
+  TmpEdit := TExposeCustomEdit(Edit);
+  SaveOnChange := TmpEdit.OnChange;
+  TmpEdit.OnChange := nil;
+  try
+    TmpEdit.Text := Value;
+  finally
+    TmpEdit.OnChange := SaveOnChange;
+  end;
+end;
+
+function StrToFloatRus(const Value: String): Double;
+begin
+  try
+    Result := StrToFloat(Value);
+  except
+    raise EConvertError.CreateFmt('"%s" не является дробным числом', [Value]);
+  end;
+end;
+
+function StrToIntRus(const Value: String): Integer;
+begin
+  try
+    Result := StrToInt(Value);
+  except
+    raise EConvertError.CreateFmt('"%s" не является целым числом', [Value]);
+  end;
+end;
+
+{ TfmMain }
+
+constructor TfmMain.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  Application.OnException := HandleExceptions;
+  FScale45 := TScale45.Create(Self);
+  FScale45.OnDataEvent := ScaleDataEvent;
+  FScaleX := TScaleX.Create(FScale45.ControlInterface);
+  UpdateFont;
+  UpdatePage;
+  fValue := 0;
+  fDeleteEvents := False;
+end;
+
+destructor TfmMain.Destroy;
+begin
+  FScaleX.Free;
+  FScale45.Free;
+  inherited Destroy;
+end;
+
+procedure TfmMain.ParamButtonClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.ShowProperties;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.CloseButtonClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfmMain.ZeroButtonClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.ZeroScale;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.TareButtonClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.ZeroScale;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+
+procedure TfmMain.btnReadWeightClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.ReadWeight;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.EnableButtons(ButtonsEnabled: Boolean);
+begin
+  btnReadWeight.Enabled := ButtonsEnabled;
+  btnZero.Enabled := ButtonsEnabled;
+  btnTare.Enabled := ButtonsEnabled;
+  btnDevices.Enabled := ButtonsEnabled;
+  btnFont.Enabled := ButtonsEnabled;
+  btnProperties.Enabled := ButtonsEnabled;
+  btnReset.Enabled := ButtonsEnabled;
+  btnSetTareWeight.Enabled := ButtonsEnabled;
+  btnGetDeviceMetrics.Enabled := ButtonsEnabled;
+  btnGetValue.Enabled := ButtonsEnabled;
+  btnSetValue.Enabled := ButtonsEnabled;
+  btnGenerateAsyncMessage.Enabled := ButtonsEnabled;
+  btnUpdate.Enabled := ButtonsEnabled;
+  btnClose.Enabled := ButtonsEnabled;
+  ActiveControl := fCurrentControl;
+end;
+
+procedure TfmMain.HandleExceptions(Sender: TObject; E: Exception);
+begin
+  if E is EScaleError then
+  begin
+    edtResultCode.Text := IntToStr(EScaleError(E).ErrorCode);
+  end;
+  edtResultDescription.Text := E.Message;
+end;
+
+procedure TfmMain.ClearResult;
+begin
+  edtResultCode.Clear;
+  edtResultDescription.Clear;
+end;
+
+procedure TfmMain.btnTareClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.Tare;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnDevicesClick(Sender: TObject);
+begin
+  try
+    ShowDevicesProperties(ScaleX, Font);
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnCloseClick(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TfmMain.chkLockDevicesClick(Sender: TObject);
+begin
+  try
+    ScaleX.LockDevices := chkLockDevices.Checked;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.chkDeviceEnabledClick(Sender: TObject);
+begin
+  try
+    ScaleX.DeviceEnabled := chkDeviceEnabled.Checked;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnFontClick(Sender: TObject);
+begin
+  FontDialog.Font := Font;
+  if FontDialog.Execute then
+  begin
+    Font := FontDialog.Font;
+    RegSaveFont(Font);
+  end;
+end;
+
+procedure TfmMain.btnPropertiesClick(Sender: TObject);
+begin
+  try
+    ScaleX.ShowProperties;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.UpdatePage;
+begin
+  GetLastResult;
+  GetLockDevices;
+  GetDeviceEnabled;
+  GetWeight;
+  GetUnitPrice;
+  GetSalesPrice;
+  GetAsyncMode;
+  GetTareWeight;
+  GetValuePurpose;
+  GetValue;
+  GetWeightStep;
+  GetPollingInterval;
+  GetFlags;
+  GetSalesPrice;
+  GetUpdatePrice;
+  GetAutoDisable;
+  GetEventNumber;
+  GetDataCount;
+  GetDataEventEnabled;
+end;
+
+procedure TfmMain.GetLastResult;
+begin
+  edtResultCode.Text:=IntToStr(ScaleX.ResultCode);
+  edtResultDescription.Text := ScaleX.ResultDescription;
+end;
+
+procedure TfmMain.GetLockDevices;
+begin
+  SafeSetChecked(chkLockDevices, ScaleX.LockDevices);
+end;
+
+procedure TfmMain.GetDeviceEnabled;
+begin
+  SafeSetChecked(chkDeviceEnabled, ScaleX.DeviceEnabled);
+end;
+
+procedure TfmMain.GetWeight;
+begin
+  SafeSetEdit(edtWeight, FloatToStr(ScaleX.Weight));
+  SafeSetEdit(edtAsyncWeight, FloatToStr(ScaleX.Weight));
+end;
+
+procedure TfmMain.GetUnitPrice;
+begin
+  SafeSetEdit(edtUnitPrice, CurrToStr(ScaleX.UnitPrice));
+  SafeSetEdit(edtUnitPriceAsync, FloatToStr(ScaleX.UnitPrice));
+end;
+
+procedure TfmMain.GetSalesPrice;
+begin
+  SafeSetEdit(edtSalesPrice, CurrToStr(ScaleX.SalesPrice));
+  SafeSetEdit(edtAsyncSalesPrice, FloatToStr(ScaleX.SalesPrice));
+end;
+
+procedure TfmMain.edtUnitPriceExit(Sender: TObject);
+begin
+  try
+    SetUnitPrice;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.SetUnitPrice;
+begin
+  ScaleX.UnitPrice := StrToFloatRus(edtUnitPrice.Text);
+end;
+
+procedure TfmMain.SetUnitPriceAsync;
+begin
+  ScaleX.UnitPrice := StrToFloatRus(edtUnitPriceAsync.Text);
+end;
+
+// Tare Weight
+
+procedure TfmMain.GetTareWeight;
+begin
+  SafeSetEdit(edtTareWeight, FloatToStr(ScaleX.TareWeight));
+  SafeSetEdit(edtAsyncTareWeight, FloatToStr(ScaleX.TareWeight));
+end;
+
+procedure TfmMain.SetTareWeight;
+begin
+  ScaleX.TareWeight := StrToFloatRus(edtTareWeight.Text);
+end;
+
+// DeviceMetrics
+
+procedure TfmMain.GetDeviceMetrics;
+const
+  NettoWeight     : array [Boolean] of string = ('Вес Брутто','Вес Нетто');
+begin
+  Memo.Lines.Clear;
+  Memo.Lines.Add('Версия протокола: '+IntToStr(ScaleX.UProtocolVersion));
+  Memo.Lines.Add('Тип устройства: '+IntToStr(ScaleX.UType));
+  Memo.Lines.Add('Модель устройства: '+IntToStr(ScaleX.UModel));
+  Memo.Lines.Add(Format('Версия программы: %d.%d.%.4d',
+  [ScaleX.UMajorVersion, ScaleX.UMinorVersion, ScaleX.UBuild]));
+  Memo.Lines.Add(Format('Кодовая страница: %d', [ScaleX.UCodePage]));
+  Memo.Lines.Add('Название устройства: '+Chr(13));
+  Memo.Lines.Add(Format('"%s"', [ScaleX.UDescription]));
+  Memo.Lines.Add('Режим работы: '+IntToStr(ScaleX.UMode));
+end;
+
+procedure TfmMain.edtTareWeightExit(Sender: TObject);
+begin
+  try
+    SetTareWeight;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnSetTareWeightClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.SetTareWeight;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnGetDeviceMetricsClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.GetDeviceMetrics;
+    GetDeviceMetrics;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnResetClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.Reset;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+// ValuePurpose
+
+procedure TfmMain.GetValuePurpose;
+begin
+  SafeSetComboBox(cbValuePurpose, ScaleX.ValuePurpose);
+end;
+
+procedure TfmMain.SetValuePurpose;
+begin
+  ScaleX.ValuePurpose := cbValuePurpose.ItemIndex;
+end;
+
+// Value
+
+procedure TfmMain.GetValue;
+begin
+  SafeSetEdit(edtValue, IntToStr(ScaleX.Value));
+  fValue := ScaleX.Value;
+end;
+
+procedure TfmMain.SetValueEdit;
+begin
+  ScaleX.Value := StrToIntRus(edtValue.Text);
+end;
+
+// AsyncMode
+
+procedure TfmMain.GetAsyncMode;
+begin
+  SafeSetChecked(chkAsyncMode, ScaleX.AsyncMode);
+end;
+
+procedure TfmMain.SetAsyncMode;
+begin
+  ScaleX.AsyncMode := chkAsyncMOde.Checked;
+end;
+
+// PollingInterval
+
+procedure TfmMain.SetPollingInterval;
+begin
+  ScaleX.PollingInterval := cbPollingInterval.ItemIndex;
+end;
+
+procedure TfmMain.GetPollingInterval;
+begin
+  SafeSetComboBox(cbPollingInterval, ScaleX.PollingInterval);
+end;
+
+// Flags
+
+procedure TfmMain.GetFlags;
+begin
+  SafeSetChecked(chkNettoWeight, ScaleX.NettoWeight);
+  SafeSetChecked(chkZeroscaleWeight, ScaleX.AutoZeroMode);
+  SafeSetChecked(chkOutOfZero, ScaleX.OutOfZero);
+  SafeSetChecked(chkNegWeight, ScaleX.NegWeight);
+  SafeSetChecked(chkBigWeight, ScaleX.BigWeight);
+  SafeSetChecked(chkNonStable, ScaleX.NonStable);
+  SafeSetChecked(chkInvalidRange, ScaleX.InvalidRange);
+end;
+
+// WeightStep
+
+procedure TfmMain.GetWeightStep;
+begin
+  SafeSetEdit(edtWeightStep, Format('%2.3f', [ScaleX.WeightStep]));
+  fWeightStep := ScaleX.WeightStep;
+end;
+
+procedure TfmMain.SetWeightStepEdit;
+begin
+  fWeightStep := StrToFloatRus(edtWeightStep.Text);
+  ScaleX.WeightStep := fWeightStep;
+end;
+
+// UpdatePrice
+
+procedure TfmMain.SetUpdatePrice;
+begin
+  ScaleX.UpdatePrice := chkUpdatePrice.Checked;
+end;
+
+procedure TfmMain.GetUpdatePrice;
+begin
+  SafeSetChecked(chkUpdatePrice, ScaleX.UpdatePrice);
+end;
+
+// DataEventEnabled
+
+procedure TfmMain.GetDataEventEnabled;
+begin
+  SafeSetChecked(chkDataEventEnabled, ScaleX.DataEventEnabled);
+end;
+
+procedure TfmMain.SetDataEventEnabled;
+begin
+  ScaleX.DataEventEnabled := chkDataEventEnabled.Checked;
+end;
+
+// AutoDisable
+
+procedure TfmMain.GetAutoDisable;
+begin
+  SafeSetChecked(chkAutoDisable, ScaleX.AutoDisable);
+end;
+
+procedure TfmMain.SetAutoDisable;
+begin
+  ScaleX.AutoDisable := chkAutoDisable.Checked;
+end;
+
+// EventNumber
+
+procedure TfmMain.GetEventNumber;
+begin
+  SafeSetEdit(edtEventNumber, IntToStr(ScaleX.EventNumber));
+end;
+
+// DataCount
+
+procedure TfmMain.GetDataCount;
+begin
+  SafeSetEdit(edtDataCount, IntToStr(ScaleX.DataCount));
+end;
+
+procedure TfmMain.cbValuePurposeChange(Sender: TObject);
+begin
+  try
+    SetValuePurpose;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.edtValueExit(Sender: TObject);
+begin
+  try
+    SetValueEdit;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnGetValueClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.GetValue;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnSetValueClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  ClearResult;
+  try
+    ScaleX.SetValue;
+  finally
+    EnableButtons(True);
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.chkAsyncModeClick(Sender: TObject);
+begin
+  try
+    SetAsyncMode;
+  finally
+    UpdatePage;
+  end;
+end;
+
+
+procedure TfmMain.cbPollingIntervalChange(Sender: TObject);
+begin
+  try
+    SetPollingInterval;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.edtWeightStepExit(Sender: TObject);
+begin
+  try
+    SetWeightStepEdit;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.ScaleDataEvent(Sender: TObject);
+begin
+  UpdatePage;
+  if fDeleteEvents then ScaleX.DeleteEvent;
+  GetDataCount;
+  GetEventNumber;
+end;
+
+procedure TfmMain.FormDestroy(Sender: TObject);
+begin
+  fScale45.Free;
+  fScale45 := nil;
+end;
+
+procedure TfmMain.piClearClick(Sender: TObject);
+begin
+  Memo.Lines.Clear;
+end;
+
+procedure TfmMain.UpdateFont;
+var
+  fnt: TFont;
+begin
+  fnt := TFont.Create;
+  try
+    RegReadFont(fnt);
+    Font := fnt;
+  finally
+    fnt.Free;
+  end;
+end;
+
+procedure TfmMain.chkUpdatePriceClick(Sender: TObject);
+begin
+  try
+    SetUpdatePrice;
+  finally
+    UpdatePage;
+  end;
+
+end;
+
+procedure TfmMain.sbWeightStepUpClick(Sender: TObject);
+begin
+  try
+    ScaleX.WeightStep := fWeightStep+0.001;
+    fWeightStep := fWeightStep+0.001;
+    GetWeightStep;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.sbWeightStepDownClick(Sender: TObject);
+begin
+  try
+    ScaleX.WeightStep := fWeightStep-0.001;
+    fWeightStep := fWeightStep-0.001;
+    GetWeightStep;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.sbValueDownClick(Sender: TObject);
+begin
+  try
+    ScaleX.Value := fValue-1;
+    fValue := fValue-1;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.sbValueUpClick(Sender: TObject);
+begin
+  try
+    ScaleX.Value := fValue+1;
+    fValue := fValue+1;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.chkDataEventEnabledClick(Sender: TObject);
+begin
+  try
+    SetDataEventEnabled;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.chkAutoDisableClick(Sender: TObject);
+begin
+  try
+    SetAutoDisable;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.edoKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  case Key of
+  vk_Return:
+    (Sender as TEdit).OnExit(Sender);
+  end;
+end;
+
+procedure TfmMain.edoKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key in [#13, #27] then
+  begin
+    Key := #0;
+  end
+end;
+
+procedure TfmMain.chkDeleteEventsClick(Sender: TObject);
+begin
+  fDeleteEvents := chkDeleteEvents.Checked;
+end;
+
+procedure TfmMain.btnGenerateAsyncMessageClick(Sender: TObject);
+begin
+  EnableButtons(False);
+  try
+    ScaleX.GenerateAsyncMessage;
+  finally
+    UpdatePage;
+    EnableButtons(True);
+  end;
+end;
+
+procedure TfmMain.edtUnitPriceAsyncExit(Sender: TObject);
+begin
+  try
+    SetUnitPriceAsync;
+  finally
+    UpdatePage;
+  end;
+end;
+
+procedure TfmMain.btnUpdateClick(Sender: TObject);
+begin
+  UpdatePage;
+end;
+
+end.

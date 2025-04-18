@@ -39,10 +39,16 @@ func (driver TFptr10Driver) ApplySingleSettings() error {
 
 // Close закрывает соединение с ККТ
 func (driver TFptr10Driver) Close() {
+	if driver.fptr == nil {
+		return
+	}
 	driver.fptr.Close()
 }
 
 func (driver TFptr10Driver) Version() string {
+	if driver.fptr == nil {
+		return ""
+	}
 	return driver.fptr.Version()
 }
 
@@ -52,5 +58,7 @@ func (driver TFptr10Driver) GetFptr10() consttypes.IFptr10Interface {
 
 // Destroy освобождает ресурсы драйвера ККТ
 func (driver TFptr10Driver) Destroy() {
-	driver.fptr.Destroy()
+	if driver.fptr != nil {
+		driver.fptr.Destroy()
+	}
 }

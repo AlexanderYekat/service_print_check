@@ -37,12 +37,14 @@ document.addEventListener('DOMContentLoaded', function() {
         settings.clearlogs = settings.clearlogs === 'on';
         settings.emul = settings.emul === 'on';
 
+        const settingsJson = JSON.stringify(settings);
+
         fetch('/api/settings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(settings),
+            body: settingsJson,
         })
         .then(response => response.json())
         .then(data => {

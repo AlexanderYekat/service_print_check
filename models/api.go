@@ -11,6 +11,8 @@ type WSResponse struct {
 	Type    string      `json:"type"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+	ID      string      `json:"id,omitempty"`   // Идентификатор сообщения (совпадает с ID запроса)
+	Time    int64       `json:"time,omitempty"` // Время отправки ответа
 }
 
 // CheckItem представляет элемент чека

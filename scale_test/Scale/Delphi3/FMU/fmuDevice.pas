@@ -191,7 +191,7 @@ begin
   GetDeviceName;
   GetDeviceIndex;
   GetDeviceNumber;
-  //GetDeviceEnabled;
+  GetDeviceEnabled;
   GetDeviceCount;
   GetPortNumber;
   GetBaudRate;

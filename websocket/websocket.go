@@ -97,9 +97,9 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// Устанавливаем таймаут для ответов (чтобы избежать зависания сокета)
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	// Устанавливаем увеличенные таймауты для обеспечения надежной связи
+	conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+	conn.SetWriteDeadline(time.Now().Add(1 * time.Hour))
 
 	// Счетчик для генерации ID сообщений, если они не указаны клиентом
 	var messageCounter int64 = 0
@@ -111,8 +111,8 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}, "")
 
 	for {
-		// Обновляем таймаут чтения при каждой итерации
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		// Обновляем увеличенный таймаут чтения при каждой итерации
+		conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
 
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -144,8 +144,8 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Устанавливаем таймаут записи перед отправкой ответа
-		conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		// Устанавливаем увеличенный таймаут записи перед отправкой ответа
+		conn.SetWriteDeadline(time.Now().Add(1 * time.Hour))
 
 		// Для долгих операций сначала отправляем статус "processing",
 		// а затем уже результат выполнения операции

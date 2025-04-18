@@ -172,7 +172,7 @@ begin
   try
     Result := StrToInt(Value);
   except
-    raise EConvertError.CreateFmt('"%s" РЅРµ СЏРІР»СЏРµС‚СЃСЏ С†РµР»С‹Рј С‡РёСЃР»РѕРј', [Value]);
+    raise EConvertError.CreateFmt('"%s" не является целым числом', [Value]);
   end;
 end;
 
@@ -191,7 +191,7 @@ begin
   GetDeviceName;
   GetDeviceIndex;
   GetDeviceNumber;
-  GetDeviceEnabled;
+  //GetDeviceEnabled;
   GetDeviceCount;
   GetPortNumber;
   GetBaudRate;
@@ -407,7 +407,7 @@ begin
   fScale.DeviceEnabled := chkDeviceEnabled.Checked;
 end;
 
-{ РћР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№ }
+{ Обработчики событий }
 
 procedure TfmDevices.EditorKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
@@ -491,8 +491,8 @@ type
   const
     Parities: array [0..1] of TComboItem =
       (
-       (ItemName: 'РќРµС‚';        ItemValue: 0),
-       (ItemName: 'Р§РµС‚РЅРѕСЃС‚СЊ';   ItemValue: 2)
+       (ItemName: 'Нет';        ItemValue: 0),
+       (ItemName: 'Четность';   ItemValue: 2)
        );
   begin
     FillComboBox(cboParity, Parities);
@@ -502,19 +502,19 @@ type
   const
     ModelID: array [0..12] of TComboItem =
      (
-       (ItemName: 'Р’Р 4149';          ItemValue: 0),
-       (ItemName: 'Р’Р 4900';          ItemValue: 1),
-       (ItemName: 'РЁС‚СЂРёС… Р’Рў';      ItemValue: 2),
-       (ItemName: 'РЁС‚СЂРёС… РђРЎ';        ItemValue: 3),
+       (ItemName: 'ВР4149';          ItemValue: 0),
+       (ItemName: 'ВР4900';          ItemValue: 1),
+       (ItemName: 'Штрих ВТ';      ItemValue: 2),
+       (ItemName: 'Штрих АС';        ItemValue: 3),
        (ItemName: 'CAS LP';          ItemValue: 4),
-       (ItemName: 'РЁС‚СЂРёС… РђРЎ POS';  ItemValue: 5),
-       (ItemName: 'РЁС‚СЂРёС… РђРЎ РјРёРЅРё POS';  ItemValue: 6),
-       (ItemName: 'РџРµС‚Р’РµС‚ СЃРµСЂРёСЏ Р•';  ItemValue: 11),
-       (ItemName: 'РўРµРЅР·Рѕ-Рњ 003/05Р”';  ItemValue: 12),
+       (ItemName: 'Штрих АС POS';  ItemValue: 5),
+       (ItemName: 'Штрих АС мини POS';  ItemValue: 6),
+       (ItemName: 'ПетВет серия Е';  ItemValue: 11),
+       (ItemName: 'Тензо-М 003/05Д';  ItemValue: 12),
        (ItemName: 'Bolet MD-991';  ItemValue: 13),
-       (ItemName: 'РњР°СЃСЃР°-Рљ СЃРµСЂРёРё РџР’';  ItemValue: 14),
-       (ItemName: 'РњР°СЃСЃР°-Рљ СЃРµСЂРёРё Р’Рў';  ItemValue: 15),
-       (ItemName: 'РђС‚РѕР» РњР°СЂС‚Р°';  ItemValue: 38)
+       (ItemName: 'Масса-К серии ПВ';  ItemValue: 14),
+       (ItemName: 'Масса-К серии ВТ';  ItemValue: 15),
+       (ItemName: 'Атол Марта';  ItemValue: 38)
      );
   begin
     FillComboBox(cboModelID, ModelID);
@@ -710,7 +710,7 @@ begin
   end;
 end;
 
-{ РћР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№ }
+{ Обработчики событий }
 
 procedure TfmDevices.ApplicationException(Sender: TObject; E: Exception);
 begin

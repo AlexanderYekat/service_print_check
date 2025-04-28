@@ -34,13 +34,14 @@ type WSMessage struct {
 }
 
 // WSResponse представляет структуру исходящего веб-сокет сообщения
-type WSResponse struct {
-	Type    string      `json:"type"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-	ID      string      `json:"id,omitempty"`   // Идентификатор сообщения (совпадает с ID запроса)
-	Time    int64       `json:"time,omitempty"` // Время отправки ответа
-}
+//type WSResponse struct {
+//	Type    string      `json:"type"`
+//	Success bool        `json:"success"`
+//	Message string      `json:"message"`
+//	Data    interface{} `json:"data,omitempty"`
+//	ID      string      `json:"id,omitempty"`   // Идентификатор сообщения (совпадает с ID запроса)
+//	Time    int64       `json:"time,omitempty"` // Время отправки ответа
+//}
 
 // Handler представляет обработчик веб-сокетов
 type Handler struct {

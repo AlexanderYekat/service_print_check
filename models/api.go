@@ -31,7 +31,7 @@ type Payment struct {
 
 // CheckData представляет данные чека
 type CheckData struct {
-	TaxationType string      `json:"taxationType",omitempty`
+	TaxationType string      `json:"taxationType,omitempty"`
 	Type         string      `json:"type"`
 	Cashier      string      `json:"cashier"`
 	TableData    []CheckItem `json:"tableData"`

@@ -172,3 +172,22 @@ h2 {
     font-weight: 500;
     margin-bottom: 16px;
 }
+
+.card {
+    background: #f9f9f9;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.settings-path {
+    font-family: monospace;
+    color: #333;
+    word-break: break-all;
+}
+
+#versionInfo {
+    font-weight: bold;
+    color: #222;
+}

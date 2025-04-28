@@ -21,6 +21,17 @@ type TSettings struct {
 }
 
 var FullFileNameSettings = consttypes.SETTINGSDIR + consttypes.FILESETTINGS
+var DefaultSettings = TSettings{
+	ClearLogs:     true,
+	Debug:         3,
+	ComKKT:        0,
+	Cassir:        "Кассир",
+	IpKKT:         "",
+	PortKKT:       0,
+	IpServKKT:     "",
+	Emulation:     false,
+	AllowedOrigin: "",
+}
 
 func InitializationsSettings() (TSettings, error) {
 	if foundedSettingsDir, _ := consttypes.DoesFileExist(consttypes.SETTINGSDIR); !foundedSettingsDir {
@@ -28,21 +39,10 @@ func InitializationsSettings() (TSettings, error) {
 			return TSettings{}, err
 		}
 	}
-	defaultSettings := TSettings{
-		ClearLogs:     true,
-		Debug:         3,
-		ComKKT:        0,
-		Cassir:        "Кассир",
-		IpKKT:         "",
-		PortKKT:       0,
-		IpServKKT:     "",
-		Emulation:     false,
-		AllowedOrigin: "",
-	}
 	// Если файла настроек нет — создаём его с дефолтными значениями
 	if _, err := os.Stat(FullFileNameSettings); os.IsNotExist(err) {
 		fmt.Println("файл настроек ", FullFileNameSettings, " не найден, создаём файл настроек с дефолтными значениями")
-		if err := saveSettings(defaultSettings, FullFileNameSettings); err != nil {
+		if err := saveSettings(DefaultSettings, FullFileNameSettings); err != nil {
 			return TSettings{}, err
 		}
 	}

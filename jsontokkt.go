@@ -36,7 +36,7 @@ import (
 //var emulation = flag.Bool("emul", false, "эмуляция")
 //var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-const Version_of_program = "2025_04_28_05"
+const Version_of_program = "2025_04_28_06"
 
 var glFptrDriver kktutils.TFptr10Driver
 
@@ -173,10 +173,33 @@ func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(currentSettings)
 }
 
+func getSettingsPathHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(settings.FullFileNameSettings))
+}
+
+func getVersionHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(Version_of_program))
+}
+
 func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Ошибка чтения тела запроса", http.StatusBadRequest)
+		return
+	}
+
+	// Проверка на сброс настроек по умолчанию
+	var checkReset map[string]interface{}
+	_ = json.Unmarshal(body, &checkReset)
+	if v, ok := checkReset["resetDefaults"]; ok && v == true {
+		currentSettings = settings.DefaultSettings // предполагается, что DefaultSettings экспортируется
+		err = settings.SaveSettings(currentSettings)
+		if err != nil {
+			http.Error(w, "Ошибка сброса настроек", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "success", "message": "Настройки сброшены по умолчанию"})
 		return
 	}
 
@@ -191,15 +214,6 @@ func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Получены настройки:", currentSettings)
 
 	err = settings.SaveSettings(currentSettings)
-	//*clearLogsProgramm = currentSettings.ClearLogs
-	//*LogsDebugs = currentSettings.Debug
-	//*comport = currentSettings.Com
-	//*CassirName = currentSettings.Cassir
-	//*ipaddresskkt = currentSettings.IpKKT
-	//*portkktatol = currentSettings.PortKKT
-	//*ipaddressservrkkt = currentSettings.IpServKKT
-	//*emulation = currentSettings.Emulation
-	//*allowedOrigin = currentSettings.AllowedOrigin
 	if err != nil {
 		http.Error(w, "Ошибка сохранения настроек", http.StatusInternalServerError)
 		return
@@ -396,6 +410,8 @@ func main() {
 	http.HandleFunc("/api/restart", enableCORS(restartServiceHandler))
 	http.HandleFunc("/api/logpath", enableCORS(getLogPathHandler))
 	http.HandleFunc("/api/openlogs", enableCORS(openLogsHandler))
+	http.HandleFunc("/api/settingspath", enableCORS(getSettingsPathHandler))
+	http.HandleFunc("/api/version", enableCORS(getVersionHandler))
 
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
@@ -431,6 +447,9 @@ func main() {
 		defer glFptrDriver.Destroy() // Освобождаем ресурсы при завершении программы
 		logsmy.LogginInFile(fmt.Sprintf("версия драйвера: %v", glFptrDriver.Version()))
 	}
+
+	dir, _ := os.Getwd()
+	fmt.Println("Текущая рабочая директория:", dir)
 
 	//isService, err = svc.IsWindowsService()
 	//if err != nil {

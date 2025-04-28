@@ -82,12 +82,22 @@
                     <span class="helper-text">Укажите разрешенный origin для WebSocket соединений (например, http://localhost:3000). Оставьте пустым, чтобы разрешить все origins.</span>
                 </div>
                 
+                <div class="form-field card">
+                    <h2><span class="material-icons">settings</span> Файл настроек</h2>
+                    <p class="helper-text">Настройки программы хранятся в следующем файле:</p>
+                    <p id="settingsPath" class="settings-path"></p>
+                </div>
+                
                 <div class="button-container">
                     <button type="submit" class="button primary">Сохранить настройки</button>
+                    <button type="button" id="resetDefaults" class="button secondary">Сбросить по умолчанию</button>
                     <button type="button" id="restartService" class="button secondary">Перезапустить службу</button>
                 </div>
             </form>
         </main>
+        <footer style="margin-top: 32px; text-align: center; color: #888;">
+            Версия программы: <span id="versionInfo"></span>
+        </footer>
     </div>
     <script src="/static/js/settings.js"></script>
 </body>

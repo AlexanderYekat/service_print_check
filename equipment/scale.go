@@ -12,10 +12,10 @@ func GetWeight(comPort int) (string, error) {
 	ole.CoInitialize(0)
 	defer ole.CoUninitialize()
 
-	fmt.Println("Создание COM объекта...")
+	fmt.Println("Создание COM объекта (AddIn.Scale8) ...")
 	unknown, err := oleutil.CreateObject("AddIn.Scale8")
 	if err != nil {
-		return "", fmt.Errorf("error creating COM object: %v", err)
+		return "", fmt.Errorf("error creating COM object (AddIn.Scale8): %v", err)
 	}
 	defer unknown.Release()
 

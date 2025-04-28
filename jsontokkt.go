@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -13,8 +12,8 @@ import (
 	"runtime"
 	"service_print_check/consttypes"
 	"service_print_check/kktutils"
-	"service_print_check/models"
 	logsmy "service_print_check/packetlog"
+	"service_print_check/settings"
 	mywebsocket "service_print_check/websocket"
 
 	"time"
@@ -22,19 +21,22 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
+	//"golang.org/x/sys/windows/svc"
+	//"golang.org/x/sys/windows/svc/debug"
+	//"golang.org/x/sys/windows/svc/eventlog"
 )
 
-var clearLogsProgramm = flag.Bool("clearlogs", true, "очистить логи программы")
-var LogsDebugs = flag.Int("debug", 3, "уровень логирования всех действий, чем выше тем больше логов")
-var comport = flag.Int("com", 0, "ком порт кассы")
-var CassirName = flag.String("cassir", "", "имя кассира")
-var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
-var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
-var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
-var emulation = flag.Bool("emul", false, "эмуляция")
-var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
+//var clearLogsProgramm = flag.Bool("clearlogs", true, "очистить логи программы")
+//var LogsDebugs = flag.Int("debug", 3, "уровень логирования всех действий, чем выше тем больше логов")
+//var comport = flag.Int("com", 0, "ком порт кассы")
+//var CassirName = flag.String("cassir", "", "имя кассира")
+//var ipaddresskkt = flag.String("ipkkt", "", "ip адрес ккт")
+//var portkktatol = flag.Int("portipkkt", 0, "порт ip ккт")
+//var ipaddressservrkkt = flag.String("ipservkkt", "", "ip адрес сервера ккт")
+//var emulation = flag.Bool("emul", false, "эмуляция")
+//var allowedOrigin = flag.String("allowedOrigin", "", "разрешенный origin для WebSocket соединений")
 
-const Version_of_program = "2025_04_18_12"
+const Version_of_program = "2025_04_28_05"
 
 var glFptrDriver kktutils.TFptr10Driver
 
@@ -117,12 +119,8 @@ func runServer() error {
 	}
 	defer elog.Close()
 
-	addr := ":8081"
-	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска сервера на %s", addr)
-
-	mux := http.NewServeMux()
-
 	// Инициализируем драйвер ККТ
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Попытка инициализации драйвера ККТ Атол")
 	err = glFptrDriver.NewSafe()
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при инициализации драйвера ККТ: %v", err)
@@ -130,14 +128,25 @@ func runServer() error {
 	}
 
 	wsHandler := mywebsocket.NewHandler(
-		comport,
-		ipaddresskkt,
-		portkktatol,
-		ipaddressservrkkt,
-		emulation,
+		//&currentSettings.Com,
+		//currentSettings. ipaddresskkt,
+		//&currentSettings.PortKKT portkktatol,
+		//&currentSettings. ipaddressservrkkt,
+		//emulation,
+		&currentSettings.ComKKT,
+		&currentSettings.IpKKT,
+		&currentSettings.PortKKT,
+		&currentSettings.IpServKKT,
+		&currentSettings.Emulation,
 		glFptrDriver.GetFptr10(), // Передаем инициализированный драйвер
 		Version_of_program,       // Передаем версию программы
 	)
+
+	addr := ":8081"
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Попытка запуска сервера на %s", addr)
+	mux := http.NewServeMux()
+	//mux.HandleFunc("/settings", settingsHandler)
+	//mux.HandleFunc("/get-settings", getSettingsHandler)
 	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
 
 	server := &http.Server{
@@ -150,25 +159,17 @@ func runServer() error {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске сервера: %v", err)
 		return err
 	}
+	logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Printf("Сервер запущен %s", addr)
 
 	return nil
 }
 
-type Settings struct {
-	ClearLogs     bool   `json:"clearlogs"`
-	Debug         int    `json:"debug"`
-	Com           int    `json:"com"`
-	Cassir        string `json:"cassir"`
-	IpKKT         string `json:"ipkkt"`
-	PortKKT       int    `json:"portipkkt"`
-	IpServKKT     string `json:"ipservkkt"`
-	Emulation     bool   `json:"emul"`
-	AllowedOrigin string `json:"allowedOrigin"`
-}
-
-var currentSettings models.Settings
+var currentSettings settings.TSettings
 
 func getSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Получен запрос на получение настроек от", r.Host)
+	fmt.Printf("Текущие настройки: %+v\n", currentSettings)
+	//json.NewEncoder(w).Encode("авваваавапапап")
 	json.NewEncoder(w).Encode(currentSettings)
 }
 
@@ -183,21 +184,26 @@ func saveSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Текущие настройки:", currentSettings)
 	err = json.Unmarshal(body, &currentSettings)
 	if err != nil {
+		fmt.Println("Ошибка разбора JSON:", err)
 		http.Error(w, "Ошибка разбора JSON", http.StatusBadRequest)
 		return
 	}
 	fmt.Println("Получены настройки:", currentSettings)
 
-	*clearLogsProgramm = currentSettings.ClearLogs
-	*LogsDebugs = currentSettings.Debug
-	*comport = currentSettings.Com
-	*CassirName = currentSettings.Cassir
-	*ipaddresskkt = currentSettings.IpKKT
-	*portkktatol = currentSettings.PortKKT
-	*ipaddressservrkkt = currentSettings.IpServKKT
-	*emulation = currentSettings.Emulation
-	*allowedOrigin = currentSettings.AllowedOrigin
-
+	err = settings.SaveSettings(currentSettings)
+	//*clearLogsProgramm = currentSettings.ClearLogs
+	//*LogsDebugs = currentSettings.Debug
+	//*comport = currentSettings.Com
+	//*CassirName = currentSettings.Cassir
+	//*ipaddresskkt = currentSettings.IpKKT
+	//*portkktatol = currentSettings.PortKKT
+	//*ipaddressservrkkt = currentSettings.IpServKKT
+	//*emulation = currentSettings.Emulation
+	//*allowedOrigin = currentSettings.AllowedOrigin
+	if err != nil {
+		http.Error(w, "Ошибка сохранения настроек", http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
@@ -215,27 +221,33 @@ func restartServiceHandler(w http.ResponseWriter, r *http.Request) {
 		cmd = exec.Command("net", "stop", serviceName)
 		err := cmd.Run()
 		if err != nil {
-			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при остановке службы: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": err.Error()})
-			return
+			descrMistake := fmt.Sprintf("Ошибка (%v) при остановке службы. Скорее всего программа не запущена под правами администратора или просто служба ещё не запущена", err)
+			fmt.Println(descrMistake)
+			logsmy.Logsmap[consttypes.LOGERROR].Println(descrMistake)
+			//w.WriteHeader(http.StatusInternalServerError)
+			//json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": descrMistake})
+			//return
 		}
 
 		cmd = exec.Command("net", "start", serviceName)
 		err = cmd.Run()
 		if err != nil {
-			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при запуске службы: %v", err)
+			descrMistake := fmt.Sprintf("Ошибка (%v) при перезапуске службы. Скорее всего программа не запущена под правами администратора", err)
+			fmt.Println(descrMistake)
+			logsmy.Logsmap[consttypes.LOGERROR].Println(descrMistake)
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": err.Error()})
+			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": descrMistake})
 			return
 		}
 	} else {
 		cmd = exec.Command("systemctl", "restart", serviceName+".service")
 		err := cmd.Run()
 		if err != nil {
-			logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при перезапуске службы: %v", err)
+			descrMistake := fmt.Sprintf("Ошибка (%v) при перезапуске службы. Скорее всего программа не запущена под правами администратора", err)
+			fmt.Println(descrMistake)
+			logsmy.Logsmap[consttypes.LOGERROR].Println(descrMistake)
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": err.Error()})
+			json.NewEncoder(w).Encode(map[string]string{"status": "error", "message": descrMistake})
 			return
 		}
 	}
@@ -298,23 +310,54 @@ func openBrowser(url string) error {
 
 func main() {
 	var err error
+
+	elog, err := eventlog.Open("CloudPosBridge") // Имя источника (source) — как ваша служба
+	if err != nil {
+		//log.Fatalf("Не удалось открыть журнал событий: %v", err)
+		fmt.Println("Не удалось открыть журнал событий:", err)
+	} else {
+		defer elog.Close()
+	}
+
+	//elog.Info(1, "Служба CloudPosBridge запущена")
+	//elog.Warning(2, "Это предупреждение")
+	//elog.Error(3, "Это ошибка")
+
 	execPath, err := os.Executable()
 	if err != nil {
-		fmt.Println("Ошибка получения пути исполняемого файла:", err)
+		descrMistake := fmt.Sprintln("Ошибка получения пути исполняемого файла:", err)
+		fmt.Println(descrMistake)
+		elog.Error(3, descrMistake)
 	}
 	fmt.Println("путь исполняемого файла:", execPath)
-	fmt.Println("начало работы программы")
-	fmt.Println("инициализация директории для логов")
-	if err := consttypes.EnsureLogDirectoryExists(); err != nil {
-		fmt.Printf("Не удалось создать директорию для логов: %v", err)
+	fmt.Println("начало работы программы версии: " + Version_of_program)
+
+	// Путь к файлу настроек
+	fmt.Println("Инициализация настроек")
+	currentSettings, err = settings.InitializationsSettings()
+	if err != nil {
+		descrMistake := fmt.Sprintf("ошибка (%v) инициализации настроек. Файл настроек: %v", err, settings.FullFileNameSettings)
+		fmt.Println(descrMistake)
+		return
 	}
-	fmt.Println("инициализация директории для логов прошла успешно")
+
+	// Запуск горутины для перечитывания настроек каждую минуту
+	go func() {
+		for {
+			loaded, err := settings.LoadSettings()
+			if err == nil {
+				currentSettings = loaded
+			}
+			time.Sleep(1 * time.Minute)
+		}
+	}()
+
 	fmt.Println("инициализация логов")
-	descrMistake, logPath, err := logsmy.InitializationsLogs(*clearLogsProgramm, *LogsDebugs)
+	descrMistake, logPath, err := logsmy.InitializationsLogs(currentSettings.ClearLogs, currentSettings.Debug)
 	defer logsmy.CloseDescrptorsLogs()
 	if err != nil {
+		descrMistake = fmt.Sprintf("ошибка (%v, (%v)) инициализации логов. Путь к файлу логов: %v", descrMistake, err, logPath)
 		fmt.Fprint(os.Stderr, descrMistake)
-		logsmy.Logsmap[consttypes.LOGERROR].Println(descrMistake)
 		return
 	}
 	logFilePath = logPath
@@ -326,6 +369,13 @@ func main() {
 	if err != nil {
 		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
 	}
+
+	err = eventlog.InstallAsEventCreate("CloudPosBridge", eventlog.Error|eventlog.Warning|eventlog.Info)
+	if err != nil {
+		//log.Fatalf("Не удалось зарегистрировать источник событий: %v", err)
+		fmt.Println("Не удалось зарегистрировать источник событий:", err)
+	}
+
 	if isService {
 		fmt.Println("запускаем службу")
 		runService(false)
@@ -356,6 +406,7 @@ func main() {
 	fscss := http.FileServer(http.Dir("static/css"))
 	http.Handle("/static/css/", http.StripPrefix("/static/css/", fscss))
 
+	fmt.Println("Запуск веб-сервера для интерфейса настроек")
 	go func() {
 		logsmy.Logsmap[consttypes.LOGINFO_WITHSTD].Println("Запуск веб-сервера на http://localhost:8080")
 		if err := http.ListenAndServe(":8080", nil); err != nil {
@@ -371,33 +422,26 @@ func main() {
 		logsmy.Logsmap[consttypes.LOGERROR].Printf("Ошибка при открытии браузера: %v", err)
 	}
 
-	_, bErr := svc.IsWindowsService()
-	if bErr == nil {
-		fmt.Println("IsWindowsService()")
-	}
-	logsmy.LogginInFile("Начало работы программы")
-	logsmy.LogginInFile(fmt.Sprintf("путь исполняемого файла: %v", execPath))
-	logsmy.LogginInFile(fmt.Sprintf("Версия программы: %v", Version_of_program))
-
 	// Инициализируем драйвер ККТ через kktutils
 	glFptrDriver.NewSafe()
 	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("Не удалось инициализировать драйвер ККТ: %v", err)
-		return
+		logsmy.Logsmap[consttypes.LOGERROR].Printf("Не удалось инициализировать драйвер ККТ: %v", err)
+		//return
 	} else {
 		defer glFptrDriver.Destroy() // Освобождаем ресурсы при завершении программы
 		logsmy.LogginInFile(fmt.Sprintf("версия драйвера: %v", glFptrDriver.Version()))
 	}
 
-	isService, err = svc.IsWindowsService()
-	if err != nil {
-		logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
-	}
-	if isService {
-		fmt.Println("запускаем службу")
-		runService(false)
-		return
-	}
+	//isService, err = svc.IsWindowsService()
+	//if err != nil {
+	//	logsmy.Logsmap[consttypes.LOGERROR].Fatalf("не удалось определить, запущена ли программа как служба: %v", err)
+	//}
+
+	//if isService {
+	//	fmt.Println("запускаем службу")
+	//	runService(false)
+	//	return
+	//}
 
 	select {}
 }

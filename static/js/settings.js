@@ -7,15 +7,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Загрузка текущих настроек
     fetch('/api/settings')
         .then(response => response.json())
+        //console.log(response)
         .then(settings => {
+            console.log("Ответ сервера:", settings); // <-- добавьте эту строку
             document.getElementById('clearlogs').checked = settings.clearlogs;
             document.getElementById('debug').value = settings.debug;
-            document.getElementById('com').value = settings.com;
+            document.getElementById('comkkt').value = settings.comkkt;
             document.getElementById('cassir').value = settings.cassir;
             document.getElementById('ipkkt').value = settings.ipkkt;
             document.getElementById('portipkkt').value = settings.portipkkt;
             document.getElementById('ipservkkt').value = settings.ipservkkt;
             document.getElementById('emul').checked = settings.emul;
+            document.getElementById('allowedOrigin').checked = settings.allowedOrigin;
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
 
@@ -36,6 +39,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Преобразование checkbox значений в boolean
         settings.clearlogs = settings.clearlogs === 'on';
         settings.emul = settings.emul === 'on';
+
+        // Преобразование числовых полей
+        if ('debug' in settings) settings.debug = Number(settings.debug);
+        if ('comkkt' in settings) settings.comkkt = Number(settings.com);
+        if ('portipkkt' in settings) settings.portipkkt = Number(settings.portipkkt);        
 
         const settingsJson = JSON.stringify(settings);
 

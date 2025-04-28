@@ -2,6 +2,7 @@
 *.exe
 *.exe.manifest
 samples/screenshots/
+.gigaide/
 
 # Логи
 logs/*.txt

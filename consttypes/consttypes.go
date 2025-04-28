@@ -152,9 +152,10 @@ type TItemInfoCheckResultObject struct {
 	ItemInfoCheckResult TItemInfoCheckResult `json:"itemInfoCheckResult"`
 }
 
-var DIROFJSONS = ".\\jsons\\works\\"
 var LOGSDIR = filepath.Join(os.Getenv("ProgramData"), "CloudPosBridge", "logs") + string(os.PathSeparator)
+var SETTINGSDIR = filepath.Join(os.Getenv("ProgramData"), "CloudPosBridge", "settings") + string(os.PathSeparator)
 
+const FILESETTINGS = "settings.json"
 const LOGINFO = "info"
 const LOGINFO_WITHSTD = "info_std"
 const LOGERROR = "error"
@@ -185,6 +186,10 @@ type IFptr10Interface interface {
 }
 
 // Добавим функцию для создания директории логов, если она не существует
-func EnsureLogDirectoryExists() error {
-	return os.MkdirAll(LOGSDIR, 0755)
-}
+//func EnsureLogDirectoryExists() error {
+//	return os.MkdirAll(LOGSDIR, 0755)
+//}
+
+//func EnsureSettingsDirectoryExists() error {
+//	return os.MkdirAll(SETTINGSDIR, 0755)
+//}

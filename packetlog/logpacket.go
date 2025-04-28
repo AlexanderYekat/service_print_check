@@ -35,7 +35,7 @@ func CloseDescrptorsLogs() {
 func InitializationsLogs(clearLogsProgramm bool, LogsDebugs int) (string, string, error) {
 	DeegreOfDebug = LogsDebugs
 	if foundedLogDir, _ := consttypes.DoesFileExist(consttypes.LOGSDIR); !foundedLogDir {
-		os.Mkdir(consttypes.LOGSDIR, 0777)
+		os.Mkdir(consttypes.LOGSDIR, 0755)
 	}
 	filelogmap, Logsmap, descrError, err = initializationLogsLoc(clearLogsProgramm, consttypes.LOGINFO, consttypes.LOGERROR)
 	if err != nil {

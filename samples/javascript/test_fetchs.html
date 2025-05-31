@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест сервиса печати чеков</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест сервиса печати чеков</h1>
+    
+    <button class="button" onclick="printCheck()">Печать чека</button>
+    <button class="button" onclick="closeShift()">Закрыть смену</button>
+    <button class="button" onclick="printXReport()">X-отчет</button>
+
+    <div id="result" class="result"></div>
+
+    <script>
+        const API_URL = 'http://localhost:8081';
+
+        async function printCheck() {
+            try {
+                const response = await fetch(`${API_URL}/api/print-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tableData: [
+                            {
+                                name: 'Товар 1',
+                                quantity: '2',
+                                price: '100.00'
+                            },
+                            {
+                                name: 'Товар 2',
+                                quantity: '1',
+                                price: '200.00'
+                            }
+                        ],
+                        cashier: 'Иван Иванов',
+                        payments: [
+                            {
+                                type: 'cash',
+                                amount: 300.00
+                            },
+                            {
+                                type: 'electronically',
+                                amount: 100.00
+                            }
+                        ],
+                        type: 'sell'
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+            }
+        }
+
+        async function closeShift() {
+            try {
+                const response = await fetch(`${API_URL}/api/close-shift`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cashier: 'Иван Иванов'
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+            }
+        }
+
+        async function printXReport() {
+            try {
+                const response = await fetch(`${API_URL}/api/x-report`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html> 

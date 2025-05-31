@@ -31,3 +31,6 @@ Thumbs.db
 server.crt
 server.key
 .qodo
+
+.gigaide/
+allfiles.txt

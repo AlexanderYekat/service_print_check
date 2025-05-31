@@ -246,7 +246,7 @@ func runServer() error {
 		//AllowedOrigins: []string{"https://localhost:8443"}, // Разрешаем все источники
 		//AllowedOrigins: []string{"http://localhost:8080", "http://188.225.31.209:8080"},
 		//AllowedOrigins: []string{"http://188.225.31.209:8443"},
-		AllowedOrigins: []string{"https://188.225.31.209:8443", "http://localhost:8081", "http://localhost"},
+		AllowedOrigins: []string{"https://188.225.31.209:8443", "http://localhost:8081", "http://localhost", "null"},
 		//AllowedOrigins: []string{"http://127.0.0.1:8080"},
 		AllowedMethods: []string{"POST", "OPTIONS"},
 		AllowedHeaders: []string{"content-type", "access-control-request-private-network"},
@@ -286,7 +286,7 @@ func runServer() error {
 }
 
 func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "OPTIONS" {
+	/*if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "access-control-request-private-network, content-type")
 		w.Header().Set("Access-Control-Allow-Origin", "https://188.225.31.209:8443/")
@@ -294,7 +294,7 @@ func handlePrintCheck(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Получен OPTIONS запрос")
 		w.WriteHeader(http.StatusOK)
 		return
-	}
+	}*/
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)

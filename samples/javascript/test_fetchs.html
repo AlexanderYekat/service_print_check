@@ -41,10 +41,12 @@
     <div id="result" class="result"></div>
 
     <script>
-        const API_URL = 'http://localhost:8081';
+        //const API_URL = 'http://localhost:8081';
+        const API_URL = 'http://localhost:3000';
 
         async function printCheck() {
             try {
+                console.log('printCheck');
                 const response = await fetch(`${API_URL}/api/print-check`, {
                     method: 'POST',
                     headers: {
@@ -77,7 +79,9 @@
                         type: 'sell'
                     })
                 });
+                console.log(response);
                 const data = await response.json();
+                console.log(data);
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
             } catch (error) {
                 document.getElementById('result').textContent = 'Ошибка: ' + error.message;

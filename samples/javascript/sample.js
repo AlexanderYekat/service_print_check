@@ -67,11 +67,11 @@ function printCheck() {
                     amount: 100.00
                 }
             ],
-            type: 'sell' //продажа sellReturn - возрат
+            type: 'sell' //продажа sellReturn - возврат
         }
     };
 
-    socket.send(JSON.stringify(checkData));
+    ws.send(JSON.stringify(checkData));
 }
 
 function closeShift() {
@@ -82,7 +82,7 @@ function closeShift() {
         }
     };
 
-    socket.send(JSON.stringify(closeShiftData));
+    ws.send(JSON.stringify(closeShiftData));
 }
 
 function printXReport() {

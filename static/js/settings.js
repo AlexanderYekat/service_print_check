@@ -28,14 +28,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(settings => {
             console.log("Ответ сервера:", settings);
-            document.getElementById('clearlogs').checked = settings.clearlogs;
+            document.getElementById('clearLogs').checked = settings.clearLogs;
             document.getElementById('debug').value = settings.debug;
-            document.getElementById('comkkt').value = settings.comkkt;
+            document.getElementById('comKkt').value = settings.comKkt;
             document.getElementById('cassir').value = settings.cassir;
-            document.getElementById('ipkkt').value = settings.ipkkt;
-            document.getElementById('portipkkt').value = settings.portipkkt;
-            document.getElementById('ipservkkt').value = settings.ipservkkt;
-            document.getElementById('emul').checked = settings.emul;
+            document.getElementById('ipKkt').value = settings.ipKkt;
+            document.getElementById('portIpKkt').value = settings.portIpKkt;
+            document.getElementById('ipServKkt').value = settings.ipServKkt;
+            document.getElementById('emulation').checked = settings.emulation;
             document.getElementById('allowedOrigin').value = settings.allowedOrigin;
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
@@ -55,13 +55,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const settings = Object.fromEntries(formData.entries());
         
         // Преобразование checkbox значений в boolean
-        settings.clearlogs = settings.clearlogs === 'on';
-        settings.emul = settings.emul === 'on';
+        settings.clearLogs = settings.clearLogs === 'on';
+        settings.emulation = settings.emulation === 'on';
 
         // Преобразование числовых полей
         if ('debug' in settings) settings.debug = Number(settings.debug);
-        if ('comkkt' in settings) settings.comkkt = Number(settings.comkkt);
-        if ('portipkkt' in settings) settings.portipkkt = Number(settings.portipkkt);        
+        if ('comKkt' in settings) settings.comKkt = Number(settings.comKkt);
+        if ('portIpKkt' in settings) settings.portIpKkt = Number(settings.portIpKkt);        
 
         const settingsJson = JSON.stringify(settings);
 

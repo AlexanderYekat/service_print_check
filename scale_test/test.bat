@@ -1,2 +1,0 @@
-scale_test.exe
-pause

@@ -1,2 +1,0 @@
-service_print_check.exe
-pause

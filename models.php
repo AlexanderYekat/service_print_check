@@ -136,3 +136,30 @@ class Settings {
         $this->allowedOrigin = "";
     }
 }
+
+// Класс для ответа API (ApiResponse)
+class ApiResponse {
+    public $type;
+    public $message;
+    public $data;
+    public $id;
+    public $time;
+
+    public function __construct(string $type, string $message, array $data = [], string $id = "") {
+        $this->type = $type;
+        $this->message = $message;
+        $this->data = (object)$data; // Преобразуем массив в объект
+        $this->id = $id;
+        $this->time = round(microtime(true) * 1000);
+    }
+
+    public function toArray(): array {
+        return [
+            'type' => $this->type,
+            'message' => $this->message,
+            'data' => $this->data,
+            'id' => $this->id,
+            'time' => $this->time,
+        ];
+    }
+}

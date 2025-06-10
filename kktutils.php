@@ -22,7 +22,7 @@ class TFptr10Driver {
     public function NewSafe() {
         try {
             if ($this->fptr === null) {
-                $this->fptr = new COM("ATOL.Fptr10") or die("Не удалось создать объект драйвера ККТ");
+                $this->fptr = new COM("AddIn.Fptr10") or die("Не удалось создать объект драйвера ККТ");
             }
             return null;
         } catch (Exception $e) {
@@ -146,27 +146,30 @@ class TFptr10Driver {
 }
 
 function kktutils_formatCheckJSON($checkDataArr) {
+    $originalCheckData = null; // Инициализируем для предотвращения ошибки линтера
+
     // Если передан объект, преобразуем в массив
     if ($checkDataArr instanceof CheckData) {
+        $originalCheckData = $checkDataArr; // Сохраняем ссылку на оригинальный объект
         $checkDataArr = [
-            'taxationType' => $checkDataArr->taxationType,
-            'type' => $checkDataArr->type,
-            'cashier' => $checkDataArr->cashier,
+            'taxationType' => $originalCheckData->taxationType,
+            'type' => $originalCheckData->type,
+            'cashier' => $originalCheckData->cashier,
             'tableData' => [],
             'payments' => [],
         ];
-        foreach ($checkDataArr->tableData as $item) {
+        foreach ($originalCheckData->tableData as $item) {
             $checkDataArr['tableData'][] = [
-                'name' => $item->name,
-                'quantity' => $item->quantity,
-                'price' => $item->price,
-                'taxNDS' => $item->taxNDS,
+                'name' => $item['name'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+                'taxNDS' => $item['taxNDS'],
             ];
         }
-        foreach ($checkDataArr->payments as $pay) {
+        foreach ($originalCheckData->payments as $pay) {
             $checkDataArr['payments'][] = [
-                'type' => $pay->type,
-                'amount' => $pay->amount,
+                'type' => $pay['type'],
+                'amount' => $pay['amount'],
             ];
         }
     }

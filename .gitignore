@@ -11,6 +11,8 @@ logs/*.txt
 bin/
 build/
 install/
+logs/
+settings/
 !install/CloudPosBridge_setup.iss
 
 # Кэш модулей Go

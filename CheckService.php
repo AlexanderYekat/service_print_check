@@ -3,6 +3,7 @@
 
 require_once 'kktutils.php';
 require_once 'logger.php'; // Подключаем логгер
+require_once 'scaleutils.php'; // Подключаем утилиты для работы с весами
 
 class CheckService {
     private $FptrDriver;
@@ -10,7 +11,7 @@ class CheckService {
     private $scaleComObject;
     private $logger;
 
-    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, $bankComObject = null, $scaleComObject = null) {
+    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, $bankComObject = null, TScale8Driver $scaleComObject = null) {
         $this->FptrDriver = $FptrDriver;
         $this->logger = $logger;
         $this->bankComObject = $bankComObject;
@@ -220,28 +221,36 @@ class CheckService {
         return ['success' => false, 'message' => 'Метод bankOperation еще не реализован полностью.'];
     }
 
-    public function getWeight($scaleComObjectFromHandler) {
+    public function getWeight() {
         $this->logger->info("Попытка получения веса.");
-        $scaleComObject = $scaleComObjectFromHandler ?? $this->scaleComObject;
-        if ($scaleComObject === null) {
-            $this->logger->error("COM-объект весов не инициализирован для getWeight.");
-            return ['success' => false, 'message' => 'COM-объект весов не инициализирован.'];
-        }
-        // Логика для получения веса, пока без изменений
-        // Пример:
-        // try {
-        //     $scaleComObject->Connect();
-        //     $weight = $scaleComObject->GetWeight();
-        //     $scaleComObject->Disconnect();
-        //     $this->logger->info("Вес успешно получен: " . $weight);
-        //     return ['success' => true, 'message' => 'Вес получен', 'weight' => $weight];
-        // } catch (Exception $e) {
-        //     $this->logger->error("Ошибка получения веса: " . $e->getMessage());
-        //     return ['success' => false, 'message' => 'Ошибка получения веса: ' . $e->getMessage()];
-        // }
 
-        $this->logger->warning("Метод getWeight еще не реализован полностью.");
-        return ['success' => false, 'message' => 'Метод getWeight еще не реализован полностью.'];
+        if ($this->scaleComObject === null) {
+            $this->logger->error("Драйвер весов не инициализирован для getWeight.");
+            return ['success' => false, 'message' => 'Драйвер весов не инициализирован.'];
+        }
+
+        list($isOpened, $connectErrorDesc) = $this->scaleComObject->Open();
+        if (!$isOpened) {
+            $this->logger->error("Ошибка подключения к весам: {$connectErrorDesc}");
+            return ['success' => false, 'message' => "Ошибка подключения к весам: {$connectErrorDesc}"];
+        }
+
+        try {
+            list($success, $readErrorDesc, $weight) = $this->scaleComObject->ReadWeight();
+            if (!$success) {
+                $this->logger->error("Ошибка чтения веса: {$readErrorDesc}");
+                $this->scaleComObject->Close();
+                return ['success' => false, 'message' => "Ошибка чтения веса: {$readErrorDesc}"];
+            }
+
+            $this->logger->info("Вес успешно получен: " . $weight);
+            $this->scaleComObject->Close();
+            return ['success' => true, 'message' => 'Вес получен', 'data' => ['weight' => $weight]];
+        } catch (Exception $e) {
+            $this->logger->error("Ошибка получения веса: " . $e->getMessage());
+            $this->scaleComObject->Close();
+            return ['success' => false, 'message' => 'Ошибка получения веса: ' . $e->getMessage()];
+        }
     }
 
     public function printBankSlip(array $slipLines) {

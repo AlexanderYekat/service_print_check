@@ -1,5 +1,8 @@
 <?php
 // models.php
+
+require_once 'settings_storage/SettingsStorageInterface.php';
+
 // Элемент чека (CheckItem)
 class CheckItem {
     public $name;
@@ -59,6 +62,8 @@ class CheckData {
 
 // Настройки приложения (Settings)
 class Settings {
+    private $storage;
+
     public $clearLogs = true;
     public $debug = 3;
     public $comKkt = 0;
@@ -69,17 +74,65 @@ class Settings {
     public $emulation = false;
     public $allowedOrigin = "";
 
-    public function __construct($data = null) {
-        if ($data) {
-            $this->clearLogs = $data['clearLogs'] ?? true;
-            $this->debug = $data['debug'] ?? 3;
-            $this->comKkt = $data['comKkt'] ?? 0;
-            $this->cassir = $data['cassir'] ?? "Кассир";
-            $this->ipKkt = $data['ipKkt'] ?? "";
-            $this->portIpKkt = $data['portIpKkt'] ?? 0;
-            $this->ipServKkt = $data['ipServKkt'] ?? "";
-            $this->emulation = $data['emulation'] ?? false;
-            $this->allowedOrigin = $data['allowedOrigin'] ?? "";
-        }
+    public function __construct(SettingsStorageInterface $storage) {
+        $this->storage = $storage;
+        // По умолчанию, если нет загруженных настроек, используются эти значения
+        $this->clearLogs = true;
+        $this->debug = 3;
+        $this->comKkt = 0;
+        $this->cassir = "Кассир";
+        $this->ipKkt = "";
+        $this->portIpKkt = 0;
+        $this->ipServKkt = "";
+        $this->emulation = false;
+        $this->allowedOrigin = "";
+    }
+
+    public function load(): void {
+        $data = $this->storage->load();
+        $this->fillFromArray($data);
+    }
+
+    public function save(): void {
+        $data = $this->toArray();
+        $this->storage->save($data);
+    }
+
+    public function fillFromArray(array $data): void {
+        $this->clearLogs = $data['clearLogs'] ?? $this->clearLogs;
+        $this->debug = $data['debug'] ?? $this->debug;
+        $this->comKkt = $data['comKkt'] ?? $this->comKkt;
+        $this->cassir = $data['cassir'] ?? $this->cassir;
+        $this->ipKkt = $data['ipKkt'] ?? $this->ipKkt;
+        $this->portIpKkt = $data['portIpKkt'] ?? $this->portIpKkt;
+        $this->ipServKkt = $data['ipServKkt'] ?? $this->ipServKkt;
+        $this->emulation = $data['emulation'] ?? $this->emulation;
+        $this->allowedOrigin = $data['allowedOrigin'] ?? $this->allowedOrigin;
+    }
+
+    public function toArray(): array {
+        return [
+            'clearLogs' => $this->clearLogs,
+            'debug' => $this->debug,
+            'comKkt' => $this->comKkt,
+            'cassir' => $this->cassir,
+            'ipKkt' => $this->ipKkt,
+            'portIpKkt' => $this->portIpKkt,
+            'ipServKkt' => $this->ipServKkt,
+            'emulation' => $this->emulation,
+            'allowedOrigin' => $this->allowedOrigin,
+        ];
+    }
+
+    public function resetToDefaults(): void {
+        $this->clearLogs = true;
+        $this->debug = 3;
+        $this->comKkt = 0;
+        $this->cassir = "Кассир";
+        $this->ipKkt = "";
+        $this->portIpKkt = 0;
+        $this->ipServKkt = "";
+        $this->emulation = false;
+        $this->allowedOrigin = "";
     }
 }

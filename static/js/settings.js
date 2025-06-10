@@ -37,6 +37,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('ipServKkt').value = settings.ipServKkt;
             document.getElementById('emulation').checked = settings.emulation;
             document.getElementById('allowedOrigin').value = settings.allowedOrigin;
+            // Новые настройки для весов
+            document.getElementById('comScale').value = settings.comScale;
+            document.getElementById('baudRateScale').value = settings.baudRateScale;
+            document.getElementById('modelScale').value = settings.modelScale;
+            document.getElementById('emulationScale').checked = settings.emulationScale;
+            // Новые настройки для банковского терминала
+            document.getElementById('bankEmulation').checked = settings.bankEmulation;
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
 
@@ -57,11 +64,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Преобразование checkbox значений в boolean
         settings.clearLogs = settings.clearLogs === 'on';
         settings.emulation = settings.emulation === 'on';
+        settings.emulationScale = settings.emulationScale === 'on';
+        settings.bankEmulation = settings.bankEmulation === 'on';
 
         // Преобразование числовых полей
         if ('debug' in settings) settings.debug = Number(settings.debug);
         if ('comKkt' in settings) settings.comKkt = Number(settings.comKkt);
-        if ('portIpKkt' in settings) settings.portIpKkt = Number(settings.portIpKkt);        
+        if ('portIpKkt' in settings) settings.portIpKkt = Number(settings.portIpKkt);
+        // Новые числовые поля для весов
+        if ('comScale' in settings) settings.comScale = Number(settings.comScale);
+        if ('baudRateScale' in settings) settings.baudRateScale = Number(settings.baudRateScale);
+        if ('modelScale' in settings) settings.modelScale = Number(settings.modelScale);
 
         const settingsJson = JSON.stringify(settings);
 

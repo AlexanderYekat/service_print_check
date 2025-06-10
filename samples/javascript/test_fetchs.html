@@ -215,12 +215,15 @@
         async function closeBankShift() {
             try {
                 console.log('closeBankShift');
-                const response = await fetch(`${API_URL}/api/close-bank-shift`, {
+                const response = await fetch(`${API_URL}/api/bank-operation`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({})
+                    body: JSON.stringify({
+                        operation: 'CloseShiftTerminal',
+                        params: {}
+                    })
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
@@ -238,7 +241,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        operation: 'payment',
+                        operation: 'PayMoney',
                         params: { amount: 750.00 }
                     })
                 });
@@ -258,7 +261,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        operation: 'return',
+                        operation: 'ReturnMoney',
                         params: { amount: 200.00, checkNumber: '12345' }
                     })
                 });

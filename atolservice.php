@@ -21,6 +21,7 @@ define('VERSION_OF_PROGRAM', '2025_05_31_01');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
+define('CLEAR_LOGS_FLAG_FILE', SETTINGS_DIR . '/clear_logs_on_next_startup.flag');
 
 // Здесь должны быть ваши классы/модули для работы с ККТ и настройками
 require_once 'handlers.php';
@@ -28,6 +29,7 @@ require_once 'kktutils.php';
 require_once 'models.php';
 require_once 'settings_storage/JsonFileSettingsStorage.php';
 require_once 'logger.php'; // Подключаем наш новый логгер
+require_once 'bankutils.php'; // Подключаем утилиты для работы с банком
 
 // Глобальные переменные (эти строки будут удалены или закомментированы)
 // $glFptrDriver = new TFptr10Driver();
@@ -63,23 +65,29 @@ function runServer() {
     }
 
     // Создаем экземпляр CheckService, передавая ему FptrDriver и логгер
-    $bankComObject = null;
+    $bankObject = null;
     try {
-        $bankComObject = new COM("SBRFSRV.Server");
-        $logger->info("COM-объект SBRFSRV.Server успешно создан.");
+        $bankObject = new TBankDriver($currentSettings->bankEmulation, $logger);
+        $logger->info("Экземпляр TBankDriver успешно создан.");
     } catch (Exception $e) {
-        $logger->warning("Не удалось создать COM-объект SBRFSRV.Server: " . $e->getMessage());
+        $logger->warning("Не удалось создать экземпляр TBankDriver: " . $e->getMessage());
     }
 
-    $scaleComObject = null;
+    $scaleObject = null;
     try {
-        $scaleComObject = new COM("AddIn.Scale8");
-        $logger->info("COM-объект AddIn.Scale8 успешно создан.");
+        $scaleObject = new TScale8Driver(
+            $currentSettings->comScale, // Используем comScale из настроек
+            $currentSettings->baudRateScale, // Используем baudRateScale из настроек
+            $currentSettings->modelScale, // Используем modelScale из настроек
+            $currentSettings->emulationScale, // Используем emulationScale из настроек
+            $logger
+        );
+        $logger->info("Экземпляр TScale8Driver успешно создан.");
     } catch (Exception $e) {
-        $logger->warning("Не удалось создать COM-объект AddIn.Scale8: " . $e->getMessage());
+        $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
     }
 
-    $checkService = new CheckService($FptrDriver, $logger, $bankComObject, $scaleComObject);
+    $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject);
 
     $fetchHandler = new Handler(
         $checkService, 
@@ -106,8 +114,19 @@ function runServer() {
                 echo json_encode(['status' => 'success', 'message' => 'Настройки сброшены по умолчанию'], JSON_UNESCAPED_UNICODE);
             } else {
                 // Сохранение обычных настроек
+                $oldClearLogsSetting = $currentSettings->clearLogs; // Сохраняем старое значение
                 $currentSettings->fillFromArray($data);
                 $currentSettings->save();
+
+                // Если clearLogs был включен И отличался от старого значения (или был только что включен)
+                // ИЛИ если clearLogs был включен и не был установлен флаг (на случай, если файл флага был удален вручную)
+                if ($currentSettings->clearLogs && (!$oldClearLogsSetting || !file_exists(CLEAR_LOGS_FLAG_FILE))) {
+                    file_put_contents(CLEAR_LOGS_FLAG_FILE, ''); // Создаем файл-флаг
+                    $logger->info("Файл-флаг для очистки логов при следующем запуске создан.");
+                } elseif (!$currentSettings->clearLogs && file_exists(CLEAR_LOGS_FLAG_FILE)) {
+                    unlink(CLEAR_LOGS_FLAG_FILE); // Удаляем файл-флаг, если clearLogs выключен
+                    $logger->info("Файл-флаг для очистки логов удален.");
+                }
                 $logger->info("Настройки успешно сохранены.");
                 echo json_encode(['status' => 'success', 'message' => 'Настройки сохранены'], JSON_UNESCAPED_UNICODE);
             }
@@ -153,10 +172,6 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
-    } elseif ($uri === '/api/return-many' && $method === 'POST') {
-        $fetchHandler->HandleReturnMany();
-    } elseif ($uri === '/api/close-bank-shift' && $method === 'POST') {
-        $fetchHandler->HandleCloseBankShift();
     } elseif ($method === 'OPTIONS') {
         // Для CORS preflight
         http_response_code(204);
@@ -182,24 +197,27 @@ function main() {
     $initialSettings = new Settings($settingsStorageForLogs);
     $initialSettings->load();
 
-    // Если включена очистка логов при запуске
-    if ($initialSettings->clearLogs) {
-        $logFile = LOG_PATH . '/application.log';
+    $logFile = LOG_PATH . '/application.log';
+
+    // Если включена очистка логов И существует файл-флаг (чтобы очистить только один раз после активации)
+    if ($initialSettings->clearLogs && file_exists(CLEAR_LOGS_FLAG_FILE)) {
         if (file_exists($logFile)) {
             if (unlink($logFile)) {
                 // После удаления, создаем логгер для записи сообщения об очистке
                 $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug);
-                $logger->info("Логи очищены при запуске.");
+                $logger->info("Логи очищены при запуске (по запросу).");
             } else {
                 // Если не удалось удалить, создаем логгер для записи ошибки
                 $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug);
-                $logger->error("Не удалось очистить файл логов: $logFile");
+                $logger->error("Не удалось очистить файл логов: $logFile (по запросу)");
             }
         } else {
              // Если файла нет, но включена очистка, это нормально. Просто логируем
              $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug);
-             $logger->info("Файл логов не существует, очистка не требуется.");
+             $logger->info("Файл логов не существует, очистка не требуется (по запросу).");
         }
+        // После очистки, удаляем файл-флаг, чтобы очистка произошла только один раз
+        unlink(CLEAR_LOGS_FLAG_FILE);
     }
 
     runServer();

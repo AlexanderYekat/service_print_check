@@ -82,6 +82,45 @@
                     <span class="helper-text">Укажите разрешенный origin для WebSocket соединений (например, http://localhost:3000). Оставьте пустым, чтобы разрешить все origins.</span>
                 </div>
                 
+                <div class="form-field">
+                    <h2>Настройки весов</h2>
+                </div>
+                <div class="form-field">
+                    <label for="comScale">COM порт весов</label>
+                    <input type="number" id="comScale" name="comScale" min="0" class="text-input">
+                    <span class="helper-text">Номер COM-порта, к которому подключены весы.</span>
+                </div>
+                <div class="form-field">
+                    <label for="baudRateScale">Скорость (BaudRate) весов</label>
+                    <input type="number" id="baudRateScale" name="baudRateScale" min="0" class="text-input">
+                    <span class="helper-text">Скорость передачи данных для весов (например, 18 для 115200).</span>
+                </div>
+                <div class="form-field">
+                    <label for="modelScale">Модель весов</label>
+                    <input type="number" id="modelScale" name="modelScale" min="0" class="text-input">
+                    <span class="helper-text">Код модели весов (например, 38 для АТОЛ Марта).</span>
+                </div>
+                <div class="form-field">
+                    <label for="emulationScale" class="switch">
+                        <input type="checkbox" id="emulationScale" name="emulationScale">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Эмуляция весов</span>
+                    <span class="helper-text">Если включено, служба будет работать в режиме эмуляции весов.</span>
+                </div>
+
+                <div class="form-field">
+                    <h2>Настройки банковского терминала</h2>
+                </div>
+                <div class="form-field">
+                    <label for="bankEmulation" class="switch">
+                        <input type="checkbox" id="bankEmulation" name="bankEmulation">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Эмуляция банковского терминала</span>
+                    <span class="helper-text">Если включено, служба будет работать в режиме эмуляции банковского терминала.</span>
+                </div>
+                
                 <div class="form-field card">
                     <h2><span class="material-icons">settings</span> Файл настроек</h2>
                     <p class="helper-text">Настройки программы хранятся в следующем файле:</p>

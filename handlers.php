@@ -161,45 +161,6 @@ class Handler {
         $this->sendHandlerResponse("success", "Выплата выполнена", $result['data']);
     }
 
-    public function HandleBankOperation() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->logger->warning("HandleBankOperation: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
-            http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
-            return;
-        }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
-        $operation = $data['operation'] ?? '';
-        $params = $data['params'] ?? [];
-        $result = $this->checkService->bankOperation(null, $operation, $params);
-        if (!$result['success']) {
-            $this->logger->error("HandleBankOperation: Ошибка банковской операции: " . $result['message']);
-            http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
-            return;
-        }
-        $this->logger->info("HandleBankOperation: Банковская операция выполнена.");
-        $this->sendHandlerResponse("success", "Банковская операция выполнена", $result['data']);
-    }
-
-    public function HandleGetWeight() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->logger->warning("HandleGetWeight: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
-            http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
-            return;
-        }
-        $result = $this->checkService->getWeight(null);
-        if (!$result['success']) {
-            $this->logger->error("HandleGetWeight: Ошибка получения веса: " . $result['message']);
-            http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
-            return;
-        }
-        $this->logger->info("HandleGetWeight: Вес получен.");
-        $this->sendHandlerResponse("success", "Вес получен", $result['data']);
-    }
 
     public function HandlePrintBankSlip() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -223,45 +184,44 @@ class Handler {
         $this->sendHandlerResponse("success", "Банковский слип напечатан", $result['data']);
     }
 
-    public function HandleReturnMany() {
+    public function HandleBankOperation() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->logger->warning("HandleReturnMany: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            $this->logger->warning("HandleBankOperation: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             echo json_encode(['error' => 'Метод не поддерживается']);
             return;
         }
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
+        $operation = $data['operation'] ?? '';
         $params = $data['params'] ?? [];
-
-        $result = $this->checkService->returnMany(null, $params);
+        $result = $this->checkService->bankOperation($operation, $params);
         if (!$result['success']) {
-            $this->logger->error("HandleReturnMany: Ошибка возврата по безналу: " . $result['message']);
+            $this->logger->error("HandleBankOperation: Ошибка банковской операции: " . $result['message']);
             http_response_code(500);
             echo json_encode(['error' => $result['message']]);
             return;
         }
-        $this->logger->info("HandleReturnMany: Возврат по безналу выполнен.");
-        $this->sendHandlerResponse("success", "Возврат по безналу выполнен", $result['data']);
+        $this->logger->info("HandleBankOperation: Банковская операция выполнена.");
+        $this->sendHandlerResponse("success", "Банковская операция выполнена", $result['data']);
     }
 
-    public function HandleCloseBankShift() {
+    public function HandleGetWeight() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->logger->warning("HandleCloseBankShift: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            $this->logger->warning("HandleGetWeight: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             echo json_encode(['error' => 'Метод не поддерживается']);
             return;
         }
-
-        $result = $this->checkService->closeBankShift(null);
+        $result = $this->checkService->getWeight();
         if (!$result['success']) {
-            $this->logger->error("HandleCloseBankShift: Ошибка закрытия банковской смены: " . $result['message']);
+            $this->logger->error("HandleGetWeight: Ошибка получения веса: " . $result['message']);
             http_response_code(500);
             echo json_encode(['error' => $result['message']]);
             return;
         }
-        $this->logger->info("HandleCloseBankShift: Банковская смена закрыта.");
-        $this->sendHandlerResponse("success", "Банковская смена закрыта", $result['data']);
+        $this->logger->info("HandleGetWeight: Вес получен.");
+        $this->sendHandlerResponse("success", "Вес получен", $result['data']);
     }
 
     private function sendHandlerResponse($type, $message, $data = [], $id = "") {

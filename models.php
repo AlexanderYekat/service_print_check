@@ -73,6 +73,11 @@ class Settings {
     public $ipServKkt = "";
     public $emulation = false;
     public $allowedOrigin = "";
+    public $comScale = 1000; // Номер COM-порта для весов по умолчанию
+    public $baudRateScale = 18; // Скорость передачи данных (BaudRate) для весов по умолчанию (18 = 115200)
+    public $modelScale = 38; // Модель весов по умолчанию (38 = АТОЛ Марта)
+    public $emulationScale = false; // Эмуляция весов по умолчанию
+    public $bankEmulation = false; // Эмуляция банковского терминала по умолчанию
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -86,6 +91,11 @@ class Settings {
         $this->ipServKkt = "";
         $this->emulation = false;
         $this->allowedOrigin = "";
+        $this->comScale = 1000;
+        $this->baudRateScale = 18;
+        $this->modelScale = 38;
+        $this->emulationScale = false;
+        $this->bankEmulation = false;
     }
 
     public function load(): void {
@@ -108,6 +118,11 @@ class Settings {
         $this->ipServKkt = $data['ipServKkt'] ?? $this->ipServKkt;
         $this->emulation = $data['emulation'] ?? $this->emulation;
         $this->allowedOrigin = $data['allowedOrigin'] ?? $this->allowedOrigin;
+        $this->comScale = $data['comScale'] ?? $this->comScale;
+        $this->baudRateScale = $data['baudRateScale'] ?? $this->baudRateScale;
+        $this->modelScale = $data['modelScale'] ?? $this->modelScale;
+        $this->emulationScale = $data['emulationScale'] ?? $this->emulationScale;
+        $this->bankEmulation = $data['bankEmulation'] ?? $this->bankEmulation;
     }
 
     public function toArray(): array {
@@ -121,6 +136,11 @@ class Settings {
             'ipServKkt' => $this->ipServKkt,
             'emulation' => $this->emulation,
             'allowedOrigin' => $this->allowedOrigin,
+            'comScale' => $this->comScale,
+            'baudRateScale' => $this->baudRateScale,
+            'modelScale' => $this->modelScale,
+            'emulationScale' => $this->emulationScale,
+            'bankEmulation' => $this->bankEmulation,
         ];
     }
 
@@ -134,6 +154,11 @@ class Settings {
         $this->ipServKkt = "";
         $this->emulation = false;
         $this->allowedOrigin = "";
+        $this->comScale = 1000;
+        $this->baudRateScale = 18;
+        $this->modelScale = 38;
+        $this->emulationScale = false;
+        $this->bankEmulation = false;
     }
 }
 

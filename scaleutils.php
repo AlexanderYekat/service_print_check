@@ -20,11 +20,6 @@ class TScale8Driver {
     public function Open(): array {
         $this->logger->info("Попытка открытия соединения с весами. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
 
-        if ($this->emulation) {
-            $this->logger->info("Эмуляция: Успешное открытие соединения с весами (мок).");
-            return [true, ""]; // Успешное открытие в режиме эмуляции
-        }
-
         try {
             if ($this->scale === null) {
                 // Создание COM-объекта AddIn.Scale8
@@ -44,7 +39,10 @@ class TScale8Driver {
 
             if (!$this->scale->DeviceEnabled) {
                 $this->logger->error("Весы не подключены: {$resultDescription}");
-                return [false, "Весы не подключены: {$resultDescription}"];
+                if (!$this->emulation) {
+                    return [false, "Весы не подключены: {$resultDescription}"];
+                }
+                
             }
             $this->logger->info("Соединение с весами успешно открыто.");
             return [true, ""];
@@ -57,14 +55,11 @@ class TScale8Driver {
     public function ReadWeight(): array {
         $this->logger->info("Попытка чтения веса. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
 
-        if ($this->emulation) {
-            $this->logger->info("Эмуляция: Возвращаем мок-вес 5.0.");
-            return [true, "", 5.0]; // Мок-вес в режиме эмуляции
-        }
-
         if ($this->scale === null) {
             $this->logger->error("Драйвер весов не инициализирован для чтения веса.");
-            return [false, "Драйвер весов не инициализирован", 0.0];
+            if (!$this->emulation) {
+                return [false, "Драйвер весов не инициализирован", 0.0];
+            }
         }
 
         try {
@@ -80,11 +75,19 @@ class TScale8Driver {
                 $resultDescription = $this->scale->ResultDescription;
                 $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription);
                 $this->logger->error("Ошибка получения веса: {$resultDescription}.");
-                return [false, "Ошибка получения веса: {$resultDescription}", 0.0];
+                if (!$this->emulation) {
+                    return [false, "Ошибка получения веса: {$resultDescription}", 0.0];
+                } else {
+                    return [true, "", 5.0];
+                }
             }
         } catch (Exception $e) {
             $this->logger->error("Ошибка при чтении веса: " . $e->getMessage());
-            return [false, "Ошибка при чтении веса: " . $e->getMessage(), 0.0];
+            if (!$this->emulation) {
+                return [false, "Ошибка при чтении веса: " . $e->getMessage(), 0.0];
+            } else {
+                return [true, "", 5.0];
+            }
         }
     }
 

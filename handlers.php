@@ -1,34 +1,15 @@
 <?php
 // handlers.php
 
-require_once 'kktutils.php'; // Здесь должны быть ваши функции для работы с ККТ
 require_once 'models.php';   // Здесь структура CheckData и WSResponse
+require_once 'validators.php'; // Новый валидатор
+require_once 'CheckService.php'; // Новый сервис
 
 class Handler {
-    private $comport;
-    private $ipaddresskkt;
-    private $portkktatol;
-    private $ipaddressservrkkt;
-    private $emulation;
-    private $FptrDriver;
-    private $version;
+    private $checkService;
 
-    public function __construct(
-        $comport,
-        $ipaddresskkt,
-        $portkktatol,
-        $ipaddressservrkkt,
-        $emulation,
-        $FptrDriver,
-        $version
-    ) {
-        $this->comport = $comport;
-        $this->ipaddresskkt = $ipaddresskkt;
-        $this->portkktatol = $portkktatol;
-        $this->ipaddressservrkkt = $ipaddressservrkkt;
-        $this->emulation = $emulation;
-        $this->FptrDriver = $FptrDriver;
-        $this->version = $version;
+    public function __construct(CheckService $checkService) {
+        $this->checkService = $checkService;
     }
 
     public function HandlePrintCheck() {
@@ -41,64 +22,180 @@ class Handler {
         $input = file_get_contents('php://input');
         $checkData = json_decode($input, true);
 
-        if (!isset($checkData['cashier']) || empty($checkData['cashier'])) {
+        $validationResult = Validator::validateCheckData($checkData);
+        if (!$validationResult['success']) {
             http_response_code(400);
-            echo json_encode(['error' => 'не указано имя кассира']);
+            echo json_encode(['error' => $validationResult['message']]);
             return;
         }
 
-        // Формируем JSON для ККТ
-        $checkJSON = kktutils_formatCheckJSON($checkData);
-
-        // Получаем драйвер (здесь предполагается, что FptrDriver уже инициализирован)
-        $fptr = $this->FptrDriver;
-
-        // Подключаемся к кассе
-        list($ok, $typepodkluch) = kktutils_connectWithKassa(
-            $fptr,
-            $this->comport,
-            $this->ipaddresskkt,
-            $this->portkktatol,
-            $this->ipaddressservrkkt
-        );
-        if (!$ok) {
-            $this->sendHandleError("ошибка подключения к кассе: $typepodkluch");
+        $result = $this->checkService->printCheck($checkData);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
             return;
         }
 
-        // Печатаем чек
-        list($result, $err) = kktutils_sendCommandAndGetAnswerFromKKT($fptr, $checkJSON, $this->emulation);
-        if ($err) {
-            $this->sendHandleError("ошибка при печати чека: $err");
-            kktutils_closeKassa($fptr);
-            return;
-        }
-
-        if (!kktutils_successCommand($result)) {
-            $this->sendHandleError("ошибка при печати чека: $result");
-            kktutils_closeKassa($fptr);
-            return;
-        }
-
-        // Парсим результат и получаем fiscalDocumentNumber
-        $resultJSON = json_decode($result, true);
-        $fiscalDocumentNumber = 0;
-        if (isset($resultJSON['fiscalParams']['fiscalDocumentNumber'])) {
-            $fiscalDocumentNumber = $resultJSON['fiscalParams']['fiscalDocumentNumber'];
-        } elseif ($this->emulation) {
-            $fiscalDocumentNumber = 123;
-        }
-
-        $this->sendHandlerResponse("success", "Чек успешно напечатан", [
-            "fiscalDocumentNumber" => $fiscalDocumentNumber
-        ]);
-
-        kktutils_closeKassa($fptr);
+        $this->sendHandlerResponse("success", "Чек успешно напечатан", $result['data']);
     }
 
     public function HandleCloseShift() {
-        // Реализуйте по аналогии с HandlePrintCheck
-        $this->sendHandlerResponse("success", "Смена закрыта", []);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        $result = $this->checkService->closeShift();
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+
+        $this->sendHandlerResponse("success", "Смена закрыта", $result['data']);
+    }
+
+    public function HandleXReport() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $result = $this->checkService->printXReport();
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "X-отчёт напечатан", $result['data']);
+    }
+
+    public function HandleCashIn() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $amount = $data['amount'] ?? 0;
+        $result = $this->checkService->cashIn($amount);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Внесение выполнено", $result['data']);
+    }
+
+    public function HandleCashOut() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $amount = $data['amount'] ?? 0;
+        $result = $this->checkService->cashOut($amount);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Выплата выполнена", $result['data']);
+    }
+
+    public function HandleBankOperation() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $operation = $data['operation'] ?? '';
+        $params = $data['params'] ?? [];
+        $result = $this->checkService->bankOperation(null, $operation, $params);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Банковская операция выполнена", $result['data']);
+    }
+
+    public function HandleGetWeight() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $result = $this->checkService->getWeight(null);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Вес получен", $result['data']);
+    }
+
+    public function HandlePrintBankSlip() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $slipLines = $data['slipLines'] ?? []; // Предполагаем, что slipLines это массив строк
+
+        $result = $this->checkService->printBankSlip($slipLines);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Банковский слип напечатан", $result['data']);
+    }
+
+    public function HandleReturnMany() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $params = $data['params'] ?? [];
+
+        $result = $this->checkService->returnMany(null, $params);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Возврат по безналу выполнен", $result['data']);
+    }
+
+    public function HandleCloseBankShift() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'Метод не поддерживается']);
+            return;
+        }
+
+        $result = $this->checkService->closeBankShift(null);
+        if (!$result['success']) {
+            http_response_code(500);
+            echo json_encode(['error' => $result['message']]);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Банковская смена закрыта", $result['data']);
     }
 
     private function sendHandleError($message) {

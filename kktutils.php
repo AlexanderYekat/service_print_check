@@ -5,13 +5,24 @@ require_once 'models.php';
 
 class TFptr10Driver {
     private $fptr = null;
+    private $comport;
+    private $ipKkt;
+    private $portIpKkt;
+    private $ipServKkt;
+    private $emulation;
+
+    public function __construct($comport = 0, $ipKkt = "", $portIpKkt = 0, $ipServKkt = "", $emulation = false) {
+        $this->comport = $comport;
+        $this->ipKkt = $ipKkt;
+        $this->portIpKkt = $portIpKkt;
+        $this->ipServKkt = $ipServKkt;
+        $this->emulation = $emulation;
+    }
 
     public function NewSafe() {
         try {
             if ($this->fptr === null) {
-                // Здесь должна быть инициализация драйвера ККТ
-                // В PHP это может быть COM-объект или другой способ подключения к драйверу
-                $this->fptr = new COM("AddIn.Fptr10") or die("Не удалось создать объект драйвера ККТ");
+                $this->fptr = new COM("ATOL.Fptr10") or die("Не удалось создать объект драйвера ККТ");
             }
             return null;
         } catch (Exception $e) {
@@ -19,9 +30,119 @@ class TFptr10Driver {
         }
     }
 
+    public function Open() {
+        if ($this->fptr === null) {
+            return "Драйвер не инициализирован";
+        }
+        try {
+            // Применяем настройки перед открытием
+            $this->applySettingsToFptr();
+            $this->fptr->Open();
+            return null;
+        } catch (Exception $e) {
+            return $e->getMessage();
+        }
+    }
+
+    public function IsOpened() {
+        if ($this->fptr === null) {
+            return false;
+        }
+        try {
+            return $this->fptr->IsOpened();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function ApplySingleSettings() {
+        // Этот метод теперь используется внутренне Open()
+        return null;
+    }
+
+    private function applySettingsToFptr() {
+        // Пример: установка модели (если поддерживается драйвером)
+        if (method_exists($this->fptr, 'SetSingleSetting')) {
+            $this->fptr->SetSingleSetting('MODEL', 'ATOL_AUTO');
+        }
+
+        if (!empty($this->ipServKkt)) {
+            if (method_exists($this->fptr, 'SetSingleSetting')) {
+                $this->fptr->SetSingleSetting('REMOTE_SERVER_ADDR', $this->ipServKkt);
+            }
+        }
+
+        if ($this->comport == 0) {
+            if (!empty($this->ipKkt)) {
+                if (method_exists($this->fptr, 'SetSingleSetting')) {
+                    $this->fptr->SetSingleSetting('PORT', 'TCPIP');
+                    $this->fptr->SetSingleSetting('IPADDRESS', $this->ipKkt);
+                    if ($this->portIpKkt != 0) {
+                        $this->fptr->SetSingleSetting('IPPORT', $this->portIpKkt);
+                    }
+                }
+            } else {
+                if (method_exists($this->fptr, 'SetSingleSetting')) {
+                    $this->fptr->SetSingleSetting('PORT', 'USB');
+                }
+            }
+        } else {
+            $sComPorta = "COM" . $this->comport;
+            if (method_exists($this->fptr, 'SetSingleSetting')) {
+                $this->fptr->SetSingleSetting('PORT', 'COM');
+                $this->fptr->SetSingleSetting('COM_FILE', $sComPorta);
+                $this->fptr->SetSingleSetting('BAUDRATE', '115200');
+            }
+        }
+
+        if (method_exists($this->fptr, 'ApplySingleSettings')) {
+            $this->fptr->ApplySingleSettings();
+        }
+    }
+
+    public function Close() {
+        if ($this->fptr === null) {
+            return;
+        }
+        try {
+            $this->fptr->Close();
+        } catch (Exception $e) {
+            // Игнорируем ошибки при закрытии
+        }
+    }
+
+    public function Version() {
+        if ($this->fptr === null) {
+            return "";
+        }
+        try {
+            return $this->fptr->Version();
+        } catch (Exception $e) {
+            return "";
+        }
+    }
+
     public function GetFptr10() {
         return $this->fptr;
-    }    
+    }
+
+    public function Destroy() {
+        if ($this->fptr !== null) {
+            try {
+                $this->fptr->Destroy();
+            } catch (Exception $e) {
+                // Игнорируем ошибки при уничтожении
+            }
+            $this->fptr = null;
+        }
+    }
+
+    // Геттеры для параметров (если нужны)
+    public function getComport() { return $this->comport; }
+    public function getIpKkt() { return $this->ipKkt; }
+    public function getPortIpKkt() { return $this->portIpKkt; }
+    public function getIpServKkt() { return $this->ipServKkt; }
+    public function getEmulation() { return $this->emulation; }
 }
 
 function kktutils_formatCheckJSON($checkDataArr) {
@@ -117,43 +238,42 @@ function kktutils_formatCheckJSON($checkDataArr) {
     return json_encode($checkJSON, JSON_UNESCAPED_UNICODE);
 }
 
-function kktutils_connectWithKassa($fptr, $comportint, $ipaddresskktper, $portkktper, $ipaddresssrvkktper) {
+function kktutils_connectWithKassa(TFptr10Driver $fptrDriver) {
     $typeConnect = "";
 
-    // Пример: установка модели (если поддерживается драйвером)
-    $fptr->setSingleSetting('MODEL', 'ATOL_AUTO');
+    // Используем внутренние параметры TFptr10Driver
+    $comportint = $fptrDriver->getComport();
+    $ipaddresskktper = $fptrDriver->getIpKkt();
+    $portkktper = $fptrDriver->getPortIpKkt();
+    $ipaddresssrvkktper = $fptrDriver->getIpServKkt();
+
+    $error = $fptrDriver->NewSafe();
+    if ($error) {
+        return [false, "Ошибка инициализации драйвера: " . $error];
+    }
+
+    $error = $fptrDriver->Open();
+    if ($error) {
+        return [false, "Ошибка открытия соединения с ККТ: " . $error];
+    }
 
     if (!empty($ipaddresssrvkktper)) {
-        $fptr->setSingleSetting('REMOTE_SERVER_ADDR', $ipaddresssrvkktper);
         $typeConnect = "через сервер ККТ по IP $ipaddresssrvkktper";
     }
 
     if ($comportint == 0) {
         if (!empty($ipaddresskktper)) {
-            $fptr->setSingleSetting('PORT', 'TCPIP');
-            $fptr->setSingleSetting('IPADDRESS', $ipaddresskktper);
-            if ($portkktper != 0) {
-                $fptr->setSingleSetting('IPPORT', $portkktper);
-            }
             $typeConnect .= " по IP $ipaddresskktper ККТ на порт $portkktper";
         } else {
-            $fptr->setSingleSetting('PORT', 'USB');
             $typeConnect .= " по USB";
         }
     } else {
         $sComPorta = "COM" . $comportint;
-        $fptr->setSingleSetting('PORT', 'COM');
-        $fptr->setSingleSetting('COM_FILE', $sComPorta);
-        $fptr->setSingleSetting('BAUDRATE', '115200');
         $typeConnect .= " по COM порту $sComPorta";
     }
 
-    // Применяем настройки и открываем соединение
-    $fptr->applySingleSettings();
-    $fptr->open();
-
     // Проверяем, открылось ли соединение
-    $isOpened = $fptr->isOpened;
+    $isOpened = $fptrDriver->IsOpened();
 
     return [$isOpened, $typeConnect];
 }

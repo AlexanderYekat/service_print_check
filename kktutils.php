@@ -251,7 +251,39 @@ class TFptr10Driver {
                 return [false, "", "Ошибка отправки команды на ККТ: {$errorDescription}"];
             }
         } else { // Если эмуляция, возвращаем мок-ответ
-            $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
+            $decodedComJson = json_decode($comJson, true);
+            $commandType = $decodedComJson['type'] ?? '';
+            $resJson = '';
+
+            switch ($commandType) {
+                case 'cashIn':
+                    $resJson = '{ "counters" : { "cashSum" : 1345.0 } }';
+                    break;
+                case 'closeShift':
+                    $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2017-07-25T13:12:00+03:00", "fiscalDocumentNumber" : 69, "fiscalDocumentSign" : "1138986989", "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 11, "receiptsCount" : 3, "fnsUrl": "www.nalog.gov.ru" }, "warnings": { "notPrinted": false } }';
+                    break;
+                case 'reportX': // Для X-отчета
+                    $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
+                    break;
+                case 'bankOperation': // Для банковских операций (пример)
+                    $resJson = '{ "success": true, "message": "Банковская операция успешно выполнена (мок)" }';
+                    break;
+                case 'printBankSlip': // Для печати банковского слипа (пример)
+                    $resJson = '{ "success": true, "message": "Банковский слип успешно напечатан (мок)" }';
+                    break;
+                case 'returnMany': // Для возвратов (пример)
+                    $resJson = '{ "success": true, "message": "Возврат успешно выполнен (мок)" }';
+                    break;
+                case 'closeBankShift': // Для закрытия банковской смены (пример)
+                    $resJson = '{ "success": true, "message": "Банковская смена успешно закрыта (мок)" }';
+                    break;
+                case 'getWeight': // Для получения веса (пример)
+                    $resJson = '{ "weight": 12.345, "success": true }';
+                    break;
+                default: // По умолчанию для других команд, включая printCheck
+                    $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
+                    break;
+            }
             return [true, $resJson, ""];
         }
     

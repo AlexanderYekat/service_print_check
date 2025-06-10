@@ -14,22 +14,21 @@ class TScale8Driver {
         $this->baudRate = $baudRate;
         $this->model = $model;
         $this->emulation = $emulation;
-        $this->logger = $logger;
+        $this->logger = $logger ?? Logger::getInstance(); // Инициализируем логгер или получаем существующий экземпляр
     }
 
     public function Open(): array {
         $this->logger->info("Попытка открытия соединения с весами. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
 
+        if ($this->emulation) {
+            $this->logger->info("Эмуляция: Успешное открытие соединения с весами (мок).");
+            return [true, ""]; // Успешное открытие в режиме эмуляции
+        }
+
         try {
             if ($this->scale === null) {
                 // Создание COM-объекта AddIn.Scale8
                 $this->scale = new COM("AddIn.Scale8");
-                if ($this->scale === null) {
-                    $this->logger->error("Не удалось создать объект драйвера весов AddIn.Scale8");
-                    if (!$this->emulation) {
-                        return [false, "Не удалось создать объект драйвера весов AddIn.Scale8"];
-                    }
-                }
             }
 
             // Установка параметров
@@ -45,26 +44,27 @@ class TScale8Driver {
 
             if (!$this->scale->DeviceEnabled) {
                 $this->logger->error("Весы не подключены: {$resultDescription}");
-                if (!$this->emulation) {
-                    return [false, "Весы не подключены: {$resultDescription}"];
-                }
+                return [false, "Весы не подключены: {$resultDescription}"];
             }
+            $this->logger->info("Соединение с весами успешно открыто.");
             return [true, ""];
         } catch (Exception $e) {
             $this->logger->error("Ошибка открытия соединения с весами: " . $e->getMessage());
-            if ($this->emulation) {
-                return [true, ""]; // Успешное открытие в режиме эмуляции
-            }        
             return [false, "Ошибка открытия соединения с весами: " . $e->getMessage()];
         }
     }
 
     public function ReadWeight(): array {
+        $this->logger->info("Попытка чтения веса. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
+
+        if ($this->emulation) {
+            $this->logger->info("Эмуляция: Возвращаем мок-вес 5.0.");
+            return [true, "", 5.0]; // Мок-вес в режиме эмуляции
+        }
+
         if ($this->scale === null) {
             $this->logger->error("Драйвер весов не инициализирован для чтения веса.");
-            if (!$this->emulation) {
-                return [false, "Драйвер весов не инициализирован", 0.0];
-            }
+            return [false, "Драйвер весов не инициализирован", 0.0];
         }
 
         try {
@@ -80,17 +80,12 @@ class TScale8Driver {
                 $resultDescription = $this->scale->ResultDescription;
                 $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription);
                 $this->logger->error("Ошибка получения веса: {$resultDescription}.");
-                if (!$this->emulation) {
-                    return [false, "Ошибка получения веса: {$resultDescription}", 0.0];
-                }
+                return [false, "Ошибка получения веса: {$resultDescription}", 0.0];
             }
         } catch (Exception $e) {
             $this->logger->error("Ошибка при чтении веса: " . $e->getMessage());
-            if (!$this->emulation) {
-                return [false, "Ошибка при чтении веса: " . $e->getMessage(), 0.0];
-            }
+            return [false, "Ошибка при чтении веса: " . $e->getMessage(), 0.0];
         }
-        return [true, "", 1.344];
     }
 
     public function Close(): void {

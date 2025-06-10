@@ -37,6 +37,13 @@
     <button class="button" onclick="printCheck()">Печать чека</button>
     <button class="button" onclick="closeShift()">Закрыть смену</button>
     <button class="button" onclick="printXReport()">X-отчет</button>
+    <button class="button" onclick="getWeight()">Получить вес</button>
+    <button class="button" onclick="cashIn()">Внесение наличных</button>
+    <button class="button" onclick="cashOut()">Выплата наличных</button>
+    <button class="button" onclick="printBankSlip()">Печать банковского слипа</button>
+    <button class="button" onclick="closeBankShift()">Закрыть банковскую смену</button>
+    <button class="button" onclick="bankOperationPayment()">Оплата по терминалу</button>
+    <button class="button" onclick="bankOperationReturn()">Возврат по терминалу</button>
 
     <div id="result" class="result"></div>
 
@@ -113,6 +120,147 @@
                     headers: {
                         'Content-Type': 'application/json',
                     }
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function getWeight() {
+            try {
+                console.log('getWeight');
+                const response = await fetch(`${API_URL}/api/get-weight`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function cashIn() {
+            try {
+                console.log('cashIn');
+                const response = await fetch(`${API_URL}/api/cash-in`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cashier: 'Иван Иванов',
+                        amount: 500.00
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function cashOut() {
+            try {
+                console.log('cashOut');
+                const response = await fetch(`${API_URL}/api/cash-out`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cashier: 'Иван Иванов',
+                        amount: 100.00
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function printBankSlip() {
+            try {
+                console.log('printBankSlip');
+                const response = await fetch(`${API_URL}/api/print-bank-slip`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        slipLines: [
+                            '--- БАНКОВСКИЙ СЛИП ---',
+                            'ОПЕРАЦИЯ: ОПЛАТА',
+                            'СУММА: 1500.00 РУБ.',
+                            'КАРТА: **** **** **** 1234',
+                            'АВТ. КОД: 567890',
+                            'ДАТА: 2024-07-10 10:30:00',
+                            '--- СПАСИБО ---'
+                        ]
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function closeBankShift() {
+            try {
+                console.log('closeBankShift');
+                const response = await fetch(`${API_URL}/api/close-bank-shift`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function bankOperationPayment() {
+            try {
+                console.log('bankOperationPayment');
+                const response = await fetch(`${API_URL}/api/bank-operation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        operation: 'payment',
+                        params: { amount: 750.00 }
+                    })
+                });
+                const data = await response.json();
+                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function bankOperationReturn() {
+            try {
+                console.log('bankOperationReturn');
+                const response = await fetch(`${API_URL}/api/bank-operation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        operation: 'return',
+                        params: { amount: 200.00, checkNumber: '12345' }
+                    })
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);

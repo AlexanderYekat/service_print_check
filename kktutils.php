@@ -40,6 +40,7 @@ class TFptr10Driver {
             $result = $this->fptr->Open();
             if ($result !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
+                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
                 return [false, "Ошибка открытия соединения с ККТ: " . $errorDescription];
             }
             return [$this->IsOpened(), ""];
@@ -130,7 +131,7 @@ class TFptr10Driver {
 
     public function IsShiftOpened() {
         if ($this->fptr === null) {
-            return false;
+            return [false, "Драйвер не инициализирован"];
         }
         try {
             $this->fptr->SetParam($this->fptr->LIBFPTR_PARAM_DATA_TYPE, $this->fptr->LIBFPTR_DT_SHIFT_STATE);
@@ -246,6 +247,7 @@ class TFptr10Driver {
             $result = $this->fptr->processJson();
             if ($result !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
+                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
                 return [false, "", "Ошибка отправки команды на ККТ: {$errorDescription}"];
             }
         } else { // Если эмуляция, возвращаем мок-ответ

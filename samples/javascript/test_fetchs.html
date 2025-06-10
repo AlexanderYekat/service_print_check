@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Тест сервиса печати чеков</title>
+    <title>Тест сервиса печати чеков 2025.06.10.01</title>
     <meta charset="UTF-8">
     <style>
         body {
@@ -84,7 +84,7 @@
                 console.log(data);
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
             } catch (error) {
-                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
         }
 
@@ -102,7 +102,7 @@
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
             } catch (error) {
-                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
         }
 
@@ -117,7 +117,7 @@
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
             } catch (error) {
-                document.getElementById('result').textContent = 'Ошибка: ' + error.message;
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
         }
     </script>

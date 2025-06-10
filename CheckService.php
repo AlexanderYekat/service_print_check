@@ -27,60 +27,79 @@ class CheckService {
             return ['success' => false, 'message' => 'Неверный формат данных чека.'];
         }
 
-        list($isOpened, $typeConnect) = kktutils_connectWithKassa($this->FptrDriver);
+        $emulation = $this->FptrDriver->getEmulation();
+
+        list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
         if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ: " . $typeConnect);
-            return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' . $typeConnect];
+            $this->logger->error("Ошибка подключения к ККТ: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            if (!$emulation) {
+                return ['success' => false, 'message' => "Ошибка подключения к ККТ: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})"];
+            }
         }
 
-        $formattedCheck = kktutils_formatCheckJSON($checkData);
-        if ($formattedCheck['error']) {
+        $formattedCheck = $this->FptrDriver->formatCheckJSON($checkData);
+        if (!$formattedCheck['success']) {
             $this->logger->error("Ошибка форматирования JSON для чека: " . $formattedCheck['message']);
             $this->FptrDriver->Close();
             return ['success' => false, 'message' => $formattedCheck['message']];
         }
-
-        $fptrCom = $this->FptrDriver->GetFptr10();
-        $emulation = $this->FptrDriver->getEmulation();
+        $checkJsonData = $formattedCheck['checkData'];
 
         $this->logger->info("Отправка команды печати чека на ККТ. Эмуляция: " . ($emulation ? 'Да' : 'Нет'));
-        list($success, $message) = kktutils_sendCommandAndGetAnswerFromKKT($fptrCom, $formattedCheck['checkData'], $emulation);
+        list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->sendCommandAndGetAnswerFromKKT($checkJsonData);
 
         $this->FptrDriver->Close();
 
         if ($success) {
-            $this->logger->info("Чек успешно напечатан. Тип подключения: " . $typeConnect);
-            return ['success' => true, 'message' => 'Чек успешно напечатан', 'data' => ['typeConnect' => $typeConnect]];
+            $this->logger->info("Чек успешно напечатан. Ответ: {$responseJson}");
+            return ['success' => true, 'message' => 'Чек успешно напечатан', 'data' => ['response' => json_decode($responseJson, true)]];
         } else {
-            $this->logger->error("Ошибка печати чека: " . $message);
-            return ['success' => false, 'message' => $message];
+            $this->logger->error("Ошибка печати чека: {$responseJson} (Код: {$commandErrorDesc})");
+            return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
         }
     }
 
     /**
      * @return array
      */
-    public function closeShift() {
+    public function CloseShift(string $cashier) {
         $this->logger->info("Попытка закрытия смены.");
-        list($isOpened, $typeConnect) = kktutils_connectWithKassa($this->FptrDriver);
+        if ($cashier === "") {
+            $this->logger->error("Ошибка закрытия смены: не указан кассир.");
+        	return ['success' => false, 'message' => 'Ошибка закрытия смены: не указан кассир.'];
+        }
+        list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
+        $emulation = $this->FptrDriver->getEmulation();
         if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ при закрытии смены: " . $typeConnect);
-            return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' . $typeConnect];
+            $this->logger->error("Ошибка подключения к ККТ при закрытии смены: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            if (!$emulation) {
+                return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
+            }
         }
 
-        $fptrCom = $this->FptrDriver->GetFptr10();
-        $emulation = $this->FptrDriver->getEmulation();
-
         try {
-            // Открытие смены, если она закрыта (дополнительная проверка)
-            if (!$fptrCom->IsShiftOpened()) {
-                $this->logger->warning("Смена не была открыта, пытаемся открыть перед закрытием.");
-                $fptrCom->OpenShift();
+            // если смена уже закрыта (дополнительная проверка), то не открываем её
+            list($success, $commandErrorDesc) = $this->FptrDriver->IsShiftOpened();
+            if (!$this->FptrDriver->IsShiftOpened() && $commandErrorDesc === "") {
+                $this->logger->warning(message: "Смена уже закрыта");
+                return ['success' => false, 'message' => 'Ошибка закрытия смены: смена уже закрыта'];
             }
-            $fptrCom->CloseShift();
-            $this->logger->info("Смена успешно закрыта. Тип подключения: " . $typeConnect);
+
+            if ($commandErrorDesc!="") {
+                $this->logger->error("Ошибка закрытия смены: {$commandErrorDesc}");
+                $this->FptrDriver->Close();
+                return ['success' => false, 'message' => "Ошибка закрытия смены: {$commandErrorDesc}"];
+            }
+
+            list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->CloseShift($cashier);
+            if (!$success) {
+                $this->logger->error("Ошибка закрытия смены: {$responseJson} (Код: {$commandErrorDesc})");
+                $this->FptrDriver->Close();
+                return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
+            }
+            $this->logger->info("Смена успешно закрыта.");
             $this->FptrDriver->Close();
-            return ['success' => true, 'message' => 'Смена успешно закрыта', 'data' => ['typeConnect' => $typeConnect]];
+            return ['success' => true, 'message' => 'Смена успешно закрыта', 'data' => ['response' => json_decode($responseJson, true)]];
         } catch (Exception $e) {
             $this->logger->error("Ошибка закрытия смены: " . $e->getMessage());
             $this->FptrDriver->Close();
@@ -88,22 +107,32 @@ class CheckService {
         }
     }
 
-    public function printXReport() {
+    public function printXReport(string $cashier = "") {
         $this->logger->info("Попытка печати X-отчёта.");
-        list($isOpened, $typeConnect) = kktutils_connectWithKassa($this->FptrDriver);
+        list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
+        $emulation = $this->FptrDriver->getEmulation();
         if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ при печати X-отчёта: " . $typeConnect);
-            return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' . $typeConnect];
+            $this->logger->error("Ошибка подключения к ККТ при закрытии смены: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            if (!$emulation) {
+                return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
+            }
         }
 
-        $fptrCom = $this->FptrDriver->GetFptr10();
-        $emulation = $this->FptrDriver->getEmulation();
+        if ($cashier === "") {
+            $cashier = "Кассир";
+        }
 
         try {
-            $fptrCom->PrintXReport();
-            $this->logger->info("X-отчёт успешно напечатан. Тип подключения: " . $typeConnect);
+            list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->PrintXReport($cashier);
+            if (!$success) {
+                $this->logger->error("Ошибка печати X-отчета. (Код: {$commandErrorDesc})");
+                $this->FptrDriver->Close();
+                return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
+            }
+
+            $this->logger->info("X-отчёт успешно напечатан.");
             $this->FptrDriver->Close();
-            return ['success' => true, 'message' => 'X-отчёт успешно напечатан', 'data' => ['typeConnect' => $typeConnect]];
+            return ['success' => true, 'message' => 'X-отчёт успешно напечатан', 'data' => ['response' => json_decode($responseJson, true)]];
         } catch (Exception $e) {
             $this->logger->error("Ошибка печати X-отчёта: " . $e->getMessage());
             $this->FptrDriver->Close();
@@ -111,22 +140,27 @@ class CheckService {
         }
     }
 
-    public function cashIn($amount) {
-        $this->logger->info("Попытка внесения наличных: " . $amount);
-        list($isOpened, $typeConnect) = kktutils_connectWithKassa($this->FptrDriver);
+    public function cashIn($cashier, $amount) {
+        $this->logger->info("Попытка внесения наличных: {$amount}");
+        list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
+        $emulation = $this->FptrDriver->getEmulation();
         if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ при внесении наличных: " . $typeConnect);
-            return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' . $typeConnect];
+            $this->logger->error("Ошибка подключения к ККТ при внесении наличных: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            if (!$emulation) {
+                return ['success' => false, 'message' => 'Ошибка подключения к ККТ при внесении наличных: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
+            }
         }
 
-        $fptrCom = $this->FptrDriver->GetFptr10();
-        $emulation = $this->FptrDriver->getEmulation();
-
         try {
-            $fptrCom->CashIn($amount);
-            $this->logger->info("Внесение наличных успешно выполнено. Сумма: " . $amount . ", Тип подключения: " . $typeConnect);
+            list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->CashIn($amount, $cashier);
+            if (!$success) {
+                $this->logger->error("Ошибка внесения наличных. (Код: {$commandErrorDesc})");
+                $this->FptrDriver->Close();
+                return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
+            }
+            $this->logger->info("Внесение наличных успешно выполнено. Сумма: {$amount}.");
             $this->FptrDriver->Close();
-            return ['success' => true, 'message' => 'Внесение успешно выполнено', 'data' => ['typeConnect' => $typeConnect]];
+            return ['success' => true, 'message' => 'Внесение успешно выполнено', 'data' => ['response' => json_decode($responseJson, true)]];
         } catch (Exception $e) {
             $this->logger->error("Ошибка внесения наличных: " . $e->getMessage());
             $this->FptrDriver->Close();
@@ -134,22 +168,27 @@ class CheckService {
         }
     }
 
-    public function cashOut($amount) {
-        $this->logger->info("Попытка выплаты наличных: " . $amount);
-        list($isOpened, $typeConnect) = kktutils_connectWithKassa($this->FptrDriver);
+    public function cashOut($cashier, $amount) {
+        $this->logger->info("Попытка выплаты наличных: {$amount}");
+        list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
+        $emulation = $this->FptrDriver->getEmulation();
         if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ при выплате наличных: " . $typeConnect);
-            return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' . $typeConnect];
+            $this->logger->error("Ошибка подключения к ККТ при выплате наличных: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            if (!$emulation) {
+                return ['success' => false, 'message' => 'Ошибка подключения к ККТ при выплате наличных: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
+            }
         }
 
-        $fptrCom = $this->FptrDriver->GetFptr10();
-        $emulation = $this->FptrDriver->getEmulation();
-
         try {
-            $fptrCom->CashOut($amount);
-            $this->logger->info("Выплата наличных успешно выполнена. Сумма: " . $amount . ", Тип подключения: " . $typeConnect);
+            list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->CashOut($amount, $cashier);
+            if (!$success) {
+                $this->logger->error("Ошибка выплаты наличных. (Код: {$commandErrorDesc})");
+                $this->FptrDriver->Close();
+                return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
+            }
+            $this->logger->info("Выплата наличных успешно выполнена. Сумма: {$amount}.");
             $this->FptrDriver->Close();
-            return ['success' => true, 'message' => 'Выплата успешно выполнена', 'data' => ['typeConnect' => $typeConnect]];
+            return ['success' => true, 'message' => 'Выплата успешно выполнена', 'data' => ['response' => json_decode($responseJson, true)]];
         } catch (Exception $e) {
             $this->logger->error("Ошибка выплаты наличных: " . $e->getMessage());
             $this->FptrDriver->Close();
@@ -207,22 +246,27 @@ class CheckService {
 
     public function printBankSlip($slipLines) {
         $this->logger->info("Попытка печати банковского слипа.");
-        list($isOpened, $typeConnect) = kktutils_connectWithKassa($this->FptrDriver);
-        if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ при печати банковского слипа: " . $typeConnect);
-            return ['success' => false, 'message' => 'Ошибка подключения к ККТ: ' . $typeConnect];
-        }
-
-        $fptrCom = $this->FptrDriver->GetFptr10();
+        list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
         $emulation = $this->FptrDriver->getEmulation();
+        if (!$isOpened) {
+            $this->logger->error("Ошибка подключения к ККТ при печати банковсого слипа: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            if (!$emulation) {
+                return ['success' => false, 'message' => 'Ошибка подключения к ККТ при печати банковсого слипа: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
+            }
+        }
 
         try {
             foreach ($slipLines as $line) {
-                $fptrCom->PrintString($line);
+                list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->PrintString($line);
+                if (!$success) {
+                    $this->logger->error("Ошибка печати строки {$line} банковского слипа. (Код: {$commandErrorDesc})");
+                    $this->FptrDriver->Close();
+                    return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
+                }
             }
-            $this->logger->info("Банковский слип успешно напечатан. Тип подключения: " . $typeConnect);
+            $this->logger->info("Банковский слип успешно напечатан.");
             $this->FptrDriver->Close();
-            return ['success' => true, 'message' => 'Банковский слип успешно напечатан', 'data' => ['typeConnect' => $typeConnect]];
+            return ['success' => true, 'message' => 'Банковский слип успешно напечатан', 'data' => ['response' => json_decode($responseJson, true)]];
         } catch (Exception $e) {
             $this->logger->error("Ошибка печати банковского слипа: " . $e->getMessage());
             $this->FptrDriver->Close();
@@ -234,8 +278,8 @@ class CheckService {
         $this->logger->info("Попытка операции returnMany.");
         $bankComObject = $bankComObjectFromHandler ?? $this->bankComObject;
         if ($bankComObject === null) {
-            $this->logger->error("COM-объект банка не инициализирован для returnMany.");
-            return ['success' => false, 'message' => 'COM-объект банка не инициализирован для returnMany.'];
+            $this->logger->error("COM-объект банка не инициализирован.");
+            return ['success' => false, 'message' => 'COM-объект банка не инициализирован.'];
         }
         // Пока без изменений, здесь должна быть логика с $bankComObject
         $this->logger->warning("Метод returnMany еще не реализован полностью.");

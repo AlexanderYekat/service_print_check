@@ -57,7 +57,16 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
 
-        $result = $this->checkService->closeShift();
+        $cashier = $data['cashier'] ?? ''; // Извлекаем значение cashier из входных данных
+
+        if (empty($cashier)) {
+            $this->logger->error("HandleCloseShift: Отсутствует или пустое значение cashier.");
+            http_response_code(400);
+            echo json_encode(['error' => 'Имя кассира не может быть пустым.']);
+            return;
+        }
+
+        $result = $this->checkService->closeShift($cashier);
         if (!$result['success']) {
             $this->logger->error("HandleCloseShift: Ошибка закрытия смены: " . $result['message']);
             http_response_code(500);
@@ -76,7 +85,12 @@ class Handler {
             echo json_encode(['error' => 'Метод не поддерживается']);
             return;
         }
-        $result = $this->checkService->printXReport();
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        $cashier = $data['cashier'] ?? '';
+
+        $result = $this->checkService->printXReport($cashier);
         if (!$result['success']) {
             $this->logger->error("HandleXReport: Ошибка печати X-отчёта: " . $result['message']);
             http_response_code(500);
@@ -97,7 +111,16 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $amount = $data['amount'] ?? 0;
-        $result = $this->checkService->cashIn($amount);
+        $cashier = $data['cashier'] ?? '';
+
+        if (empty($cashier)) {
+            $this->logger->error("HandleCashIn: Отсутствует или пустое значение cashier.");
+            http_response_code(400);
+            echo json_encode(['error' => 'Имя кассира не может быть пустым.']);
+            return;
+        }
+
+        $result = $this->checkService->cashIn($cashier, $amount);
         if (!$result['success']) {
             $this->logger->error("HandleCashIn: Ошибка внесения наличных: " . $result['message']);
             http_response_code(500);
@@ -118,7 +141,16 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $amount = $data['amount'] ?? 0;
-        $result = $this->checkService->cashOut($amount);
+        $cashier = $data['cashier'] ?? '';
+
+        if (empty($cashier)) {
+            $this->logger->error("HandleCashOut: Отсутствует или пустое значение cashier.");
+            http_response_code(400);
+            echo json_encode(['error' => 'Имя кассира не может быть пустым.']);
+            return;
+        }
+
+        $result = $this->checkService->cashOut($cashier, $amount);
         if (!$result['success']) {
             $this->logger->error("HandleCashOut: Ошибка выплаты наличных: " . $result['message']);
             http_response_code(500);

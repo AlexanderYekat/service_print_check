@@ -14,6 +14,8 @@ install/
 logs/
 settings/
 !install/CloudPosBridge_setup.iss
+myapp_dist/
+Output/
 
 # Кэш модулей Go
 #go.sum

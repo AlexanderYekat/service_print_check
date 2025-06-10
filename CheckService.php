@@ -244,26 +244,39 @@ class CheckService {
         return ['success' => false, 'message' => 'Метод getWeight еще не реализован полностью.'];
     }
 
-    public function printBankSlip($slipLines) {
+    public function printBankSlip(array $slipLines) {
         $this->logger->info("Попытка печати банковского слипа.");
         list($isOpened, $connectErrorDesc) = $this->FptrDriver->Open();
         $emulation = $this->FptrDriver->getEmulation();
         if (!$isOpened) {
-            $this->logger->error("Ошибка подключения к ККТ при печати банковсого слипа: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
+            $this->logger->error("Ошибка подключения к ККТ при печати банковского слипа: {$this->FptrDriver->GetTypeConnection()} (Код: {$connectErrorDesc})");
             if (!$emulation) {
-                return ['success' => false, 'message' => 'Ошибка подключения к ККТ при печати банковсого слипа: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
+                return ['success' => false, 'message' => 'Ошибка подключения к ККТ при печати банковского слипа: ' .  $this->FptrDriver->GetTypeConnection() . " (Код: " . $connectErrorDesc . ")"];
             }
         }
 
         try {
+            $items = [];
             foreach ($slipLines as $line) {
-                list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->PrintString($line);
-                if (!$success) {
-                    $this->logger->error("Ошибка печати строки {$line} банковского слипа. (Код: {$commandErrorDesc})");
-                    $this->FptrDriver->Close();
-                    return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
-                }
+                $items[] = [
+                    "type" => "text",
+                    "text" => $line,
+                    "alignment" => "center"
+                ];
             }
+
+            $nonFiscalDocument = [
+                "type" => "nonFiscal",
+                "items" => $items
+            ];
+
+            list($success, $responseJson, $commandErrorDesc) = $this->FptrDriver->sendCommandAndGetAnswerFromKKT(json_encode($nonFiscalDocument, JSON_UNESCAPED_UNICODE));
+            if (!$success) {
+                $this->logger->error("Ошибка печати банковского слипа. (Код: {$commandErrorDesc})");
+                $this->FptrDriver->Close();
+                return ['success' => false, 'message' => "{$responseJson} (Код: {$commandErrorDesc})"];
+            }
+
             $this->logger->info("Банковский слип успешно напечатан.");
             $this->FptrDriver->Close();
             return ['success' => true, 'message' => 'Банковский слип успешно напечатан', 'data' => ['response' => json_decode($responseJson, true)]];

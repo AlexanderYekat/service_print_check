@@ -265,20 +265,8 @@ class TFptr10Driver {
                 case 'reportX': // Для X-отчета
                     $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
                     break;
-                case 'bankOperation': // Для банковских операций (пример)
-                    $resJson = '{ "success": true, "message": "Банковская операция успешно выполнена (мок)" }';
-                    break;
                 case 'printBankSlip': // Для печати банковского слипа (пример)
                     $resJson = '{ "success": true, "message": "Банковский слип успешно напечатан (мок)" }';
-                    break;
-                case 'returnMany': // Для возвратов (пример)
-                    $resJson = '{ "success": true, "message": "Возврат успешно выполнен (мок)" }';
-                    break;
-                case 'closeBankShift': // Для закрытия банковской смены (пример)
-                    $resJson = '{ "success": true, "message": "Банковская смена успешно закрыта (мок)" }';
-                    break;
-                case 'getWeight': // Для получения веса (пример)
-                    $resJson = '{ "weight": 12.345, "success": true }';
                     break;
                 default: // По умолчанию для других команд, включая printCheck
                     $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
@@ -334,18 +322,18 @@ class TFptr10Driver {
     public function formatCheckJSON($checkDataArr) {
         $originalCheckData = null; // Инициализируем для предотвращения ошибки линтера
 
-        // Если передан объект, преобразуем в массив
-        if ($checkDataArr instanceof CheckData) {
+    // Если передан объект, преобразуем в массив
+    if ($checkDataArr instanceof CheckData) {
             $originalCheckData = $checkDataArr; // Сохраняем ссылку на оригинальный объект
-            $checkDataArr = [
+        $checkDataArr = [
                 'taxationType' => $originalCheckData->taxationType,
                 'type' => $originalCheckData->type,
                 'cashier' => $originalCheckData->cashier,
-                'tableData' => [],
-                'payments' => [],
-            ];
+            'tableData' => [],
+            'payments' => [],
+        ];
             foreach ($originalCheckData->tableData as $item) {
-                $checkDataArr['tableData'][] = [
+            $checkDataArr['tableData'][] = [
                     'name' => $item['name'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
@@ -353,77 +341,77 @@ class TFptr10Driver {
                 ];
             }
             foreach ($originalCheckData->payments as $pay) {
-                $checkDataArr['payments'][] = [
+            $checkDataArr['payments'][] = [
                     'type' => $pay['type'],
                     'amount' => $pay['amount'],
-                ];
-            }
-        }
-    
-        // Формируем позиции чека
-        $checkItems = [];
-        if (!empty($checkDataArr['tableData'])) {
-            foreach ($checkDataArr['tableData'] as $item) {
-                $taxType = "none";
-                if (!empty($item['taxNDS'])) {
-                    if (strpos($item['taxNDS'], "vat") === 0) {
-                        $taxType = $item['taxNDS'];
-                    } else {
-                        $taxType = "vat" . $item['taxNDS'];
-                    }
-                }
-                $quantity = floatval($item['quantity']);
-                $price = floatval($item['price']);
-                $checkItems[] = [
-                    "type" => "position",
-                    "name" => $item['name'],
-                    "price" => $price,
-                    "quantity" => $quantity,
-                    "amount" => $price * $quantity,
-                    "tax" => [
-                        "type" => $taxType
-                    ]
-                ];
-            }
-        }
-    
-        // Считаем общую сумму
-        $totalAmount = 0.0;
-        foreach ($checkItems as $item) {
-            $totalAmount += $item['amount'];
-        }
-    
-        // Формируем оплаты
-        $payments = [];
-        if (empty($checkDataArr['payments'])) {
-            $payments[] = [
-                "type" => "cash",
-                "sum" => $totalAmount
             ];
-        } else {
-            foreach ($checkDataArr['payments'] as $payment) {
-                $payments[] = [
-                    "type" => $payment['type'],
-                    "sum" => floatval($payment['amount'])
-                ];
+        }
+    }
+
+    // Формируем позиции чека
+    $checkItems = [];
+    if (!empty($checkDataArr['tableData'])) {
+        foreach ($checkDataArr['tableData'] as $item) {
+            $taxType = "none";
+            if (!empty($item['taxNDS'])) {
+                if (strpos($item['taxNDS'], "vat") === 0) {
+                    $taxType = $item['taxNDS'];
+                } else {
+                    $taxType = "vat" . $item['taxNDS'];
+                }
             }
+            $quantity = floatval($item['quantity']);
+            $price = floatval($item['price']);
+            $checkItems[] = [
+                "type" => "position",
+                "name" => $item['name'],
+                "price" => $price,
+                "quantity" => $quantity,
+                "amount" => $price * $quantity,
+                "tax" => [
+                    "type" => $taxType
+                ]
+            ];
         }
-    
-        $checkType = !empty($checkDataArr['type']) ? $checkDataArr['type'] : "sell";
-    
-        $checkJSON = [
-            "type" => $checkType,
-            "operator" => [
-                "name" => $checkDataArr['cashier']
-            ],
-            "items" => $checkItems,
-            "payments" => $payments
+    }
+
+    // Считаем общую сумму
+    $totalAmount = 0.0;
+    foreach ($checkItems as $item) {
+        $totalAmount += $item['amount'];
+    }
+
+    // Формируем оплаты
+    $payments = [];
+    if (empty($checkDataArr['payments'])) {
+        $payments[] = [
+            "type" => "cash",
+            "sum" => $totalAmount
         ];
-    
-        if (!empty($checkDataArr['taxationType'])) {
-            $checkJSON['taxationType'] = $checkDataArr['taxationType'];
+    } else {
+        foreach ($checkDataArr['payments'] as $payment) {
+            $payments[] = [
+                "type" => $payment['type'],
+                "sum" => floatval($payment['amount'])
+            ];
         }
-    
+    }
+
+    $checkType = !empty($checkDataArr['type']) ? $checkDataArr['type'] : "sell";
+
+    $checkJSON = [
+        "type" => $checkType,
+        "operator" => [
+            "name" => $checkDataArr['cashier']
+        ],
+        "items" => $checkItems,
+        "payments" => $payments
+    ];
+
+    if (!empty($checkDataArr['taxationType'])) {
+        $checkJSON['taxationType'] = $checkDataArr['taxationType'];
+    }
+
         return ['success' => true, 'checkData' => json_encode($checkJSON, JSON_UNESCAPED_UNICODE)];
     }
 

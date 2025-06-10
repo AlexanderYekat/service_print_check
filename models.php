@@ -1,36 +1,5 @@
 <?php
 // models.php
-
-// Структура для входящего сообщения (WSMessage)
-class WSMessage {
-    public $command;
-    public $data; // array|null
-
-    public function __construct($data = null) {
-        if ($data) {
-            $this->command = $data['command'] ?? null;
-            $this->data = $data['data'] ?? null;
-        }
-    }
-}
-
-// Структура для исходящего сообщения (WSResponse)
-class WSResponse {
-    public $type;
-    public $message;
-    public $data;
-    public $id;
-    public $time;
-
-    public function __construct($type, $message, $data = null, $id = "", $time = null) {
-        $this->type = $type;
-        $this->message = $message;
-        $this->data = $data;
-        $this->id = $id;
-        $this->time = $time ?? round(microtime(true) * 1000);
-    }
-}
-
 // Элемент чека (CheckItem)
 class CheckItem {
     public $name;

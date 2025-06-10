@@ -19,77 +19,9 @@ class TFptr10Driver {
         }
     }
 
-    public function Open() {
-        if ($this->fptr === null) {
-            return "Драйвер не инициализирован";
-        }
-        try {
-            $this->fptr->Open();
-            return null;
-        } catch (Exception $e) {
-            return $e->getMessage();
-        }
-    }
-
-    public function IsOpened() {
-        if ($this->fptr === null) {
-            return false;
-        }
-        try {
-            return $this->fptr->IsOpened();
-        } catch (Exception $e) {
-            return false;
-        }
-    }
-
-    public function ApplySingleSettings() {
-        if ($this->fptr === null) {
-            return "Драйвер не инициализирован";
-        }
-        try {
-            $this->fptr->ApplySingleSettings();
-            return null;
-        } catch (Exception $e) {
-            return $e->getMessage();
-        }
-    }
-
-    public function Close() {
-        if ($this->fptr === null) {
-            return;
-        }
-        try {
-            $this->fptr->Close();
-        } catch (Exception $e) {
-            // Игнорируем ошибки при закрытии
-        }
-    }
-
-    public function Version() {
-        if ($this->fptr === null) {
-            return "";
-        }
-        try {
-            return $this->fptr->Version();
-        } catch (Exception $e) {
-            return "";
-        }
-    }
-
     public function GetFptr10() {
         return $this->fptr;
-    }
-
-    public function Destroy() {
-        if ($this->fptr !== null) {
-            try {
-                $this->fptr->Destroy();
-            } catch (Exception $e) {
-                // Игнорируем ошибки при уничтожении
-            }
-            $this->fptr = null;
-        }
-    }
+    }    
 }
 
 function kktutils_formatCheckJSON($checkDataArr) {
@@ -189,58 +121,39 @@ function kktutils_connectWithKassa($fptr, $comportint, $ipaddresskktper, $portkk
     $typeConnect = "";
 
     // Пример: установка модели (если поддерживается драйвером)
-    if (method_exists($fptr, 'SetSingleSetting')) {
-        $fptr->SetSingleSetting('MODEL', 'ATOL_AUTO');
-    }
+    $fptr->setSingleSetting('MODEL', 'ATOL_AUTO');
 
     if (!empty($ipaddresssrvkktper)) {
-        if (method_exists($fptr, 'SetSingleSetting')) {
-            $fptr->SetSingleSetting('REMOTE_SERVER_ADDR', $ipaddresssrvkktper);
-        }
+        $fptr->setSingleSetting('REMOTE_SERVER_ADDR', $ipaddresssrvkktper);
         $typeConnect = "через сервер ККТ по IP $ipaddresssrvkktper";
     }
 
     if ($comportint == 0) {
         if (!empty($ipaddresskktper)) {
-            if (method_exists($fptr, 'SetSingleSetting')) {
-                $fptr->SetSingleSetting('PORT', 'TCPIP');
-                $fptr->SetSingleSetting('IPADDRESS', $ipaddresskktper);
-                if ($portkktper != 0) {
-                    $fptr->SetSingleSetting('IPPORT', $portkktper);
-                }
+            $fptr->setSingleSetting('PORT', 'TCPIP');
+            $fptr->setSingleSetting('IPADDRESS', $ipaddresskktper);
+            if ($portkktper != 0) {
+                $fptr->setSingleSetting('IPPORT', $portkktper);
             }
             $typeConnect .= " по IP $ipaddresskktper ККТ на порт $portkktper";
         } else {
-            if (method_exists($fptr, 'SetSingleSetting')) {
-                $fptr->SetSingleSetting('PORT', 'USB');
-            }
+            $fptr->setSingleSetting('PORT', 'USB');
             $typeConnect .= " по USB";
         }
     } else {
         $sComPorta = "COM" . $comportint;
-        if (method_exists($fptr, 'SetSingleSetting')) {
-            $fptr->SetSingleSetting('PORT', 'COM');
-            $fptr->SetSingleSetting('COM_FILE', $sComPorta);
-            $fptr->SetSingleSetting('BAUDRATE', '115200');
-        }
+        $fptr->setSingleSetting('PORT', 'COM');
+        $fptr->setSingleSetting('COM_FILE', $sComPorta);
+        $fptr->setSingleSetting('BAUDRATE', '115200');
         $typeConnect .= " по COM порту $sComPorta";
     }
 
     // Применяем настройки и открываем соединение
-    if (method_exists($fptr, 'ApplySingleSettings')) {
-        $fptr->ApplySingleSettings();
-    }
-    if (method_exists($fptr, 'Open')) {
-        $fptr->Open();
-    }
+    $fptr->applySingleSettings();
+    $fptr->open();
 
     // Проверяем, открылось ли соединение
-    $isOpened = false;
-    if (method_exists($fptr, 'IsOpened')) {
-        $isOpened = $fptr->IsOpened();
-    } elseif (property_exists($fptr, 'isOpened')) {
-        $isOpened = $fptr->isOpened;
-    }
+    $isOpened = $fptr->isOpened;
 
     return [$isOpened, $typeConnect];
 }
@@ -253,19 +166,11 @@ function kktutils_sendCommandAndGetAnswerFromKKT($fptr, $comJson, $emulation) {
     }
 
     // Устанавливаем JSON-команду
-    if (method_exists($fptr, 'SetParam')) {
-        $fptr->SetParam('JSON_DATA', $comJson);
-    } elseif (method_exists($fptr, 'setParam')) {
-        $fptr->setParam('JSON_DATA', $comJson);
-    }
+    $fptr->setParam('JSON_DATA', $comJson);
 
     // Валидация и отправка команды (если не эмуляция)
     if (!$emulation) {
-        if (method_exists($fptr, 'ProcessJson')) {
-            $err = $fptr->ProcessJson();
-        } elseif (method_exists($fptr, 'processJson')) {
-            $err = $fptr->processJson();
-        }
+        $err = $fptr->processJson();
     }
 
     if ($err) {
@@ -277,11 +182,7 @@ function kktutils_sendCommandAndGetAnswerFromKKT($fptr, $comJson, $emulation) {
 
     // Получаем ответ
     $resJson = null;
-    if (method_exists($fptr, 'GetParamString')) {
-        $resJson = $fptr->GetParamString('JSON_DATA');
-    } elseif (method_exists($fptr, 'getParamString')) {
-        $resJson = $fptr->getParamString('JSON_DATA');
-    }
+    $resJson = $fptr->getParamString('JSON_DATA');
 
     return [$resJson, null];
 }
@@ -291,43 +192,11 @@ function kktutils_closeKassa($fptr) {
         // Можно добавить логирование, если нужно
         return;
     }
-
-    if (method_exists($fptr, 'Close')) {
-        $fptr->Close();
-    } elseif (method_exists($fptr, 'close')) {
-        $fptr->close();
-    }
+    $fptr->close();
 }
 
 function kktutils_successCommand($resultJson) {
     // Проверяем наличие слов "ошибка" или "error" в ответе
     $hasError = (mb_stripos($resultJson, 'ошибка') !== false) || (mb_stripos($resultJson, 'error') !== false);
     return !$hasError;
-}
-
-function kktutils_version($fptr) {
-    if ($fptr === null) {
-        return "";
-    }
-    
-    if (method_exists($fptr, 'Version')) {
-        return $fptr->Version();
-    } elseif (method_exists($fptr, 'version')) {
-        return $fptr->version();
-    }
-    return "";
-}
-
-function kktutils_getFptr10($fptr) {
-    return $fptr;
-}
-
-function kktutils_destroy($fptr) {
-    if ($fptr !== null) {
-        if (method_exists($fptr, 'Destroy')) {
-            $fptr->Destroy();
-        } elseif (method_exists($fptr, 'destroy')) {
-            $fptr->destroy();
-        }
-    }
 }

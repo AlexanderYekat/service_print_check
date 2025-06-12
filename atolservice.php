@@ -173,6 +173,22 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
+    } elseif ($uri === '/settings.html' && $method === 'GET') {
+        $logger->debug("Запрос на получение страницы настроек.");
+        header('Content-Type: text/html; charset=utf-8');
+        readfile(__DIR__ . '/templates/settings.html');
+    } elseif (strpos($uri, '/static/') === 0 && $method === 'GET') {
+        // Обработка статических файлов (CSS, JS)
+        $filePath = __DIR__ . $uri;
+        if (file_exists($filePath)) {
+            $mimeType = mime_content_type($filePath);
+            header("Content-Type: $mimeType");
+            readfile($filePath);
+        } else {
+            $logger->warning("Статический файл не найден: $filePath");
+            http_response_code(404);
+            echo json_encode(['error' => 'Static file not found']);
+        }
     } elseif ($method === 'OPTIONS') {
         // Для CORS preflight
         http_response_code(204);

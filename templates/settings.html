@@ -6,7 +6,201 @@
     <title>Настройки CloudPosBridge</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/settings.css">
+    <style>
+:root {
+    --md-sys-color-primary: #6750A4;
+    --md-sys-color-on-primary: #FFFFFF;
+    --md-sys-color-primary-container: #EADDFF;
+    --md-sys-color-on-primary-container: #21005D;
+    --md-sys-color-secondary: #625B71;
+    --md-sys-color-on-secondary: #FFFFFF;
+    --md-sys-color-secondary-container: #E8DEF8;
+    --md-sys-color-on-secondary-container: #1D192B;
+    --md-sys-color-surface: #FFFBFE;
+    --md-sys-color-on-surface: #1C1B1F;
+    --md-sys-color-outline: #79747E;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+header {
+    margin-bottom: 32px;
+}
+
+h1 {
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--md-sys-color-on-surface);
+}
+
+.form-field {
+    margin-bottom: 32px;  /* Увеличиваем отступ между полями */
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.text-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--md-sys-color-outline);
+    border-radius: 4px;
+    font-size: 16px;
+    color: var(--md-sys-color-on-surface);
+    background-color: var(--md-sys-color-surface);
+    transition: border-color 0.3s;
+}
+
+.text-input:focus {
+    outline: none;
+    border-color: var(--md-sys-color-primary);
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 32px;
+    margin-right: 12px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--md-sys-color-outline);
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 24px;
+    width: 24px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--md-sys-color-primary);
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+.button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
+    margin-top: 32px;
+}
+
+.button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.button.primary {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+.button.primary:hover {
+    background-color: #7C6EAE;
+}
+
+.button.secondary {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+.button.secondary:hover {
+    background-color: #D8CFF0;
+}
+
+/* Добавьте эти стили в конец вашего CSS файла */
+
+.helper-text {
+    display: block;
+    font-size: 12px;
+    color: var(--md-sys-color-outline);
+    margin-top: 4px;
+}
+
+.form-field {
+    margin-bottom: 32px;  /* Увеличиваем отступ между полями */
+}
+
+.log-path {
+    font-family: monospace;
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+    padding: 8px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+}
+
+.card {
+    background: #f9f9f9;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.settings-path {
+    font-family: monospace;
+    color: #333;
+    word-break: break-all;
+}
+
+#versionInfo {
+    font-weight: bold;
+    color: #222;
+}
+    </style>
 </head>
 <body>
     <div class="container">
@@ -147,6 +341,169 @@
             Версия программы: <span id="versionInfo"></span>
         </footer>
     </div>
-    <script src="/static/js/settings.js"></script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('settingsForm');
+    const restartButton = document.getElementById('restartService');
+    const openLogsButton = document.getElementById('openLogs');
+    const logPathElement = document.getElementById('logPath');
+    const settingsPathElement = document.getElementById('settingsPath');
+    const versionInfoElement = document.getElementById('versionInfo');
+    const resetDefaultsButton = document.getElementById('resetDefaults');
+
+    // Загрузка пути к файлу настроек
+    fetch('/api/settingspath')
+        .then(response => response.text())
+        .then(path => {
+            settingsPathElement.textContent = path;
+        })
+        .catch(error => console.error('Ошибка при загрузке пути к файлу настроек:', error));
+
+    // Загрузка версии программы
+    fetch('/api/version')
+        .then(response => response.text())
+        .then(version => {
+            versionInfoElement.textContent = version;
+        })
+        .catch(error => console.error('Ошибка при загрузке версии программы:', error));
+
+    // Загрузка текущих настроек
+    fetch('/api/settings')
+        .then(response => response.json())
+        .then(settings => {
+            console.log("Ответ сервера:", settings);
+            document.getElementById('clearLogs').checked = settings.clearLogs;
+            document.getElementById('debug').value = settings.debug;
+            document.getElementById('comKkt').value = settings.comKkt;
+            document.getElementById('cassir').value = settings.cassir;
+            document.getElementById('ipKkt').value = settings.ipKkt;
+            document.getElementById('portIpKkt').value = settings.portIpKkt;
+            document.getElementById('ipServKkt').value = settings.ipServKkt;
+            document.getElementById('emulation').checked = settings.emulation;
+            document.getElementById('allowedOrigin').value = settings.allowedOrigin;
+            // Новые настройки для весов
+            document.getElementById('comScale').value = settings.comScale;
+            document.getElementById('baudRateScale').value = settings.baudRateScale;
+            document.getElementById('modelScale').value = settings.modelScale;
+            document.getElementById('emulationScale').checked = settings.emulationScale;
+            // Новые настройки для банковского терминала
+            document.getElementById('bankEmulation').checked = settings.bankEmulation;
+            // Новая настройка для отключения логирования
+            document.getElementById('disableLogging').checked = settings.disableLogging;
+        })
+        .catch(error => console.error('Ошибка при загрузке настроек:', error));
+
+    // Загрузка пути к логам
+    fetch('/api/logpath')
+        .then(response => response.text())
+        .then(path => {
+            logPathElement.textContent = path;
+        })
+        .catch(error => console.error('Ошибка при загрузке пути к логам:', error));
+
+    // Обработка отправки формы
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const settings = Object.fromEntries(formData.entries());
+        
+        // Преобразование checkbox значений в boolean
+        settings.clearLogs = settings.clearLogs === 'on';
+        settings.emulation = settings.emulation === 'on';
+        settings.emulationScale = settings.emulationScale === 'on';
+        settings.bankEmulation = settings.bankEmulation === 'on';
+        // Новая настройка для отключения логирования
+        settings.disableLogging = settings.disableLogging === 'on';
+
+        // Преобразование числовых полей
+        if ('debug' in settings) settings.debug = Number(settings.debug);
+        if ('comKkt' in settings) settings.comKkt = Number(settings.comKkt);
+        if ('portIpKkt' in settings) settings.portIpKkt = Number(settings.portIpKkt);
+        // Новые числовые поля для весов
+        if ('comScale' in settings) settings.comScale = Number(settings.comScale);
+        if ('baudRateScale' in settings) settings.baudRateScale = Number(settings.baudRateScale);
+        if ('modelScale' in settings) settings.modelScale = Number(settings.modelScale);
+
+        const settingsJson = JSON.stringify(settings);
+
+        fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: settingsJson,
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Ответ сервера на сохранение:', data);
+            alert('Настройки успешно сохранены');
+        })
+        .catch((error) => {
+            console.error('Ошибка:', error);
+            alert('Произошла ошибка при сохранении настроек');
+        });
+    });
+
+    // Обработчик для кнопки перезапуска службы
+    restartButton.addEventListener('click', function() {
+        if (confirm('Вы уверены, что хотите перезапустить службу?')) {
+            fetch('/api/restart', {
+                method: 'POST',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Служба успешно перезапущена');
+                } else {
+                    alert('Ошибка при перезапуске службы: ' + data.message);
+                }
+            })
+            .catch((error) => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при перезапуске службы');
+            });
+        }
+    });
+
+    // Обработчик для кнопки открытия логов
+    openLogsButton.addEventListener('click', function() {
+        fetch('/api/openlogs', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Папка с логами открыта');
+                } else {
+                    alert('Ошибка при открытии папки с логами: ' + data.message);
+                }
+            })
+            .catch((error) => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при открытии папки с логами');
+            });
+    });
+
+    // Обработка сброса настроек по умолчанию
+    resetDefaultsButton.addEventListener('click', function() {
+        if (confirm('Вы уверены, что хотите сбросить настройки по умолчанию?')) {
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({resetDefaults: true})
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Настройки сброшены по умолчанию. Перезагрузите страницу.');
+                location.reload();
+            })
+            .catch((error) => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при сбросе настроек');
+            });
+        }
+    });
+});
+    </script>
 </body>
 </html>

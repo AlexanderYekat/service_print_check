@@ -97,7 +97,7 @@ class Settings {
         $this->modelScale = 38;
         $this->emulationScale = false;
         $this->bankEmulation = false;
-        $this->disableLogging = false;
+        $this->disableLogging = true;
     }
 
     public function load(): void {

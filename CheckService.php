@@ -11,7 +11,7 @@ class CheckService {
     private $scaleObject;
     private $logger;
 
-    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, TBankDriver $bankDriver = null, TScale8Driver $scaleObject = null) {
+    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, ?TBankDriver $bankDriver = null, ?TScale8Driver $scaleObject = null) {
         $this->FptrDriver = $FptrDriver;
         $this->logger = $logger;
         $this->bankDriver = $bankDriver;
@@ -233,6 +233,6 @@ class CheckService {
     }
 
     public function printBankSlip(array $slipLines) {
-        return $this->_executeFptrOperation([$this->FptrDriver, 'PrintString'], [$slipLines], 'printBankSlip');
+        return $this->_executeFptrOperation([$this->FptrDriver, 'PrintSlip'], [$slipLines], 'PrintSlip');
     }
 }

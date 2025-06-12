@@ -1,0 +1,1 @@
+-S "0.0.0.0:8000" -t "C:\Program Files (x86)\CloudPosBridge\app" "index.php"

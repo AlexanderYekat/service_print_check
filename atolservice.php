@@ -6,6 +6,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
 if ($origin === 'null') {
     header("Access-Control-Allow-Origin: null");
 } elseif ($origin) {
@@ -183,6 +184,7 @@ function runServer() {
 }
 
 function main() {
+    // fwrite(STDOUT, "Hello, Console!\n");
     // Создаем директорию для настроек, если она не существует
     if (!is_dir(SETTINGS_DIR)) {
         mkdir(SETTINGS_DIR, 0777, true);

@@ -163,6 +163,31 @@ class TFptr10Driver {
         return [$success, $responseJson, $commandErrorDesc];
     }
 
+    public function PrintSlip($listOfLines) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $nonFiscalJson = [
+            "type" => "nonFiscal",
+            "items" => []
+        ];
+
+        foreach ($listOfLines as $line) {
+            $nonFiscalJson["items"][] = [
+                "type" => "text",
+                "text" => $line,
+                "alignment" => "center" // или можно сделать параметр для выравнивания
+            ];
+        }
+
+        $jsonCommand = json_encode($nonFiscalJson, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+        
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
     public function CashIn(float $amount, string $operatorName, string $operatorVatin = "") {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];

@@ -6,7 +6,7 @@ class TBankDriver {
     private $logger;
     private $emulation;
 
-    public function __construct(bool $emulation = false, Logger $logger = null) {
+    public function __construct(bool $emulation = false, ?Logger $logger = null) {
         $this->emulation = $emulation;
         $this->logger = $logger ?? Logger::getInstance();
     }

@@ -38,17 +38,31 @@ Name: "{autodesktop}\Настройки CloudPosBridge"; Filename: "{app}\php\ph
 
 [Run]
 ; Установка службы Windows с помощью NSSM
-; ServiceName: CloudPosBridgeService
-; Path to PHP executable: {app}\php\php.exe
-; Arguments for PHP: {app}\app\atolservice.php
-; Service working directory: {app}\app
+Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeService ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridge Service..."; Flags: runhidden
 
-Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeService ""{app}\php\php.exe"" ""{app}\app\atolservice.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridge Service..."; Flags: runhidden
-; Установка описания службы
+; Установка параметров приложения для PHP (тестовый скрипт)
+;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f"" ""{app}\app\test_service.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f ""{app}\app\test_service.php"""""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
+
+; Установка отображаемого имени службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService DisplayName ""CloudPosBridge Service"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge Service..."; Flags: runhidden
+
+; Настройка перенаправления стандартного вывода и ошибок
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppStdout ""{app}\app\logs\nssm_stdout.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppStderr ""{app}\app\logs\nssm_stderr.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
+; Включаем ротацию логов
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppRotateFiles 1"; WorkingDir: "{app}\nssm"; Flags: runhidden
+; Ротация каждые 1 МБ
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppRotateBytes 1048576"; WorkingDir: "{app}\nssm"; Flags: runhidden
+; Ротация ежедневно (86400 секунд = 24 часа)
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppRotateSeconds 86400"; WorkingDir: "{app}\nssm"; Flags: runhidden
+
+; Установка описания службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService Description ""Служба для взаимодействия с ККТ, банковскими терминалами и весами через CloudPosBridge."""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge Service..."; Flags: runhidden
+
 ; Установка папки приложения для NSSM (очень важно для корректной работы путей PHP)
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppDirectory ""{app}\app"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка директории службы..."; Flags: runhidden
+
 ; Запуск службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeService"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridge Service..."; Flags: runhidden
 

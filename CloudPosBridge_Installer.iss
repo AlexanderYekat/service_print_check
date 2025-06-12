@@ -1,12 +1,13 @@
 [Setup]
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
-AppName=CloudPosBridge Service
+AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=1.0.0
+AppVersion=2.0.0
 ; Имя файла установки, который будет создан
-OutputBaseFilename=CloudPosBridge_Setup
+OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
-DefaultDirName={autopf}\CloudPosBridge
+;DefaultDirName={localappdata}\CloudPosBridgePHP
+DefaultDirName=c:\CloudPosBridgePHP
 ; Разрешить установку только для текущего пользователя или для всех пользователей
 PrivilegesRequired=admin
 ; Разрешить установку на 32-битных и 64-битных системах
@@ -33,47 +34,49 @@ Name: "{app}\app\logs"
 
 [Icons]
 ; Создаем ярлык на рабочем столе для настроек (необязательно, но удобно)
-Name: "{group}\Настройки CloudPosBridge"; Filename: "{app}\php\php.exe"; Parameters: "-S localhost:3000 -t ""{app}\app\templates"""; WorkingDir: "{app}\app"; Comment: "Запустить тестовый веб-сервер для настроек"
-Name: "{autodesktop}\Настройки CloudPosBridge"; Filename: "{app}\php\php.exe"; Parameters: "-S localhost:3000 -t ""{app}\app\templates"""; WorkingDir: "{app}\app"; Comment: "Запустить тестовый веб-сервер для настроек"
+Name: "{group}\Настройки CloudPosBridgePHP"; Filename: "{app}\php\php.exe"; Parameters: "-S localhost:3000 -t ""{app}\app\templates"""; WorkingDir: "{app}\app"; Comment: "Запустить тестовый веб-сервер для настроек"
+Name: "{autodesktop}\Настройки CloudPosBridgePHP"; Filename: "{app}\php\php.exe"; Parameters: "-S localhost:3000 -t ""{app}\app\templates"""; WorkingDir: "{app}\app"; Comment: "Запустить тестовый веб-сервер для настроек"
 
 [Run]
 ; Установка службы Windows с помощью NSSM
-Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeService ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridge Service..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Установка параметров приложения для PHP (тестовый скрипт)
-;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f"" ""{app}\app\test_service.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f ""{app}\app\test_service.php"""""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-f"" ""{app}\app\index.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
+;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f """"{app}\app\index.php"""""""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
+;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs \""-f {app}\app\index.php\""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
+;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f"" ""..\app\index.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
 
 ; Установка отображаемого имени службы
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService DisplayName ""CloudPosBridge Service"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge Service..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP DisplayName ""CloudPosBridgePHP Service"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Настройка перенаправления стандартного вывода и ошибок
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppStdout ""{app}\app\logs\nssm_stdout.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppStderr ""{app}\app\logs\nssm_stderr.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppStdout ""{app}\app\logs\nssm_stdout.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppStderr ""{app}\app\logs\nssm_stderr.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
 ; Включаем ротацию логов
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppRotateFiles 1"; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateFiles 1"; WorkingDir: "{app}\nssm"; Flags: runhidden
 ; Ротация каждые 1 МБ
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppRotateBytes 1048576"; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateBytes 1048576"; WorkingDir: "{app}\nssm"; Flags: runhidden
 ; Ротация ежедневно (86400 секунд = 24 часа)
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppRotateSeconds 86400"; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateSeconds 86400"; WorkingDir: "{app}\nssm"; Flags: runhidden
 
 ; Установка описания службы
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService Description ""Служба для взаимодействия с ККТ, банковскими терминалами и весами через CloudPosBridge."""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge Service..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP Description ""Служба для взаимодействия с ККТ, банковскими терминалами и весами через CloudPosBridgePHP."""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge PHP Service..."; Flags: runhidden
 
 ; Установка папки приложения для NSSM (очень важно для корректной работы путей PHP)
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppDirectory ""{app}\app"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка директории службы..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDirectory ""{app}\app"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка директории службы..."; Flags: runhidden
 
 ; Запуск службы
-Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeService"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridge Service..."; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 [UninstallRun]
 ; Остановка службы
-Filename: "{app}\nssm\nssm.exe"; Parameters: "stop CloudPosBridgeService"; WorkingDir: "{app}\nssm"; Flags: runhidden waituntilterminated; RunOnceId: "stop_service"
+Filename: "{app}\nssm\nssm.exe"; Parameters: "stop CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; Flags: runhidden waituntilterminated; RunOnceId: "stop_service"
 ; Удаление службы
-Filename: "{app}\nssm\nssm.exe"; Parameters: "remove CloudPosBridgeService confirm"; WorkingDir: "{app}\nssm"; Flags: runhidden; RunOnceId: "remove_service"
+Filename: "{app}\nssm\nssm.exe"; Parameters: "remove CloudPosBridgeServicePHP confirm"; WorkingDir: "{app}\nssm"; Flags: runhidden; RunOnceId: "remove_service"
 
 [Messages]
-WelcomeLabel2=Добро пожаловать в мастер установки CloudPosBridge Service.%n%nПеред установкой, пожалуйста, убедитесь, что все необходимые драйверы для ККТ, банковского терминала и весов установлены и зарегистрированы на вашем компьютере.
+WelcomeLabel2=Добро пожаловать в мастер установки CloudPosBridgePHP Service.%n%nПеред установкой, пожалуйста, убедитесь, что все необходимые драйверы для ККТ, банковского терминала и весов установлены и зарегистрированы на вашем компьютере.
 
 [Code]
 function InitializeSetup(): Boolean;

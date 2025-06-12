@@ -44,6 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('emulationScale').checked = settings.emulationScale;
             // Новые настройки для банковского терминала
             document.getElementById('bankEmulation').checked = settings.bankEmulation;
+            // Новая настройка для отключения логирования
+            document.getElementById('disableLogging').checked = settings.disableLogging;
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
 
@@ -66,6 +68,8 @@ document.addEventListener('DOMContentLoaded', function() {
         settings.emulation = settings.emulation === 'on';
         settings.emulationScale = settings.emulationScale === 'on';
         settings.bankEmulation = settings.bankEmulation === 'on';
+        // Новая настройка для отключения логирования
+        settings.disableLogging = settings.disableLogging === 'on';
 
         // Преобразование числовых полей
         if ('debug' in settings) settings.debug = Number(settings.debug);

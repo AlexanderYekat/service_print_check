@@ -3,16 +3,18 @@
 class Logger {
     private $logPath;
     private $debugLevel;
+    private $loggingEnabled;
     private static $instance = null;
 
-    private function __construct(string $logPath, int $debugLevel) {
+    private function __construct(string $logPath, int $debugLevel, bool $loggingEnabled = true) {
         $this->logPath = $logPath;
         $this->debugLevel = $debugLevel;
+        $this->loggingEnabled = $loggingEnabled;
     }
 
-    public static function getInstance(string $logPath = '', int $debugLevel = 0): Logger {
+    public static function getInstance(string $logPath = '', int $debugLevel = 0, bool $loggingEnabled = true): Logger {
         if (self::$instance === null) {
-            self::$instance = new Logger($logPath, $debugLevel);
+            self::$instance = new Logger($logPath, $debugLevel, $loggingEnabled);
         }
         return self::$instance;
     }
@@ -21,11 +23,19 @@ class Logger {
         $this->debugLevel = $level;
     }
 
+    public function setLoggingEnabled(bool $enabled): void {
+        $this->loggingEnabled = $enabled;
+    }
+
     public function log(string $message, int $level = 0, string $type = 'INFO'): void {
+        if (!$this->loggingEnabled) {
+            return;
+        }
+
         if ($level <= $this->debugLevel) {
             $timestamp = date('Y-m-d H:i:s');
             $logMessage = "[$timestamp][$type] $message" . PHP_EOL;
-            file_put_contents($this->logPath . '/application.log', $logMessage, FILE_APPEND);
+            file_put_contents($this->logPath . DIRECTORY_SEPARATOR . 'application.log', $logMessage, FILE_APPEND);
         }
     }
 

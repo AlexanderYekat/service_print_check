@@ -43,8 +43,8 @@ function runServer() {
     $currentSettings = new Settings($settingsStorage);
     $currentSettings->load();
 
-    // Инициализируем логгер с текущим уровнем отладки
-    $logger = Logger::getInstance(LOG_PATH, $currentSettings->debug);
+    // Инициализируем логгер с текущим уровнем отладки и настройкой отключения
+    $logger = Logger::getInstance(LOG_PATH, $currentSettings->debug, !$currentSettings->disableLogging);
 
     // Создаем экземпляр TFptr10Driver с параметрами подключения из настроек
     $FptrDriver = new TFptr10Driver(
@@ -197,23 +197,24 @@ function main() {
     $initialSettings = new Settings($settingsStorageForLogs);
     $initialSettings->load();
 
-    $logFile = LOG_PATH . '/application.log';
+    // Инициализируем логгер для начальных сообщений, учитывая настройку отключения
+    // Передаем только путь к директории логов, имя файла добавляется внутри Logger.
+    $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug, !$initialSettings->disableLogging);
 
     // Если включена очистка логов И существует файл-флаг (чтобы очистить только один раз после активации)
     if ($initialSettings->clearLogs && file_exists(CLEAR_LOGS_FLAG_FILE)) {
-        if (file_exists($logFile)) {
-            if (unlink($logFile)) {
-                // После удаления, создаем логгер для записи сообщения об очистке
-                $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug);
+        // Формируем полный путь к лог-файлу для операций файловой системы.
+        $fullLogFilePath = LOG_PATH . DIRECTORY_SEPARATOR . 'application.log';
+        if (file_exists($fullLogFilePath)) {
+            if (unlink($fullLogFilePath)) {
+                // После удаления, используем существующий логгер и записываем сообщение.
                 $logger->info("Логи очищены при запуске (по запросу).");
             } else {
-                // Если не удалось удалить, создаем логгер для записи ошибки
-                $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug);
-                $logger->error("Не удалось очистить файл логов: $logFile (по запросу)");
+                // Если не удалось удалить, используем существующий логгер и записываем ошибку.
+                $logger->error("Не удалось очистить файл логов: $fullLogFilePath (по запросу)");
             }
         } else {
-             // Если файла нет, но включена очистка, это нормально. Просто логируем
-             $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug);
+             // Если файла нет, но включена очистка, это нормально. Просто используем логгер и логируем.
              $logger->info("Файл логов не существует, очистка не требуется (по запросу).");
         }
         // После очистки, удаляем файл-флаг, чтобы очистка произошла только один раз

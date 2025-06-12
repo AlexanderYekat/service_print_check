@@ -78,6 +78,7 @@ class Settings {
     public $modelScale = 38; // Модель весов по умолчанию (38 = АТОЛ Марта)
     public $emulationScale = false; // Эмуляция весов по умолчанию
     public $bankEmulation = false; // Эмуляция банковского терминала по умолчанию
+    public $disableLogging = true; // Отключить логирование полностью по умолчанию
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -96,6 +97,7 @@ class Settings {
         $this->modelScale = 38;
         $this->emulationScale = false;
         $this->bankEmulation = false;
+        $this->disableLogging = false;
     }
 
     public function load(): void {
@@ -123,6 +125,7 @@ class Settings {
         $this->modelScale = $data['modelScale'] ?? $this->modelScale;
         $this->emulationScale = $data['emulationScale'] ?? $this->emulationScale;
         $this->bankEmulation = $data['bankEmulation'] ?? $this->bankEmulation;
+        $this->disableLogging = $data['disableLogging'] ?? $this->disableLogging;
     }
 
     public function toArray(): array {
@@ -141,6 +144,7 @@ class Settings {
             'modelScale' => $this->modelScale,
             'emulationScale' => $this->emulationScale,
             'bankEmulation' => $this->bankEmulation,
+            'disableLogging' => $this->disableLogging,
         ];
     }
 
@@ -159,6 +163,7 @@ class Settings {
         $this->modelScale = 38;
         $this->emulationScale = false;
         $this->bankEmulation = false;
+        $this->disableLogging = true;
     }
 }
 

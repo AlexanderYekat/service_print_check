@@ -3,9 +3,11 @@
 *.exe.manifest
 samples/screenshots/
 .gigaide/
+_temp_update/
 
 # Логи
 logs/*.txt
+backup/
 
 # Директории сборки
 bin/

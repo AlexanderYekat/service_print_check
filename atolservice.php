@@ -153,10 +153,18 @@ function runServer() {
         echo VERSION_OF_PROGRAM;
     } elseif ($uri === '/api/restart' && $method === 'POST') {
         $logger->info("Получен запрос на перезапуск службы.");
-        // Реальный перезапуск PHP-приложения через веб-сервер сложен и обычно требует
-        // внешних инструментов (например, systemd, supervisor или перезапуска веб-сервера).
-        // Здесь мы просто возвращаем успешный статус.
-        echo json_encode(['status' => 'success', 'message' => 'Запрос на перезапуск получен. Для реального перезапуска службы требуется ручное вмешательство или настройка внешнего менеджера процессов.'], JSON_UNESCAPED_UNICODE);
+        
+        // Путь к PowerShell скрипту
+        $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'restart_service.ps1';
+        
+        // Формируем команду для запуска PowerShell скрипта
+        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" > NUL 2>&1";
+        
+        // Запускаем команду в фоновом режиме
+        pclose(popen($command, 'r'));
+        
+        $logger->info("Скрипт перезапуска службы запущен: $scriptPath");
+        echo json_encode(['status' => 'success', 'message' => 'Скрипт перезапуска службы запущен. Проверьте логи службы для статуса.'], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/print-check' && $method === 'POST') {
         $fetchHandler->HandlePrintCheck();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {

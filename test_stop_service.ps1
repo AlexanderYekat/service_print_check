@@ -1,11 +1,16 @@
 $service = Get-Service -Name CloudPosBridgeServicePHP -ErrorAction SilentlyContinue
 try {
-	echo "Остановка службы '$ServiceNameToStop'..."
+	#echo "РћСЃС‚Р°РЅРѕРІРєР° СЃР»СѓР¶Р±С‹ '$ServiceNameToStop'..."
 	Stop-Service -Name CloudPosBridgeServicePHP -Force -ErrorAction Stop
-	$service.WaitForStatus('Stopped', 30000) # Ожидаем до 60 секунд
-	echo "Служба '$ServiceNameToStop' успешно остановлена."
+	$service.WaitForStatus('Stopped', 30000) # РћР¶РёРґР°РµРј РґРѕ 60 СЃРµРєСѓРЅРґ
+	#echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓСЃРїРµС€РЅРѕ РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
 } catch {
-   #Write-Log "Ошибка при остановке службы '$ServiceNameToStop': $($_.Exception.Message)"
-   echo "Ошибка при остановке службы '$ServiceNameToStop': $($_.Exception.Message)"
+   #Write-Log "РћС€РёР±РєР° РїСЂРё РѕСЃС‚Р°РЅРѕРІРєРµ СЃР»СѓР¶Р±С‹ '$ServiceNameToStop': $($_.Exception.Message)"
+   #echo "РћС€РёР±РєР° РїСЂРё РѕСЃС‚Р°РЅРѕРІРєРµ СЃР»СѓР¶Р±С‹ '$ServiceNameToStop': $($_.Exception.Message)"
 }
-echo "fddfdfdf"
+#echo "fddfdfdf"
+
+# РЎРѕР·РґР°РµРј С„Р°Р№Р»-РјР°СЂРєРµСЂ РІ С‚РѕР№ Р¶Рµ РґРёСЂРµРєС‚РѕСЂРёРё, РіРґРµ РЅР°С…РѕРґРёС‚СЃСЏ СЃРєСЂРёРїС‚
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$markerFile = Join-Path $scriptDir "service_stopped.txt"
+"Service was stopped at $(Get-Date)" | Out-File $markerFile

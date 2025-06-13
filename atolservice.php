@@ -192,7 +192,7 @@ function runServer() {
         //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NULL 2>&1";
         //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > $null 2>&1";
         //$command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " | Out-Null";
-        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File test_stop_service.ps1 | Out-Null";
+        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File test_stop_service.ps1";
         
         $logger->info("Команда для запуска PowerShell скрипта: $command");
         pclose(popen($command, 'r'));

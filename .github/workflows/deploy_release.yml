@@ -14,33 +14,35 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2' # Или ваша версия PHP
+    - name: Create temporary directory for release files
+      # Создаем временную директорию, куда будем копировать только нужные файлы
+      run: mkdir temp_release_contents
 
-    - name: Prepare application files for ZIP
-      # Этот шаг нужен, если вам нужно установить зависимости composer или выполнить другие действия перед архивированием
-      # В вашем случае, возможно, ничего не потребуется, если все файлы уже в репозитории.
-      # Пример: composer install --no-dev --optimize-autoloader
+    - name: Copy PHP files to temp directory
+      # Копируем все PHP файлы из корня репозитория
+      run: cp *.php temp_release_contents/
+
+    - name: Copy other root files to temp directory
+      # Копируем README.md и PowerShell скрипты, которые являются частью приложения
+      run: |
+        cp README.md temp_release_contents/
+        cp restart_service.ps1 temp_release_contents/
+        cp update_from_url.ps1 temp_release_contents/
+
+    - name: Copy directories to temp directory
+      # Копируем папки, которые содержат файлы приложения
+      run: |
+        cp -R templates temp_release_contents/
+        cp -R settings_storage temp_release_contents/
+        cp -R samples temp_release_contents/
+        cp -R resource temp_release_contents/
 
     - name: Create ZIP archive
-      # Создаем ZIP-архив, исключая служебные Git-файлы, логи, временные папки и папки с настройками
-      # Важно: ZIP должен содержать файлы прямо в корне, а не в подпапке (например, 'my-app/file.php')
-      # Исключаем .git/, logs/, settings/, а также временные папки, создаваемые update_from_url.ps1
+      # Переходим во временную директорию и архивируем ее содержимое
       run: |
-        zip -r release.zip . \
-          -x "*/.git/*" \
-          -x "*/.github/*" \
-          -x "*/logs/*" \
-          -x "*/settings/*" \
-          -x "*/_temp_update/*" \
-          -x "*/_backup_*/*" \
-          -x "*.DS_Store" \
-          -x "*/vendor/*" # Если вы используете composer, возможно, нужно исключить vendor и включать его после сборки
-      # Если у вас есть папка vendor и вы хотите включить ее в архив, удалите "-x "*/vendor/*"".
-      # Если вы не хотите включать определенные файлы или папки, добавьте их в "-x"
-      
+        cd temp_release_contents/
+        zip -r ../release.zip ./*
+
     - name: Get current date for tag
       id: date
       run: echo "TAG_DATE=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
@@ -59,4 +61,4 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Токен GitHub, предоставляется автоматически
 
     - name: Output Release URL
-      run: echo "Release URL: ${{ steps.create_release.outputs.html_url }}"
+      run: 'echo "Release URL: ${{ steps.create_release.outputs.html_url }}"'

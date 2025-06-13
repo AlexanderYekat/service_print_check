@@ -9,47 +9,52 @@ on:
 jobs:
   build_and_release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Create temporary directory for release files
-      # Создаем временную директорию, куда будем копировать только нужные файлы
-      run: mkdir temp_release_contents
+      run: |
+        set -e
+        mkdir temp_release_contents
 
     - name: Copy PHP files to temp directory
-      # Копируем все PHP файлы из корня репозитория
-      run: cp *.php temp_release_contents/
+      run: |
+        set -e
+        cp *.php temp_release_contents/
 
     - name: Copy other root files to temp directory
-      # Копируем README.md и PowerShell скрипты, которые являются частью приложения
       run: |
+        set -e
         cp README.md temp_release_contents/
         cp restart_service.ps1 temp_release_contents/
         cp update_from_url.ps1 temp_release_contents/
 
     - name: Copy directories to temp directory
-      # Копируем папки, которые содержат файлы приложения
       run: |
+        set -e
         cp -R templates temp_release_contents/
         cp -R settings_storage temp_release_contents/
         cp -R samples temp_release_contents/
         cp -R resource temp_release_contents/
 
     - name: Create ZIP archive
-      # Переходим во временную директорию и архивируем ее содержимое
       run: |
+        set -e
         cd temp_release_contents/
         zip -r ../release.zip ./*
 
     - name: Get current date for tag
       id: date
-      run: echo "TAG_DATE=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
+      run: |
+        echo "TAG_DATE=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub Release
       id: create_release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ steps.date.outputs.TAG_DATE }} # Тег релиза, например v2024.07.25-1030
         name: Release v${{ steps.date.outputs.TAG_DATE }} # Имя релиза

@@ -79,6 +79,10 @@ class Settings {
     public $emulationScale = false; // Эмуляция весов по умолчанию
     public $bankEmulation = false; // Эмуляция банковского терминала по умолчанию
     public $disableLogging = false; // Отключить логирование полностью по умолчанию
+    public $updateUrl = ""; // URL для обновления файлов по умолчанию
+    public $serviceName = "CloudPosBridgeServicePHP"; // Имя службы для остановки/запуска по умолчанию
+    public $githubRepoOwner = "AlexanderYekat"; // Владелец репозитория GitHub по умолчанию
+    public $githubRepoName = "service_print_check"; // Имя репозитория GitHub по умолчанию
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -92,12 +96,16 @@ class Settings {
         $this->ipServKkt = "";
         $this->emulation = false;
         $this->allowedOrigin = "";
-        $this->comScale = 1000;
+        $this->comScale = 1001;
         $this->baudRateScale = 18;
         $this->modelScale = 38;
         $this->emulationScale = false;
         $this->bankEmulation = false;
-        $this->disableLogging = true;
+        $this->disableLogging = false;
+        $this->updateUrl = "";
+        $this->serviceName = "CloudPosBridgeServicePHP";
+        $this->githubRepoOwner = "AlexanderYekat";
+        $this->githubRepoName = "service_print_check";
     }
 
     public function load(): void {
@@ -126,6 +134,10 @@ class Settings {
         $this->emulationScale = $data['emulationScale'] ?? $this->emulationScale;
         $this->bankEmulation = $data['bankEmulation'] ?? $this->bankEmulation;
         $this->disableLogging = $data['disableLogging'] ?? $this->disableLogging;
+        $this->updateUrl = $data['updateUrl'] ?? $this->updateUrl;
+        $this->serviceName = $data['serviceName'] ?? $this->serviceName;
+        $this->githubRepoOwner = $data['githubRepoOwner'] ?? $this->githubRepoOwner;
+        $this->githubRepoName = $data['githubRepoName'] ?? $this->githubRepoName;
     }
 
     public function toArray(): array {
@@ -145,6 +157,10 @@ class Settings {
             'emulationScale' => $this->emulationScale,
             'bankEmulation' => $this->bankEmulation,
             'disableLogging' => $this->disableLogging,
+            'updateUrl' => $this->updateUrl,
+            'serviceName' => $this->serviceName,
+            'githubRepoOwner' => $this->githubRepoOwner,
+            'githubRepoName' => $this->githubRepoName,
         ];
     }
 
@@ -164,6 +180,10 @@ class Settings {
         $this->emulationScale = false;
         $this->bankEmulation = false;
         $this->disableLogging = false;
+        $this->updateUrl = "";
+        $this->serviceName = "CloudPosBridgeServicePHP";
+        $this->githubRepoOwner = "AlexanderYekat";
+        $this->githubRepoName = "service_print_check";
     }
 }
 

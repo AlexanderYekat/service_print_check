@@ -329,7 +329,32 @@ h2 {
                     <p class="helper-text">Настройки программы хранятся в следующем файле:</p>
                     <p id="settingsPath" class="settings-path"></p>
                 </div>
+
+                <div class="form-field">
+                    <h2>Настройки обновления</h2>
+                </div>
+                <div class="form-field">
+                    <label for="updateUrl">URL для обновления файлов</label>
+                    <input type="text" id="updateUrl" name="updateUrl" class="text-input" placeholder="Например, https://example.com/update.zip">
+                    <span class="helper-text">Прямая ссылка на ZIP-архив с файлами для обновления.</span>
+                </div>
+                <div class="form-field">
+                    <label for="serviceName">Имя службы Windows</label>
+                    <input type="text" id="serviceName" name="serviceName" class="text-input" placeholder="Например, MyPhpService">
+                    <span class="helper-text">Имя службы Windows, которую нужно остановить и запустить для обновления.</span>
+                </div>
                 
+                <div class="form-field">
+                    <label for="githubRepoOwner">Владелец репозитория GitHub</label>
+                    <input type="text" id="githubRepoOwner" name="githubRepoOwner" class="text-input" placeholder="Например, myorganization">
+                    <span class="helper-text">Имя пользователя или организации, которой принадлежит репозиторий GitHub.</span>
+                </div>
+                <div class="form-field">
+                    <label for="githubRepoName">Имя репозитория GitHub</label>
+                    <input type="text" id="githubRepoName" name="githubRepoName" class="text-input" placeholder="Например, my-php-app">
+                    <span class="helper-text">Название репозитория на GitHub (например, CloudPosBridgePHP).</span>
+                </div>
+
                 <div class="button-container">
                     <button type="submit" class="button primary">Сохранить настройки</button>
                     <button type="button" id="resetDefaults" class="button secondary">Сбросить по умолчанию</button>
@@ -350,6 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const settingsPathElement = document.getElementById('settingsPath');
     const versionInfoElement = document.getElementById('versionInfo');
     const resetDefaultsButton = document.getElementById('resetDefaults');
+    const updateFilesButton = document.getElementById('updateFiles');
 
     // Загрузка пути к файлу настроек
     fetch('/api/settingspath')
@@ -390,6 +416,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('bankEmulation').checked = settings.bankEmulation;
             // Новая настройка для отключения логирования
             document.getElementById('disableLogging').checked = settings.disableLogging;
+            // Новые настройки для обновления
+            document.getElementById('updateUrl').value = settings.updateUrl;
+            document.getElementById('serviceName').value = settings.serviceName;
+            document.getElementById('githubRepoOwner').value = settings.githubRepoOwner;
+            document.getElementById('githubRepoName').value = settings.githubRepoName;
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
 
@@ -423,6 +454,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if ('comScale' in settings) settings.comScale = Number(settings.comScale);
         if ('baudRateScale' in settings) settings.baudRateScale = Number(settings.baudRateScale);
         if ('modelScale' in settings) settings.modelScale = Number(settings.modelScale);
+
+        // Новые текстовые поля (не требуют преобразования в boolean или number)
+        settings.updateUrl = settings.updateUrl || ''; // Убедимся, что пустое поле сохраняется как пустая строка
+        settings.serviceName = settings.serviceName || ''; // Убедимся, что пустое поле сохраняется как пустая строка
+        settings.githubRepoOwner = settings.githubRepoOwner || '';
+        settings.githubRepoName = settings.githubRepoName || '';
 
         const settingsJson = JSON.stringify(settings);
 
@@ -501,6 +538,86 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Ошибка:', error);
                 alert('Произошла ошибка при сбросе настроек');
             });
+        }
+    });
+
+    // Обработчик для кнопки обновления файлов (изменен)
+    updateFilesButton.addEventListener('click', async function() {
+        if (!confirm('Вы уверены, что хотите проверить наличие обновлений и, при необходимости, обновить файлы? Служба будет временно остановлена.')) {
+            return;
+        }
+
+        let downloadUrl = '';
+        const currentUpdateUrl = document.getElementById('updateUrl').value;
+        const repoOwner = document.getElementById('githubRepoOwner').value;
+        const repoName = document.getElementById('githubRepoName').value;
+
+        // Попытка получить URL обновления из GitHub API, если настройки репозитория указаны
+        if (repoOwner && repoName) {
+            alert('Проверка наличия обновлений на GitHub...');
+            try {
+                const response = await fetch('/api/check-for-update');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const latestVersion = data.latestVersion;
+                    downloadUrl = data.downloadUrl;
+                    alert(`Найдена новая версия: ${latestVersion}. Запуск обновления...`);
+                } else {
+                    alert(`Ошибка при проверке обновлений на GitHub: ${data.error}.`);
+                    if (currentUpdateUrl && confirm('Использовать вручную указанный URL для обновления?')) {
+                        downloadUrl = currentUpdateUrl;
+                        alert('Используется вручную указанный URL для обновления.');
+                    } else {
+                        return; // Пользователь отказался или нет URL
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка при запросе к GitHub API:', error);
+                alert('Произошла ошибка при доступе к GitHub API. Проверьте подключение или настройки репозитория.');
+                if (currentUpdateUrl && confirm('Использовать вручную указанный URL для обновления?')) {
+                    downloadUrl = currentUpdateUrl;
+                    alert('Используется вручную указанный URL для обновления.');
+                } else {
+                    return; // Пользователь отказался или нет URL
+                }
+            }
+        } else if (currentUpdateUrl) {
+            // Если настройки GitHub не указаны, но есть updateUrl, предлагаем использовать его
+            if (confirm('Настройки репозитория GitHub не указаны. Использовать вручную указанный URL для обновления?')) {
+                downloadUrl = currentUpdateUrl;
+                alert('Используется вручную указанный URL для обновления.');
+            } else {
+                return; // Пользователь отказался
+            }
+        } else {
+            alert('Не указаны настройки репозитория GitHub или URL для обновления. Пожалуйста, заполните необходимые поля.');
+            return; // Нет информации для обновления
+        }
+
+        // Если downloadUrl получен (или подтвержден вручную), запускаем обновление
+        if (downloadUrl) {
+            try {
+                const updateResponse = await fetch('/api/update-branch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ updateUrl: downloadUrl })
+                });
+                const updateData = await updateResponse.json();
+
+                if (updateData.status === 'success') {
+                    alert('Обновление файлов запущено. Пожалуйста, проверьте логи службы для статуса. Возможно, потребуется перезагрузка страницы для отображения новой версии.');
+                    // Можно добавить перезагрузку страницы, если хотите сразу обновить информацию о версии
+                    // location.reload();
+                } else {
+                    alert('Ошибка при запуске обновления: ' + updateData.message);
+                }
+            } catch (error) {
+                console.error('Ошибка при запуске обновления:', error);
+                alert('Произошла ошибка при запуске обновления: ' + error.message);
+            }
         }
     });
 });

@@ -165,6 +165,95 @@ function runServer() {
         
         $logger->info("Скрипт перезапуска службы запущен: $scriptPath");
         echo json_encode(['status' => 'success', 'message' => 'Скрипт перезапуска службы запущен. Проверьте логи службы для статуса.'], JSON_UNESCAPED_UNICODE);
+    } elseif ($uri === '/api/update-branch' && $method === 'POST') {
+        $logger->info("Получен запрос на обновление файлов из URL.");
+        
+        // Путь к PowerShell скрипту
+        $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'update_from_url.ps1';
+        
+        // Получаем URL для обновления и имя службы из настроек
+        $updateUrl = escapeshellarg($currentSettings->updateUrl);
+        $serviceName = escapeshellarg($currentSettings->serviceName);
+        $logPath = escapeshellarg(LOG_PATH);
+        
+        // Формируем команду для запуска PowerShell скрипта в фоновом режиме
+        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NUL 2>&1";
+        
+        pclose(popen($command, 'r'));
+        
+        $logger->info("Запущено обновление файлов из URL через PowerShell скрипт: $scriptPath");
+        echo json_encode(['status' => 'success', 'message' => 'Обновление файлов из URL запущено через PowerShell скрипт. Проверьте логи для статуса.'], JSON_UNESCAPED_UNICODE);
+    } elseif ($uri === '/api/check-for-update' && $method === 'GET') {
+        $logger->debug("Запрос на проверку новой версии на GitHub.");
+
+        $repoOwner = $currentSettings->githubRepoOwner;
+        $repoName = $currentSettings->githubRepoName;
+
+        if (empty($repoOwner) || empty($repoName)) {
+            $logger->warning("Не указаны владелец или имя репозитория GitHub в настройках.");
+            http_response_code(400);
+            echo json_encode(['error' => 'Не указаны владелец или имя репозитория GitHub в настройках.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $githubApiUrl = "https://api.github.com/repos/{$repoOwner}/{$repoName}/releases/latest";
+
+        // Инициализация cURL
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $githubApiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'CloudPosBridgePHP-App'); // GitHub требует User-Agent
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Отключить проверку SSL (для локальной разработки, в продакшене лучше включить)
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false || $httpCode !== 200) {
+            $errorMessage = "Ошибка при запросе к GitHub API: HTTP $httpCode, cURL Error: $curlError";
+            $logger->error($errorMessage);
+            http_response_code(500);
+            echo json_encode(['error' => $errorMessage], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $releaseData = json_decode($response, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $errorMessage = "Ошибка при декодировании JSON ответа GitHub API: " . json_last_error_msg();
+            $logger->error($errorMessage);
+            http_response_code(500);
+            echo json_encode(['error' => $errorMessage], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $latestVersionTag = $releaseData['tag_name'] ?? 'unknown';
+        $downloadUrl = null;
+
+        if (isset($releaseData['assets']) && is_array($releaseData['assets'])) {
+            foreach ($releaseData['assets'] as $asset) {
+                if (isset($asset['name']) && $asset['name'] === 'release.zip' && isset($asset['browser_download_url'])) {
+                    $downloadUrl = $asset['browser_download_url'];
+                    break;
+                }
+            }
+        }
+
+        if ($downloadUrl === null) {
+            $errorMessage = "Не удалось найти asset 'release.zip' в последнем релизе или отсутствует URL для скачивания.";
+            $logger->warning($errorMessage);
+            http_response_code(404);
+            echo json_encode(['error' => $errorMessage], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $logger->info("Найдена новая версия: $latestVersionTag, URL для скачивания: $downloadUrl");
+        echo json_encode([
+            'status' => 'success',
+            'latestVersion' => $latestVersionTag,
+            'downloadUrl' => $downloadUrl
+        ], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/print-check' && $method === 'POST') {
         $fetchHandler->HandlePrintCheck();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {

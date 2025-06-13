@@ -111,7 +111,7 @@ class TBankDriver {
 
         // Определяем финальный успех на основе эмуляции
         $finalSuccess = $this->emulation ? true : $actualSuccess;
-        $finalResult = $finalSuccess ? ($actualCheque != "" ? $actualCheque : "Эмуляция: операция успешна.") : ($actualErrorDescription != "" ? $actualErrorDescription : "Неизвестная ошибка.");
+        $finalResult = $finalSuccess ? ($actualCheque != "" ? $actualCheque : "Эмуляция: операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО") : ($actualErrorDescription != "" ? $actualErrorDescription : "Неизвестная ошибка.");
 
         return [$finalSuccess, $finalResult];
     }

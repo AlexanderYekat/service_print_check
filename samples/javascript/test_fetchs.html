@@ -44,7 +44,9 @@
     <button class="button" onclick="closeBankShift()">Закрыть банковскую смену</button>
     <button class="button" onclick="bankOperationPayment()">Оплата по терминалу</button>
     <button class="button" onclick="bankOperationReturn()">Возврат по терминалу</button>
+    <button class="button" onclick="getProgramVersion()">Получить версию программы</button>
 
+    <div id="status_display" class="result" style="background-color: #f0f0f0; border-color: #ccc;"></div>
     <div id="result" class="result"></div>
 
     <script>
@@ -271,6 +273,23 @@
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
         }
+
+        async function getProgramVersion() {
+            try {
+                console.log('getProgramVersion');
+                const response = await fetch(`${API_URL}/api/version`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const version = await response.text();
+                document.getElementById('status_display').textContent = `Версия программы: ${version}`;
+            } catch (error) {
+                document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
+            }
+        }
+
+        // Вызываем функцию при загрузке страницы
+        window.onload = getProgramVersion;
     </script>
 </body>
 </html> 

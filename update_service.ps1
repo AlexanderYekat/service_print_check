@@ -28,6 +28,10 @@ try {
         Copy-Item -Path $_.FullName -Destination $ServiceInstallPath -Force
     }
     Write-Host "PHP файлы скопированы."
+    Get-ChildItem -Path $ProjectSourcePath -Filter "*.ps1" -File | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination $ServiceInstallPath -Force
+    }
+    Write-Host "Файлы скриптов PowerSHell скопированы."
 
     # Копируем README.md
     Copy-Item -Path "$ProjectSourcePath\README.md" -Destination $ServiceInstallPath -Force -ErrorAction SilentlyContinue
@@ -37,7 +41,7 @@ try {
     $foldersToCopy = @("templates", "settings_storage", "samples", "resource")
     foreach ($folder in $foldersToCopy) {
         $source = Join-Path $ProjectSourcePath $folder
-        $destination = Join-Path $ServiceInstallPath $folder
+        $destination = $ServiceInstallPath
         if (Test-Path -Path $source) {
             Write-Host "Копирование папки [$folder]..."
             Copy-Item -Path $source -Destination $destination -Recurse -Force

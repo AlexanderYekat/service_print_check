@@ -58,7 +58,7 @@ if (-not ([string]::IsNullOrEmpty($ServiceNameToStop))) {
         if ($service -and $service.Status -eq 'Running') {
             Write-Log "Остановка службы '$ServiceNameToStop'..."
             echo "Остановка службы '$ServiceNameToStop'..."
-            Stop-Service -Name $ServiceNameToStop -Force -ErrorAction Stop
+            №Stop-Service -Name $ServiceNameToStop -Force -ErrorAction Stop
             $service.WaitForStatus('Stopped', 60000) # Ожидаем до 60 секунд
             Write-Log "Служба '$ServiceNameToStop' успешно остановлена."
             echo "Служба '$ServiceNameToStop' успешно остановлена."
@@ -89,13 +89,40 @@ try {
     echo "Создание резервной копии текущих файлов в $BackupDir..."
 
     $backupZipFile = Join-Path -Path $BackupDir -ChildPath "application_backup.zip"
-    # Получаем все элементы для архивации, исключая временные, резервные и лог-директории
-    $itemsToArchive = Get-ChildItem -Path $PSScriptRoot -Exclude "_temp_update", "_backup_*", "logs", "settings", "backup" | Select-Object -ExpandProperty FullName
+
+    # Определяем исходную директорию для архивации
+    $sourceDirectory = $PSScriptRoot
+
+    # Определяем список исключений
+    $exclusions = @(
+        "_temp_update", "_backup_*", "logs", "settings", "backup",
+        ".github", "myapp_dist", ".gitattributes", ".gitignore",
+        "CloudPosBridge_Installer.iss", "update_from_url.ps1",
+        "atolservice.php", "restart_service.ps1",
+        "*.tmp", "*.lock", "*.db", ".git"
+    )
+
+    # Получаем все элементы для архивации с учетом исключений
+    $itemsToArchive = Get-ChildItem -Path $sourceDirectory -Exclude $exclusions | Select-Object -ExpandProperty FullName
 
     if ($itemsToArchive.Count -gt 0) {
-        Compress-Archive -Path $itemsToArchive -DestinationPath $backupZipFile -Force
-        Write-Log "Резервная копия успешно создана в $backupZipFile."
-        echo "Резервная копия успешно создана в $backupZipFile."
+        # Временно меняем директорию, чтобы избежать потенциальных блокировок на $PSScriptRoot
+        $originalLocation = Get-Location
+        $tempWorkingDir = Join-Path -Path (Get-Item Env:TEMP).Value -ChildPath "ps_backup_temp_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        New-Item -Path $tempWorkingDir -ItemType Directory -Force | Out-Null
+        Set-Location -Path $tempWorkingDir
+
+        try {
+            # Передаем абсолютные пути в Compress-Archive, когда текущее местоположение изменено
+            Compress-Archive -Path $itemsToArchive -DestinationPath $backupZipFile -Force
+            Write-Log "Резервная копия успешно создана в $backupZipFile."
+            echo "Резервная копия успешно создана в $backupZipFile."
+        } finally {
+            # Возвращаемся к исходному местоположению
+            Set-Location -Path $originalLocation
+            # Очищаем временную рабочую директорию
+            if (Test-Path -Path $tempWorkingDir) { Remove-Item -Path $tempWorkingDir -Recurse -Force | Out-Null }
+        }
     } else {
         Write-Log "Нечего архивировать для резервной копии. Пропускаем создание архива."
         echo "Нечего архивировать для резервной копии. Пропускаем создание архива."

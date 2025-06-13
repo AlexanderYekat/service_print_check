@@ -351,7 +351,7 @@ h2 {
                 </div>
                 <div class="form-field">
                     <label for="githubRepoName">Имя репозитория GitHub</label>
-                    <input type="text" id="githubRepoName" name="githubRepoName" class="text-input" placeholder="Например, my-php-app">
+                    <input type="text" id="githubRepoName" name="githubRepoName" class="text-input" placeholder="Например, CloudPosBridgePHP">
                     <span class="helper-text">Название репозитория на GitHub (например, CloudPosBridgePHP).</span>
                 </div>
 
@@ -359,6 +359,7 @@ h2 {
                     <button type="submit" class="button primary">Сохранить настройки</button>
                     <button type="button" id="resetDefaults" class="button secondary">Сбросить по умолчанию</button>
                     <button type="button" id="restartService" class="button secondary">Перезапустить службу</button>
+                    <button type="button" id="updateFiles" class="button secondary">Обновить программу</button>
                 </div>
             </form>
         </main>
@@ -543,10 +544,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Обработчик для кнопки обновления файлов (изменен)
     updateFilesButton.addEventListener('click', async function() {
-        if (!confirm('Вы уверены, что хотите проверить наличие обновлений и, при необходимости, обновить файлы? Служба будет временно остановлена.')) {
-            return;
-        }
-
         let downloadUrl = '';
         const currentUpdateUrl = document.getElementById('updateUrl').value;
         const repoOwner = document.getElementById('githubRepoOwner').value;

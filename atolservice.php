@@ -18,7 +18,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Private-Network: true");
 
-define('VERSION_OF_PROGRAM', '2025_06_13_07');
+define('VERSION_OF_PROGRAM', '2025_06_13_10');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -158,7 +158,7 @@ function runServer() {
         $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'restart_service.ps1';
         
         // Формируем команду для запуска PowerShell скрипта
-        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" > NUL 2>&1";
+        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\"";
         
         // Запускаем команду в фоновом режиме
         pclose(popen($command, 'r'));
@@ -170,18 +170,30 @@ function runServer() {
         
         // Путь к PowerShell скрипту
         $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'update_from_url.ps1';
-        
-        // Получаем URL для обновления и имя службы из настроек
-        $updateUrl = escapeshellarg($currentSettings->updateUrl);
+
+        // Получаем данные из тела запроса
+        $input = file_get_contents('php://input');
+        $requestData = json_decode($input, true);
+
+        // Определяем URL для обновления: сначала из запроса, затем из настроек
+        $updateUrl = null;
+        if (isset($requestData['updateUrl']) && !empty($requestData['updateUrl'])) {
+            $updateUrl = escapeshellarg($requestData['updateUrl']);
+            $logger->info("URL для обновления получен из запроса: " . $requestData['updateUrl']);
+        } else {
+            $updateUrl = escapeshellarg($currentSettings->updateUrl);
+            $logger->info("URL для обновления взят из настроек (из запроса пустой): " . $currentSettings->updateUrl);
+        }
+
         $serviceName = escapeshellarg($currentSettings->serviceName);
         $logPath = escapeshellarg(LOG_PATH);
         
         // Формируем команду для запуска PowerShell скрипта в фоновом режиме
-        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NUL 2>&1";
+        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . "";
         
         pclose(popen($command, 'r'));
         
-        $logger->info("Запущено обновление файлов из URL через PowerShell скрипт: $scriptPath");
+        $logger->info("Запущено обновление файлов из URL $updateUrl через PowerShell скрипт: $scriptPath");
         echo json_encode(['status' => 'success', 'message' => 'Обновление файлов из URL запущено через PowerShell скрипт. Проверьте логи для статуса.'], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/check-for-update' && $method === 'GET') {
         $logger->debug("Запрос на проверку новой версии на GitHub.");

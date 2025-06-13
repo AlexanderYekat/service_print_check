@@ -140,12 +140,12 @@ function runServer() {
         echo LOG_PATH;
     } elseif ($uri === '/api/openlogs' && $method === 'POST') {
         $logPath = LOG_PATH;
-        $command = 'start "" "' . $logPath . '" >NUL 2>&1'; // Для Windows
+        $command = 'start "" /MIN ' . escapeshellarg($logPath); // Для Windows, асинхронно
         // Для Linux/macOS: $command = 'xdg-open ' . escapeshellarg($logPath);
         // Для macOS: $command = 'open ' . escapeshellarg($logPath);
         // Для кроссплатформенности можно использовать: if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') { ... } else { ... }
 
-        pclose(popen($command, 'r'));
+        exec($command);
         $logger->info("Открыта папка с логами: $logPath");
         echo json_encode(['status' => 'success', 'message' => 'Папка с логами открыта'], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/version' && $method === 'GET') {
@@ -158,7 +158,7 @@ function runServer() {
         $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'restart_service.ps1';
         
         // Формируем команду для запуска PowerShell скрипта
-        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\"";
+        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" > NUL 2>&1";
         
         // Запускаем команду в фоновом режиме
         pclose(popen($command, 'r'));
@@ -189,7 +189,7 @@ function runServer() {
         $logPath = escapeshellarg(LOG_PATH);
         
         // Формируем команду для запуска PowerShell скрипта в фоновом режиме
-        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . "";
+        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NUL 2>&1";
         
         pclose(popen($command, 'r'));
         

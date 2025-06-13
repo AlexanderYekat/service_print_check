@@ -58,8 +58,8 @@ if (-not ([string]::IsNullOrEmpty($ServiceNameToStop))) {
         if ($service -and $service.Status -eq 'Running') {
             Write-Log "Остановка службы '$ServiceNameToStop'..."
             echo "Остановка службы '$ServiceNameToStop'..."
-            №Stop-Service -Name $ServiceNameToStop -Force -ErrorAction Stop
-            $service.WaitForStatus('Stopped', 60000) # Ожидаем до 60 секунд
+            Stop-Service -Name $ServiceNameToStop -Force -ErrorAction Stop
+            $service.WaitForStatus('Stopped', 30000) # Ожидаем до 60 секунд
             Write-Log "Служба '$ServiceNameToStop' успешно остановлена."
             echo "Служба '$ServiceNameToStop' успешно остановлена."
         } elseif ($service -and $service.Status -eq 'Stopped') {
@@ -88,44 +88,41 @@ try {
     Write-Log "Создание резервной копии текущих файлов в $BackupDir..."
     echo "Создание резервной копии текущих файлов в $BackupDir..."
 
-    $backupZipFile = Join-Path -Path $BackupDir -ChildPath "application_backup.zip"
+    $tempBackupStagingDir = Join-Path -Path (Get-Item Env:TEMP).Value -ChildPath "app_backup_staging_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    New-Item -Path $tempBackupStagingDir -ItemType Directory -Force | Out-Null
 
-    # Определяем исходную директорию для архивации
-    $sourceDirectory = $PSScriptRoot
+    try {
+        # Копируем файлы в промежуточную директорию, исключая те, что не нужны
+        $exclusions = @(
+            "_temp_update", "_backup_*", "logs", "settings", "backup",
+            ".github", "myapp_dist", ".gitattributes", ".gitignore",
+            "CloudPosBridge_Installer.iss", "update_from_url.ps1",
+            "atolservice.php", "restart_service.ps1",
+            "*.tmp", "*.lock", "*.db", ".git"
+        )
 
-    # Определяем список исключений
-    $exclusions = @(
-        "_temp_update", "_backup_*", "logs", "settings", "backup",
-        ".github", "myapp_dist", ".gitattributes", ".gitignore",
-        "CloudPosBridge_Installer.iss", "update_from_url.ps1",
-        "atolservice.php", "restart_service.ps1",
-        "*.tmp", "*.lock", "*.db", ".git"
-    )
-
-    # Получаем все элементы для архивации с учетом исключений
-    $itemsToArchive = Get-ChildItem -Path $sourceDirectory -Exclude $exclusions | Select-Object -ExpandProperty FullName
-
-    if ($itemsToArchive.Count -gt 0) {
-        # Временно меняем директорию, чтобы избежать потенциальных блокировок на $PSScriptRoot
-        $originalLocation = Get-Location
-        $tempWorkingDir = Join-Path -Path (Get-Item Env:TEMP).Value -ChildPath "ps_backup_temp_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-        New-Item -Path $tempWorkingDir -ItemType Directory -Force | Out-Null
-        Set-Location -Path $tempWorkingDir
-
-        try {
-            # Передаем абсолютные пути в Compress-Archive, когда текущее местоположение изменено
-            Compress-Archive -Path $itemsToArchive -DestinationPath $backupZipFile -Force
-            Write-Log "Резервная копия успешно создана в $backupZipFile."
-            echo "Резервная копия успешно создана в $backupZipFile."
-        } finally {
-            # Возвращаемся к исходному местоположению
-            Set-Location -Path $originalLocation
-            # Очищаем временную рабочую директорию
-            if (Test-Path -Path $tempWorkingDir) { Remove-Item -Path $tempWorkingDir -Recurse -Force | Out-Null }
+        Get-ChildItem -Path $PSScriptRoot -Exclude $exclusions | ForEach-Object {
+            try {
+                Copy-Item -Path $_.FullName -Destination $tempBackupStagingDir -Recurse -Force
+                Write-Log "Файл/папка '$($_.FullName)' успешно скопирован(а) во временную директорию."
+            } catch {
+                Write-Log "Ошибка при копировании '$($_.FullName)' во временную директорию: $($_.Exception.Message)"
+                # Продолжаем, игнорируя ошибку для конкретного файла
+            }
         }
-    } else {
-        Write-Log "Нечего архивировать для резервной копии. Пропускаем создание архива."
-        echo "Нечего архивировать для резервной копии. Пропускаем создание архива."
+
+        $backupZipFile = Join-Path -Path $BackupDir -ChildPath "application_backup.zip"
+        Compress-Archive -Path $tempBackupStagingDir -DestinationPath $backupZipFile -Force
+
+        Write-Log "Резервная копия успешно создана в $backupZipFile."
+        echo "Резервная копия успешно создана в $backupZipFile."
+    } catch {
+        echo "Ошибка при создании резервной копии: $($_.Exception.Message)"
+        Write-Log "Ошибка при создании резервной копии: $($_.Exception.Message)"
+        # Продолжаем, так как это не критическая ошибка для самого обновления, но логируем
+    } finally {
+        # Очищаем временную промежуточную директорию
+        if (Test-Path -Path $tempBackupStagingDir) { Remove-Item -Path $tempBackupStagingDir -Recurse -Force | Out-Null }
     }
 } catch {
     echo "Ошибка при создании резервной копии: $($_.Exception.Message)"

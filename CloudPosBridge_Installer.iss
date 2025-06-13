@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.12.04
+AppVersion=2025.06.13.02
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -23,9 +23,23 @@ Compression=lzma
 ; Копируем все файлы из папки @myapp_dist/php в подпапку {app}\php
 Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createallsubdirs
 ; Копируем все файлы из папки @myapp_dist/app в подпапку {app}\app
-Source: "myapp_dist\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs createallsubdirs
+; Source: "myapp_dist\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs createallsubdirs
 ; Копируем nssm.exe из папки @myapp_dist/nssm в подпапку {app}\nssm
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
+
+; --- Новые правила копирования файлов программы из текущей папки --- 
+; Копируем все PHP файлы из корневой папки приложения в {app}\app
+Source: "*.php"; DestDir: "{app}\app"; Flags: 
+; Копируем README.md в {app}\app
+Source: "README.md"; DestDir: "{app}\app"; Flags: 
+; Копируем файлы из папки templates в {app}\app\templates
+Source: "templates\*"; DestDir: "{app}\app\templates"; Flags: recursesubdirs createallsubdirs
+; Копируем файлы из папки settings_storage в {app}\app\settings_storage
+Source: "settings_storage\*"; DestDir: "{app}\app\settings_storage"; Flags: recursesubdirs createallsubdirs
+; Копируем файлы из папки samples в {app}\app\samples
+Source: "samples\*"; DestDir: "{app}\app\samples"; Flags: recursesubdirs createallsubdirs
+; Копируем файлы из папки resource в {app}\app\resource
+Source: "resource\*"; DestDir: "{app}\app\resource"; Flags: recursesubdirs createallsubdirs
 
 [Dirs]
 ; Создаем необходимые директории, если они еще не существуют

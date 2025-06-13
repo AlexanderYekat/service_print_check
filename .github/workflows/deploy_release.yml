@@ -51,6 +51,9 @@ jobs:
       run: |
         ls -la ${{ github.workspace }}
 
+    - name: Create dummy file
+      run: echo "dummy content" > dummy.txt
+
     - name: Get current date for tag
       id: date
       run: |
@@ -65,7 +68,8 @@ jobs:
         draft: false # Установите true, если хотите создавать черновики релизов
         prerelease: false # Установите true, если это предварительный релиз
         files: |
-          release.zip # Имя вашего ZIP-файла
+          release.zip
+          dummy.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Токен GitHub, предоставляется автоматически
 

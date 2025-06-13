@@ -189,7 +189,9 @@ function runServer() {
         $logPath = escapeshellarg(LOG_PATH);
         
         // Формируем команду для запуска PowerShell скрипта в фоновом режиме
-        $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NUL 2>&1";
+        //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NULL 2>&1";
+        //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > $null 2>&1";
+        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " | Out-Null";
         
         $logger->info("Команда для запуска PowerShell скрипта: $command");
         pclose(popen($command, 'r'));

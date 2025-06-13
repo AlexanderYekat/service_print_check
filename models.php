@@ -73,12 +73,12 @@ class Settings {
     public $ipServKkt = "";
     public $emulation = false;
     public $allowedOrigin = "";
-    public $comScale = 1000; // Номер COM-порта для весов по умолчанию
+    public $comScale = 1001; // Номер COM-порта для весов по умолчанию
     public $baudRateScale = 18; // Скорость передачи данных (BaudRate) для весов по умолчанию (18 = 115200)
     public $modelScale = 38; // Модель весов по умолчанию (38 = АТОЛ Марта)
     public $emulationScale = false; // Эмуляция весов по умолчанию
     public $bankEmulation = false; // Эмуляция банковского терминала по умолчанию
-    public $disableLogging = true; // Отключить логирование полностью по умолчанию
+    public $disableLogging = false; // Отключить логирование полностью по умолчанию
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -158,12 +158,12 @@ class Settings {
         $this->ipServKkt = "";
         $this->emulation = false;
         $this->allowedOrigin = "";
-        $this->comScale = 1000;
+        $this->comScale = 1001;
         $this->baudRateScale = 18;
         $this->modelScale = 38;
         $this->emulationScale = false;
         $this->bankEmulation = false;
-        $this->disableLogging = true;
+        $this->disableLogging = false;
     }
 }
 

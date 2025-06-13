@@ -9,7 +9,7 @@ class TScale8Driver {
     private $emulation; // Флаг эмуляции
     private $logger; // Добавляем свойство для логгера
 
-    public function __construct(int $comPort = 1000, int $baudRate = 18, int $model = 38, bool $emulation = false, ?Logger $logger = null) {
+    public function __construct(int $comPort = 1001, int $baudRate = 18, int $model = 38, bool $emulation = false, ?Logger $logger = null) {
         $this->comPort = $comPort;
         $this->baudRate = $baudRate;
         $this->model = $model;

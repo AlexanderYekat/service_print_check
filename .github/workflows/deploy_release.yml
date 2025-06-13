@@ -1,0 +1,62 @@
+name: Deploy Release
+
+on:
+  push:
+    # Запускать этот workflow при пуше в ветку 'phprails' (или 'main', 'production', если у вас другая основная ветка)
+    branches:
+      - phprails
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2' # Или ваша версия PHP
+
+    - name: Prepare application files for ZIP
+      # Этот шаг нужен, если вам нужно установить зависимости composer или выполнить другие действия перед архивированием
+      # В вашем случае, возможно, ничего не потребуется, если все файлы уже в репозитории.
+      # Пример: composer install --no-dev --optimize-autoloader
+
+    - name: Create ZIP archive
+      # Создаем ZIP-архив, исключая служебные Git-файлы, логи, временные папки и папки с настройками
+      # Важно: ZIP должен содержать файлы прямо в корне, а не в подпапке (например, 'my-app/file.php')
+      # Исключаем .git/, logs/, settings/, а также временные папки, создаваемые update_from_url.ps1
+      run: |
+        zip -r release.zip . \
+          -x "*/.git/*" \
+          -x "*/.github/*" \
+          -x "*/logs/*" \
+          -x "*/settings/*" \
+          -x "*/_temp_update/*" \
+          -x "*/_backup_*/*" \
+          -x "*.DS_Store" \
+          -x "*/vendor/*" # Если вы используете composer, возможно, нужно исключить vendor и включать его после сборки
+      # Если у вас есть папка vendor и вы хотите включить ее в архив, удалите "-x "*/vendor/*"".
+      # Если вы не хотите включать определенные файлы или папки, добавьте их в "-x"
+      
+    - name: Get current date for tag
+      id: date
+      run: echo "TAG_DATE=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.date.outputs.TAG_DATE }} # Тег релиза, например v2024.07.25-1030
+        name: Release v${{ steps.date.outputs.TAG_DATE }} # Имя релиза
+        draft: false # Установите true, если хотите создавать черновики релизов
+        prerelease: false # Установите true, если это предварительный релиз
+        files: |
+          release.zip # Имя вашего ZIP-файла
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Токен GitHub, предоставляется автоматически
+
+    - name: Output Release URL
+      run: echo "Release URL: ${{ steps.create_release.outputs.html_url }}"

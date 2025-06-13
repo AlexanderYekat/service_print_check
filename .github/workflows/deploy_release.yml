@@ -47,6 +47,10 @@ jobs:
         cd temp_release_contents/
         zip -r ../release.zip ./*
 
+    - name: Debug - List files in root after zip
+      run: |
+        ls -la ${{ github.workspace }}
+
     - name: Get current date for tag
       id: date
       run: |
@@ -54,7 +58,7 @@ jobs:
 
     - name: Create GitHub Release
       id: create_release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v4
       with:
         tag_name: v${{ steps.date.outputs.TAG_DATE }} # Тег релиза, например v2024.07.25-1030
         name: Release v${{ steps.date.outputs.TAG_DATE }} # Имя релиза

@@ -54,17 +54,18 @@ jobs:
     - name: Create dummy file
       run: echo "dummy content" > dummy.txt
 
-    - name: Get current date for tag
-      id: date
+    - name: Get version from atolservice.php
+      id: get_version
       run: |
-        echo "TAG_DATE=$(date +'%Y_%m_%d_%H%M')" >> "$GITHUB_OUTPUT"
+        VERSION=$(grep -oP "define\('VERSION_OF_PROGRAM', '\K[^']+'\)" atolservice.php)
+        echo "PROGRAM_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub Release
       id: create_release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.date.outputs.TAG_DATE }} # Тег релиза, например 2024_07_25_1030
-        name: Release ${{ steps.date.outputs.TAG_DATE }} # Имя релиза
+        tag_name: ${{ steps.get_version.outputs.PROGRAM_VERSION }} # Тег релиза берется из VERSION_OF_PROGRAM
+        name: Release ${{ steps.get_version.outputs.PROGRAM_VERSION }} # Имя релиза
         draft: false # Установите true, если хотите создавать черновики релизов
         prerelease: false # Установите true, если это предварительный релиз
         files: |

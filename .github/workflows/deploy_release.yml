@@ -57,7 +57,7 @@ jobs:
     - name: Get version from atolservice.php
       id: get_version
       run: |
-        VERSION=$(awk -F"'" '/^[[:space:]]*define\(\'VERSION_OF_PROGRAM\',/ {print $4}' atolservice.php)
+        VERSION=$(grep "define('VERSION_OF_PROGRAM'," atolservice.php | cut -d"'" -f4)
         echo "PROGRAM_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub Release

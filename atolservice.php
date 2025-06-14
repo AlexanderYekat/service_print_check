@@ -18,7 +18,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Private-Network: true");
 
-define('VERSION_OF_PROGRAM', '2025_06_13_10');
+define('VERSION_OF_PROGRAM', '2025_06_14_01');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -191,8 +191,8 @@ function runServer() {
         // Формируем команду для запуска PowerShell скрипта в фоновом режиме
         //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NULL 2>&1";
         //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > $null 2>&1";
-        //$command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " | Out-Null";
-        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File test_stop_service.ps1";
+        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " -SkipServiceStop";
+        //$command = "powershell -NoProfile -ExecutionPolicy Bypass -File test_stop_service.ps1";
         
         $logger->info("Команда для запуска PowerShell скрипта: $command");
         pclose(popen($command, 'r'));

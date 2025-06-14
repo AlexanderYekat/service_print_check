@@ -4,7 +4,8 @@
 Param(
     [string]$DownloadUrl,
     [string]$LogDirPath,
-    [string]$ServiceNameToStop # Имя службы для остановки/запуска
+    [string]$ServiceNameToStop,
+    [switch]$SkipServiceStop # Изменен на [switch] параметр
 )
 
 $LogFile = Join-Path -Path $LogDirPath -ChildPath "update_from_url.log"
@@ -32,6 +33,8 @@ echo "Каталог для логов: $LogDirPath"
 Write-Log "Каталог для логов: $LogDirPath"
 Write-Log "Имя службы для остановки/запуска: $ServiceNameToStop"
 echo "Имя службы для остановки/запуска: $ServiceNameToStop"
+Write-Log "Пропуск остановки/запуска службы: $SkipServiceStop"
+echo "Пропуск остановки/запуска службы: $SkipServiceStop"
 
 # 1. Загрузка ZIP-файла
 try {
@@ -52,7 +55,7 @@ try {
 }
 
 # 2. Остановка службы
-if (-not ([string]::IsNullOrEmpty($ServiceNameToStop))) {
+if (-not ([string]::IsNullOrEmpty($ServiceNameToStop)) -and -not $SkipServiceStop) {
     try {
         $service = Get-Service -Name $ServiceNameToStop -ErrorAction SilentlyContinue
         if ($service -and $service.Status -eq 'Running') {
@@ -96,15 +99,13 @@ try {
         $exclusions = @(
             "_temp_update", "_backup_*", "logs", "settings", "backup",
             ".github", "myapp_dist", ".gitattributes", ".gitignore",
-            "CloudPosBridge_Installer.iss", "update_from_url.ps1",
-            "atolservice.php", "restart_service.ps1",
             "*.tmp", "*.lock", "*.db", ".git"
         )
 
         Get-ChildItem -Path $PSScriptRoot -Exclude $exclusions | ForEach-Object {
             try {
                 Copy-Item -Path $_.FullName -Destination $tempBackupStagingDir -Recurse -Force
-                Write-Log "Файл/папка '$($_.FullName)' успешно скопирован(а) во временную директорию."
+                Write-Log "Файл/папка '$($_.FullName)' успешно скопирован(а) во временную директорию '$tempBackupStagingDir'."
             } catch {
                 Write-Log "Ошибка при копировании '$($_.FullName)' во временную директорию: $($_.Exception.Message)"
                 # Продолжаем, игнорируя ошибку для конкретного файла

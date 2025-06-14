@@ -290,7 +290,7 @@ h2 {
                 </div>
                 <div class="form-field">
                     <label for="comScale">COM порт весов</label>
-                    <input type="number" id="comScale" name="comScale" min="0" class="text-input">
+                    <input type="number" id="comScale" name="comScale" min="-1000" class="text-input" value="-1000">
                     <span class="helper-text">Номер COM-порта, к которому подключены весы.</span>
                 </div>
                 <div class="form-field">
@@ -416,7 +416,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('emulation').checked = settings.emulation;
             document.getElementById('allowedOrigin').value = settings.allowedOrigin;
             // Новые настройки для весов
-            document.getElementById('comScale').value = settings.comScale;
+            if (settings.comScale === 1000 || settings.comScale === undefined) {
+                document.getElementById('comScale').value = -1000;
+            } else {
+                document.getElementById('comScale').value = settings.comScale - 1000;
+            }
             document.getElementById('baudRateScale').value = settings.baudRateScale;
             document.getElementById('modelScale').value = settings.modelScale;
             document.getElementById('emulationScale').checked = settings.emulationScale;
@@ -459,7 +463,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if ('comKkt' in settings) settings.comKkt = Number(settings.comKkt);
         if ('portIpKkt' in settings) settings.portIpKkt = Number(settings.portIpKkt);
         // Новые числовые поля для весов
-        if ('comScale' in settings) settings.comScale = Number(settings.comScale);
+        if ('comScale' in settings) {
+            const comScaleValue = Number(settings.comScale);
+            if (comScaleValue === -1000) {
+                settings.comScale = 1000;
+            } else {
+                settings.comScale = comScaleValue + 1000;
+            }
+        }
         if ('baudRateScale' in settings) settings.baudRateScale = Number(settings.baudRateScale);
         if ('modelScale' in settings) settings.modelScale = Number(settings.modelScale);
 

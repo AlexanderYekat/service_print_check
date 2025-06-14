@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки весов Атол Смарт</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --md-sys-color-primary: #6750A4;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #EADDFF;
+            --md-sys-color-on-primary-container: #21005D;
+            --md-sys-color-surface: #FFFBFE;
+            --md-sys-color-on-surface: #1C1B1F;
+            --md-sys-color-outline: #79747E;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        header {
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 8px;
+        }
+
+        p.description {
+            font-size: 16px;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 32px;
+        }
+
+        .form-field {
+            margin-bottom: 32px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--md-sys-color-outline);
+            border-radius: 4px;
+            font-size: 18px;
+            color: var(--md-sys-color-on-surface);
+            background-color: var(--md-sys-color-surface);
+            transition: border-color 0.3s;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--md-sys-color-primary);
+        }
+
+        .helper-text {
+            display: block;
+            font-size: 14px;
+            color: var(--md-sys-color-outline);
+            margin-top: 4px;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: flex-end;
+            gap: 16px;
+            margin-top: 32px;
+        }
+
+        .button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .button.primary {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+
+        .button.primary:hover {
+            background-color: #7C6EAE;
+        }
+
+        .button.secondary {
+            background-color: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+        }
+
+        .button.secondary:hover {
+            background-color: #D8CFF0;
+        }
+
+        .link-to-full-settings {
+            display: block;
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+        }
+
+        .link-to-full-settings a {
+            color: var(--md-sys-color-primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link-to-full-settings a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Настройки весов Атол Смарт</h1>
+            <p class="description">Здесь вы можете изменить номер COM-порта, к которому подключены ваши весы "Атол Смарт".</p>
+        </header>
+        <main>
+            <form id="simpleSettingsForm">
+                <div class="form-field">
+                    <label for="comScale">Номер COM-порта для весов "Атол Смарт"</label>
+                    <input type="number" id="comScale" name="comScale" min="-1000" class="text-input" value="-1000">
+                    <span class="helper-text">Укажите номер COM-порта (например, 1, 2, 3), к которому подключены весы. Если не знаете, оставьте значение по умолчанию -1000.</span>
+                </div>
+                
+                <div class="button-container">
+                    <button type="submit" class="button primary">Сохранить</button>
+                </div>
+
+                <p class="link-to-full-settings">
+                    <a href="/settings">Перейти к полным настройкам (для технических специалистов)</a>
+                </p>
+            </form>
+        </main>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('simpleSettingsForm');
+            const comScaleInput = document.getElementById('comScale');
+
+            // Загрузка текущей настройки COM-порта весов
+            fetch('/api/settings')
+                .then(response => response.json())
+                .then(settings => {
+                    // Преобразуем значение с бэкенда для отображения пользователю
+                    if (settings.comScale === 1000 || settings.comScale === undefined) {
+                        comScaleInput.value = -1000;
+                    } else {
+                        comScaleInput.value = settings.comScale - 1000;
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке настроек:', error);
+                    // В случае ошибки, убедимся, что значение по умолчанию установлено
+                    comScaleInput.value = -1000;
+                });
+
+            // Обработка отправки формы
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const comScaleValue = Number(comScaleInput.value);
+                
+                let valueToSend;
+                if (comScaleValue === -1000) {
+                    valueToSend = 1000;
+                } else {
+                    valueToSend = comScaleValue + 1000;
+                }
+
+                fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ comScale: valueToSend }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Ответ сервера на сохранение:', data);
+                    alert('Настройка сохранена успешно!');
+                })
+                .catch((error) => {
+                    console.error('Ошибка:', error);
+                    alert('Произошла ошибка при сохранении настройки.');
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -118,6 +118,7 @@ function runServer() {
                 $oldClearLogsSetting = $currentSettings->clearLogs; // Сохраняем старое значение
                 $currentSettings->fillFromArray($data);
                 $currentSettings->save();
+                $currentSettings->load(); // Перечитать настройки после сохранения
 
                 // Если clearLogs был включен И отличался от старого значения (или был только что включен)
                 // ИЛИ если clearLogs был включен и не был установлен флаг (на случай, если файл флага был удален вручную)

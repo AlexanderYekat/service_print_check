@@ -64,29 +64,33 @@ class CheckData {
 class Settings {
     private $storage;
 
-    public $clearLogs = true;
-    public $debug = 3;
-    public $comKkt = 0;
-    public $cassir = "Кассир";
-    public $ipKkt = "";
-    public $portIpKkt = 0;
-    public $ipServKkt = "";
-    public $emulation = false;
-    public $allowedOrigin = "";
-    public $comScale = 1001; // Номер COM-порта для весов по умолчанию
-    public $baudRateScale = 18; // Скорость передачи данных (BaudRate) для весов по умолчанию (18 = 115200)
-    public $modelScale = 38; // Модель весов по умолчанию (38 = АТОЛ Марта)
-    public $emulationScale = false; // Эмуляция весов по умолчанию
-    public $bankEmulation = false; // Эмуляция банковского терминала по умолчанию
-    public $disableLogging = false; // Отключить логирование полностью по умолчанию
-    public $updateUrl = ""; // URL для обновления файлов по умолчанию
-    public $serviceName = "CloudPosBridgeServicePHP"; // Имя службы для остановки/запуска по умолчанию
-    public $githubRepoOwner = "AlexanderYekat"; // Владелец репозитория GitHub по умолчанию
-    public $githubRepoName = "service_print_check"; // Имя репозитория GitHub по умолчанию
+    // Объявление свойств без значений по умолчанию
+    public $clearLogs;
+    public $debug;
+    public $comKkt;
+    public $cassir;
+    public $ipKkt;
+    public $portIpKkt;
+    public $ipServKkt;
+    public $emulation;
+    public $allowedOrigin;
+    public $comScale;
+    public $baudRateScale;
+    public $modelScale;
+    public $emulationScale;
+    public $bankEmulation;
+    public $disableLogging;
+    public $updateUrl;
+    public $serviceName;
+    public $githubRepoOwner;
+    public $githubRepoName;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
-        // По умолчанию, если нет загруженных настроек, используются эти значения
+        $this->_setDefaults(); // Вызываем метод установки значений по умолчанию
+    }
+
+    private function _setDefaults(): void {
         $this->clearLogs = true;
         $this->debug = 3;
         $this->comKkt = 0;
@@ -165,25 +169,7 @@ class Settings {
     }
 
     public function resetToDefaults(): void {
-        $this->clearLogs = true;
-        $this->debug = 3;
-        $this->comKkt = 0;
-        $this->cassir = "Кассир";
-        $this->ipKkt = "";
-        $this->portIpKkt = 0;
-        $this->ipServKkt = "";
-        $this->emulation = false;
-        $this->allowedOrigin = "";
-        $this->comScale = 1001;
-        $this->baudRateScale = 18;
-        $this->modelScale = 38;
-        $this->emulationScale = false;
-        $this->bankEmulation = false;
-        $this->disableLogging = false;
-        $this->updateUrl = "";
-        $this->serviceName = "CloudPosBridgeServicePHP";
-        $this->githubRepoOwner = "AlexanderYekat";
-        $this->githubRepoName = "service_print_check";
+        $this->_setDefaults();
     }
 }
 

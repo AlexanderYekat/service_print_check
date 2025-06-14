@@ -175,8 +175,15 @@ class CheckService {
         }
 
         if ($success) {
-            $this->logger->info("Операция '{$operationName}' успешно выполнена. Ответ: {$response}");
-            return ['success' => true, 'message' => $message, 'data' => ['response' => $response]];
+            $this->logger->info("Операция '{$operationName}' успешно выполнена. Ответ: " . (is_array($response) ? json_encode($response) : $response));
+            
+            $data = [];
+            if (is_array($response)) {
+                $data['slipLines'] = $response;
+            } else {
+                $data['response'] = $response; // Fallback for any other successful string response
+            }
+            return ['success' => true, 'message' => $message, 'data' => $data];
         } else {
             $this->logger->error("Ошибка банковской операции '{$operationName}': {$response}");
             return ['success' => false, 'message' => $message . ": {$response}"];

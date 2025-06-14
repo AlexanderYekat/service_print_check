@@ -111,9 +111,22 @@ class TBankDriver {
 
         // Определяем финальный успех на основе эмуляции
         $finalSuccess = $this->emulation ? true : $actualSuccess;
-        $finalResult = $finalSuccess ? ($actualCheque != "" ? $actualCheque : "Эмуляция: операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО") : ($actualErrorDescription != "" ? $actualErrorDescription : "Неизвестная ошибка.");
+        $returnResult = null; // This will hold either a string (error) or an array of strings (slip lines)
 
-        return [$finalSuccess, $finalResult];
+        if ($finalSuccess) {
+            if ($actualCheque != "") {
+                $returnResult = explode("\n", $actualCheque);
+            } else {
+                // Emulation success
+                $emulationSlip = "Эмуляция: операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО";
+                $returnResult = explode("\n", $emulationSlip);
+            }
+        } else {
+            // For failure
+            $returnResult = $actualErrorDescription != "" ? $actualErrorDescription : "Неизвестная ошибка.";
+        }
+
+        return [$finalSuccess, $returnResult];
     }
 
     public function PayMoney(float $amount): array {

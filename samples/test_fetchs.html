@@ -47,11 +47,27 @@
     <button class="button" onclick="getProgramVersion()">Получить версию программы</button>
 
     <div id="status_display" class="result" style="background-color: #f0f0f0; border-color: #ccc;"></div>
+    <div id="saved_slip_display" class="result" style="background-color: #e0ffe0; border-color: #ccffcc;"><h3>Сохраненный банковский слип:</h3><pre id="slip_content"></pre></div>
     <div id="result" class="result"></div>
 
     <script>
         //const API_URL = 'http://localhost:8081';
         const API_URL = 'http://localhost:8000';
+
+        let savedSlipLines = []; // Глобальная переменная для хранения строк слипа
+
+        function displaySavedSlip() {
+            const slipContentElement = document.getElementById('slip_content');
+            const savedSlipDisplayElement = document.getElementById('saved_slip_display');
+
+            if (savedSlipLines.length > 0) {
+                slipContentElement.textContent = savedSlipLines.join('\n');
+                savedSlipDisplayElement.style.display = 'block';
+            } else {
+                slipContentElement.textContent = 'Нет сохраненного слипа.';
+                savedSlipDisplayElement.style.display = 'none'; // Скрываем блок, если нет слипа
+            }
+        }
 
         async function printCheck() {
             try {
@@ -189,6 +205,11 @@
 
         async function printBankSlip() {
             try {
+                if (savedSlipLines.length === 0) {
+                    document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: Нет сохраненного банковского слипа для печати. Выполните банковскую операцию сначала.';
+                    return;
+                }
+
                 console.log('printBankSlip');
                 const response = await fetch(`${API_URL}/api/print-bank-slip`, {
                     method: 'POST',
@@ -196,15 +217,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        slipLines: [
-                            '--- БАНКОВСКИЙ СЛИП ---',
-                            'ОПЕРАЦИЯ: ОПЛАТА',
-                            'СУММА: 1500.00 РУБ.',
-                            'КАРТА: **** **** **** 1234',
-                            'АВТ. КОД: 567890',
-                            'ДАТА: 2024-07-10 10:30:00',
-                            '--- СПАСИБО ---'
-                        ]
+                        slipLines: savedSlipLines // Используем сохраненные строки слипа
                     })
                 });
                 const data = await response.json();
@@ -216,7 +229,7 @@
 
         async function closeBankShift() {
             try {
-                console.log('closeBankShift');
+                console.log('CloseShiftTerminal');
                 const response = await fetch(`${API_URL}/api/bank-operation`, {
                     method: 'POST',
                     headers: {
@@ -229,6 +242,13 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                if (data.status === 'success' && data.data && data.data.slipLines) {
+                    savedSlipLines = data.data.slipLines;
+                    displaySavedSlip();
+                } else {
+                    savedSlipLines = []; // Очищаем, если нет слипа
+                    displaySavedSlip();
+                }
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -249,6 +269,13 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                if (data.status === 'success' && data.data && data.data.slipLines) {
+                    savedSlipLines = data.data.slipLines;
+                    displaySavedSlip();
+                } else {
+                    savedSlipLines = []; // Очищаем, если нет слипа
+                    displaySavedSlip();
+                }
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -269,6 +296,13 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                if (data.status === 'success' && data.data && data.data.slipLines) {
+                    savedSlipLines = data.data.slipLines;
+                    displaySavedSlip();
+                } else {
+                    savedSlipLines = []; // Очищаем, если нет слипа
+                    displaySavedSlip();
+                }
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -288,8 +322,11 @@
             }
         }
 
-        // Вызываем функцию при загрузке страницы
-        window.onload = getProgramVersion;
+        // Вызываем функцию при загрузке страницы и скрываем блок слипа по умолчанию
+        window.onload = function() {
+            getProgramVersion();
+            displaySavedSlip(); // Скрываем блок при загрузке страницы
+        };
     </script>
 </body>
 </html> 

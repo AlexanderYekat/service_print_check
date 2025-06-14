@@ -1,11 +1,11 @@
 # update_from_url.ps1
-# Р­С‚РѕС‚ СЃРєСЂРёРїС‚ РїСЂРµРґРЅР°Р·РЅР°С‡РµРЅ РґР»СЏ Р·Р°РїСѓСЃРєР° PHP-СЃР»СѓР¶Р±РѕР№ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ С„Р°Р№Р»РѕРІ РїСЂРёР»РѕР¶РµРЅРёСЏ РёР· ZIP-Р°СЂС…РёРІР° РїРѕ URL.
+# Этот скрипт предназначен для запуска PHP-службой для обновления файлов приложения из ZIP-архива по URL.
 
 Param(
     [string]$DownloadUrl,
     [string]$LogDirPath,
     [string]$ServiceNameToStop,
-    [switch]$SkipServiceStop # РР·РјРµРЅРµРЅ РЅР° [switch] РїР°СЂР°РјРµС‚СЂ
+    [switch]$SkipServiceStop # Изменен на [switch] параметр
 )
 
 $LogFile = Join-Path -Path $LogDirPath -ChildPath "update_from_url.log"
@@ -13,7 +13,7 @@ $TempDir = Join-Path -Path $PSScriptRoot -ChildPath "_temp_update"
 $BackupBaseDir = Join-Path -Path $PSScriptRoot -ChildPath "backup"
 $BackupDir = Join-Path -Path $BackupBaseDir -ChildPath "_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
 
-# Р¤СѓРЅРєС†РёСЏ РґР»СЏ Р·Р°РїРёСЃРё СЃРѕРѕР±С‰РµРЅРёР№ РІ Р»РѕРі
+# Функция для записи сообщений в лог
 function Write-Log {
     Param(
         [string]$Message
@@ -22,80 +22,80 @@ function Write-Log {
     Add-Content -Path $LogFile -Value "$Timestamp - $Message"
 }
 
-# РЈР±РµРґРёС‚РµСЃСЊ, С‡С‚Рѕ РґРёСЂРµРєС‚РѕСЂРёСЏ РґР»СЏ Р»РѕРіРѕРІ СЃСѓС‰РµСЃС‚РІСѓРµС‚
+# Убедитесь, что директория для логов существует
 if (-not (Test-Path -Path $LogDirPath -PathType Container)) {
     New-Item -Path $LogDirPath -ItemType Directory -Force | Out-Null
 }
 
-echo "РќР°С‡Р°Р»Рѕ РїСЂРѕС†РµСЃСЃР° РѕР±РЅРѕРІР»РµРЅРёСЏ РёР· URL: $DownloadUrl"
-Write-Log "РќР°С‡Р°Р»Рѕ РїСЂРѕС†РµСЃСЃР° РѕР±РЅРѕРІР»РµРЅРёСЏ РёР· URL: $DownloadUrl"
-echo "РљР°С‚Р°Р»РѕРі РґР»СЏ Р»РѕРіРѕРІ: $LogDirPath"
-Write-Log "РљР°С‚Р°Р»РѕРі РґР»СЏ Р»РѕРіРѕРІ: $LogDirPath"
-Write-Log "РРјСЏ СЃР»СѓР¶Р±С‹ РґР»СЏ РѕСЃС‚Р°РЅРѕРІРєРё/Р·Р°РїСѓСЃРєР°: $ServiceNameToStop"
-echo "РРјСЏ СЃР»СѓР¶Р±С‹ РґР»СЏ РѕСЃС‚Р°РЅРѕРІРєРё/Р·Р°РїСѓСЃРєР°: $ServiceNameToStop"
-Write-Log "РџСЂРѕРїСѓСЃРє РѕСЃС‚Р°РЅРѕРІРєРё/Р·Р°РїСѓСЃРєР° СЃР»СѓР¶Р±С‹: $SkipServiceStop"
-echo "РџСЂРѕРїСѓСЃРє РѕСЃС‚Р°РЅРѕРІРєРё/Р·Р°РїСѓСЃРєР° СЃР»СѓР¶Р±С‹: $SkipServiceStop"
+echo "Начало процесса обновления из URL: $DownloadUrl"
+Write-Log "Начало процесса обновления из URL: $DownloadUrl"
+echo "Каталог для логов: $LogDirPath"
+Write-Log "Каталог для логов: $LogDirPath"
+Write-Log "Имя службы для остановки/запуска: $ServiceNameToStop"
+echo "Имя службы для остановки/запуска: $ServiceNameToStop"
+Write-Log "Пропуск остановки/запуска службы: $SkipServiceStop"
+echo "Пропуск остановки/запуска службы: $SkipServiceStop"
 
-# 1. Р—Р°РіСЂСѓР·РєР° ZIP-С„Р°Р№Р»Р°
+# 1. Загрузка ZIP-файла
 try {
-    Write-Log "РџРѕРїС‹С‚РєР° Р·Р°РіСЂСѓР·РєРё Р°СЂС…РёРІР° РёР· $DownloadUrl..."
-    echo "РџРѕРїС‹С‚РєР° Р·Р°РіСЂСѓР·РєРё Р°СЂС…РёРІР° РёР· $DownloadUrl..."
-    # РЎРѕР·РґР°РµРј РІСЂРµРјРµРЅРЅСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ, РµСЃР»Рё РѕРЅР° РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚
+    Write-Log "Попытка загрузки архива из $DownloadUrl..."
+    echo "Попытка загрузки архива из $DownloadUrl..."
+    # Создаем временную директорию, если она не существует
     if (Test-Path -Path $TempDir) { Remove-Item -Path $TempDir -Recurse -Force | Out-Null }
     New-Item -Path $TempDir -ItemType Directory -Force | Out-Null
 
     $zipFileName = Join-Path -Path $TempDir -ChildPath "update.zip"
     (New-Object System.Net.WebClient).DownloadFile($DownloadUrl, $zipFileName)
-    Write-Log "РђСЂС…РёРІ СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ РІ $zipFileName."
-    echo "РђСЂС…РёРІ СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ РІ $zipFileName."
+    Write-Log "Архив успешно загружен в $zipFileName."
+    echo "Архив успешно загружен в $zipFileName."
 } catch {
-    Write-Log "РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ Р°СЂС…РёРІР°: $($_.Exception.Message)"
-    echo "РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ Р°СЂС…РёРІР°: $($_.Exception.Message)"
+    Write-Log "Ошибка при загрузке архива: $($_.Exception.Message)"
+    echo "Ошибка при загрузке архива: $($_.Exception.Message)"
     exit 1
 }
 
-# 2. РћСЃС‚Р°РЅРѕРІРєР° СЃР»СѓР¶Р±С‹
+# 2. Остановка службы
 if (-not ([string]::IsNullOrEmpty($ServiceNameToStop)) -and -not $SkipServiceStop) {
     try {
         $service = Get-Service -Name $ServiceNameToStop -ErrorAction SilentlyContinue
         if ($service -and $service.Status -eq 'Running') {
-            Write-Log "РћСЃС‚Р°РЅРѕРІРєР° СЃР»СѓР¶Р±С‹ '$ServiceNameToStop'..."
-            echo "РћСЃС‚Р°РЅРѕРІРєР° СЃР»СѓР¶Р±С‹ '$ServiceNameToStop'..."
+            Write-Log "Остановка службы '$ServiceNameToStop'..."
+            echo "Остановка службы '$ServiceNameToStop'..."
             Stop-Service -Name $ServiceNameToStop -Force -ErrorAction Stop
-            $service.WaitForStatus('Stopped', 30000) # РћР¶РёРґР°РµРј РґРѕ 60 СЃРµРєСѓРЅРґ
-            Write-Log "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓСЃРїРµС€РЅРѕ РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
-            echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓСЃРїРµС€РЅРѕ РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
+            $service.WaitForStatus('Stopped', 30000) # Ожидаем до 60 секунд
+            Write-Log "Служба '$ServiceNameToStop' успешно остановлена."
+            echo "Служба '$ServiceNameToStop' успешно остановлена."
         } elseif ($service -and $service.Status -eq 'Stopped') {
-            Write-Log "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓР¶Рµ РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
-            echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓР¶Рµ РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
+            Write-Log "Служба '$ServiceNameToStop' уже остановлена."
+            echo "Служба '$ServiceNameToStop' уже остановлена."
         } else {
-            Write-Log "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' РЅРµ РЅР°Р№РґРµРЅР° РёР»Рё РµРµ СЃС‚Р°С‚СѓСЃ РЅРµРёР·РІРµСЃС‚РµРЅ. РџСЂРѕРґРѕР»Р¶Р°РµРј Р±РµР· РѕСЃС‚Р°РЅРѕРІРєРё."
-            echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' РЅРµ РЅР°Р№РґРµРЅР° РёР»Рё РµРµ СЃС‚Р°С‚СѓСЃ РЅРµРёР·РІРµСЃС‚РµРЅ. РџСЂРѕРґРѕР»Р¶Р°РµРј Р±РµР· РѕСЃС‚Р°РЅРѕРІРєРё."
+            Write-Log "Служба '$ServiceNameToStop' не найдена или ее статус неизвестен. Продолжаем без остановки."
+            echo "Служба '$ServiceNameToStop' не найдена или ее статус неизвестен. Продолжаем без остановки."
         }
     } catch {
-        Write-Log "РћС€РёР±РєР° РїСЂРё РѕСЃС‚Р°РЅРѕРІРєРµ СЃР»СѓР¶Р±С‹ '$ServiceNameToStop': $($_.Exception.Message)"
-        echo "РћС€РёР±РєР° РїСЂРё РѕСЃС‚Р°РЅРѕРІРєРµ СЃР»СѓР¶Р±С‹ '$ServiceNameToStop': $($_.Exception.Message)"
+        Write-Log "Ошибка при остановке службы '$ServiceNameToStop': $($_.Exception.Message)"
+        echo "Ошибка при остановке службы '$ServiceNameToStop': $($_.Exception.Message)"
     }
 }
 
-# 3. РЎРѕР·РґР°РЅРёРµ СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё С‚РµРєСѓС‰РёС… С„Р°Р№Р»РѕРІ
+# 3. Создание резервной копии текущих файлов
 try {
-    # РЈР±РµРґРёС‚РµСЃСЊ, С‡С‚Рѕ Р±Р°Р·РѕРІР°СЏ РґРёСЂРµРєС‚РѕСЂРёСЏ РґР»СЏ СЂРµР·РµСЂРІРЅС‹С… РєРѕРїРёР№ СЃСѓС‰РµСЃС‚РІСѓРµС‚
+    # Убедитесь, что базовая директория для резервных копий существует
     if (-not (Test-Path -Path $BackupBaseDir -PathType Container)) {
         New-Item -Path $BackupBaseDir -ItemType Directory -Force | Out-Null
     }
 
-    # РЎРѕР·РґР°РµРј РґРёСЂРµРєС‚РѕСЂРёСЋ РґР»СЏ С‚РµРєСѓС‰РµР№ СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё
+    # Создаем директорию для текущей резервной копии
     New-Item -Path $BackupDir -ItemType Directory -Force | Out-Null
 
-    Write-Log "РЎРѕР·РґР°РЅРёРµ СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё С‚РµРєСѓС‰РёС… С„Р°Р№Р»РѕРІ РІ $BackupDir..."
-    echo "РЎРѕР·РґР°РЅРёРµ СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё С‚РµРєСѓС‰РёС… С„Р°Р№Р»РѕРІ РІ $BackupDir..."
+    Write-Log "Создание резервной копии текущих файлов в $BackupDir..."
+    echo "Создание резервной копии текущих файлов в $BackupDir..."
 
     $tempBackupStagingDir = Join-Path -Path (Get-Item Env:TEMP).Value -ChildPath "app_backup_staging_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
     New-Item -Path $tempBackupStagingDir -ItemType Directory -Force | Out-Null
 
     try {
-        # РљРѕРїРёСЂСѓРµРј С„Р°Р№Р»С‹ РІ РїСЂРѕРјРµР¶СѓС‚РѕС‡РЅСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ, РёСЃРєР»СЋС‡Р°СЏ С‚Рµ, С‡С‚Рѕ РЅРµ РЅСѓР¶РЅС‹
+        # Копируем файлы в промежуточную директорию, исключая те, что не нужны
         $exclusions = @(
             "_temp_update", "_backup_*", "logs", "settings", "backup",
             ".github", "myapp_dist", ".gitattributes", ".gitignore",
@@ -105,76 +105,76 @@ try {
         Get-ChildItem -Path $PSScriptRoot -Exclude $exclusions | ForEach-Object {
             try {
                 Copy-Item -Path $_.FullName -Destination $tempBackupStagingDir -Recurse -Force
-                Write-Log "Р¤Р°Р№Р»/РїР°РїРєР° '$($_.FullName)' СѓСЃРїРµС€РЅРѕ СЃРєРѕРїРёСЂРѕРІР°РЅ(Р°) РІРѕ РІСЂРµРјРµРЅРЅСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ '$tempBackupStagingDir'."
+                Write-Log "Файл/папка '$($_.FullName)' успешно скопирован(а) во временную директорию '$tempBackupStagingDir'."
             } catch {
-                Write-Log "РћС€РёР±РєР° РїСЂРё РєРѕРїРёСЂРѕРІР°РЅРёРё '$($_.FullName)' РІРѕ РІСЂРµРјРµРЅРЅСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ: $($_.Exception.Message)"
-                # РџСЂРѕРґРѕР»Р¶Р°РµРј, РёРіРЅРѕСЂРёСЂСѓСЏ РѕС€РёР±РєСѓ РґР»СЏ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ С„Р°Р№Р»Р°
+                Write-Log "Ошибка при копировании '$($_.FullName)' во временную директорию: $($_.Exception.Message)"
+                # Продолжаем, игнорируя ошибку для конкретного файла
             }
         }
 
         $backupZipFile = Join-Path -Path $BackupDir -ChildPath "application_backup.zip"
         Compress-Archive -Path $tempBackupStagingDir -DestinationPath $backupZipFile -Force
 
-        Write-Log "Р РµР·РµСЂРІРЅР°СЏ РєРѕРїРёСЏ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅР° РІ $backupZipFile."
-        echo "Р РµР·РµСЂРІРЅР°СЏ РєРѕРїРёСЏ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅР° РІ $backupZipFile."
+        Write-Log "Резервная копия успешно создана в $backupZipFile."
+        echo "Резервная копия успешно создана в $backupZipFile."
     } catch {
-        echo "РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё: $($_.Exception.Message)"
-        Write-Log "РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё: $($_.Exception.Message)"
-        # РџСЂРѕРґРѕР»Р¶Р°РµРј, С‚Р°Рє РєР°Рє СЌС‚Рѕ РЅРµ РєСЂРёС‚РёС‡РµСЃРєР°СЏ РѕС€РёР±РєР° РґР»СЏ СЃР°РјРѕРіРѕ РѕР±РЅРѕРІР»РµРЅРёСЏ, РЅРѕ Р»РѕРіРёСЂСѓРµРј
+        echo "Ошибка при создании резервной копии: $($_.Exception.Message)"
+        Write-Log "Ошибка при создании резервной копии: $($_.Exception.Message)"
+        # Продолжаем, так как это не критическая ошибка для самого обновления, но логируем
     } finally {
-        # РћС‡РёС‰Р°РµРј РІСЂРµРјРµРЅРЅСѓСЋ РїСЂРѕРјРµР¶СѓС‚РѕС‡РЅСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ
+        # Очищаем временную промежуточную директорию
         if (Test-Path -Path $tempBackupStagingDir) { Remove-Item -Path $tempBackupStagingDir -Recurse -Force | Out-Null }
     }
 } catch {
-    echo "РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё: $($_.Exception.Message)"
-    Write-Log "РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё: $($_.Exception.Message)"
-    # РџСЂРѕРґРѕР»Р¶Р°РµРј, С‚Р°Рє РєР°Рє СЌС‚Рѕ РЅРµ РєСЂРёС‚РёС‡РµСЃРєР°СЏ РѕС€РёР±РєР° РґР»СЏ СЃР°РјРѕРіРѕ РѕР±РЅРѕРІР»РµРЅРёСЏ, РЅРѕ Р»РѕРіРёСЂСѓРµРј
+    echo "Ошибка при создании резервной копии: $($_.Exception.Message)"
+    Write-Log "Ошибка при создании резервной копии: $($_.Exception.Message)"
+    # Продолжаем, так как это не критическая ошибка для самого обновления, но логируем
 }
 
-# 4. Р Р°СЃРїР°РєРѕРІРєР° Рё Р·Р°РјРµРЅР° С„Р°Р№Р»РѕРІ
+# 4. Распаковка и замена файлов
 try {
-    echo "Р Р°СЃРїР°РєРѕРІРєР° Р°СЂС…РёРІР° Рё РѕР±РЅРѕРІР»РµРЅРёРµ С„Р°Р№Р»РѕРІ..."
-    Write-Log "Р Р°СЃРїР°РєРѕРІРєР° Р°СЂС…РёРІР° Рё РѕР±РЅРѕРІР»РµРЅРёРµ С„Р°Р№Р»РѕРІ..."
-    # РЈРґР°Р»СЏРµРј СЃРѕРґРµСЂР¶РёРјРѕРµ С‚РµРєСѓС‰РµР№ РґРёСЂРµРєС‚РѕСЂРёРё, РєСЂРѕРјРµ РІСЂРµРјРµРЅРЅС‹С… РїР°РїРѕРє, Р»РѕРіРѕРІ Рё РЅР°СЃС‚СЂРѕРµРє
+    echo "Распаковка архива и обновление файлов..."
+    Write-Log "Распаковка архива и обновление файлов..."
+    # Удаляем содержимое текущей директории, кроме временных папок, логов и настроек
     Get-ChildItem -Path $PSScriptRoot -Exclude "_temp_update", "backup", "logs", ".github", "myapp_dist", ".gitattributes", ".gitignore", "CloudPosBridge_Installer.iss", "settings" | ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force | Out-Null }
     
-    # РР·РІР»РµРєР°РµРј СЃРѕРґРµСЂР¶РёРјРѕРµ Р°СЂС…РёРІР° РЅРµРїРѕСЃСЂРµРґСЃС‚РІРµРЅРЅРѕ РІ С‚РµРєСѓС‰СѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ СЃРєСЂРёРїС‚Р°
+    # Извлекаем содержимое архива непосредственно в текущую директорию скрипта
     Expand-Archive -Path $zipFileName -DestinationPath $PSScriptRoot -Force
-    Write-Log "Р¤Р°Р№Р»С‹ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅС‹."
-    echo "Р¤Р°Р№Р»С‹ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅС‹."
+    Write-Log "Файлы успешно обновлены."
+    echo "Файлы успешно обновлены."
 } catch {
-    Write-Log "РћС€РёР±РєР° РїСЂРё СЂР°СЃРїР°РєРѕРІРєРµ Р°СЂС…РёРІР° РёР»Рё Р·Р°РјРµРЅРµ С„Р°Р№Р»РѕРІ: $($_.Exception.Message)"
-    echo "РћС€РёР±РєР° РїСЂРё СЂР°СЃРїР°РєРѕРІРєРµ Р°СЂС…РёРІР° РёР»Рё Р·Р°РјРµРЅРµ С„Р°Р№Р»РѕРІ: $($_.Exception.Message)"
-    # TODO: Р’ СЃР»СѓС‡Р°Рµ СЃРµСЂСЊРµР·РЅРѕР№ РѕС€РёР±РєРё Р·РґРµСЃСЊ РјРѕР¶РЅРѕ СЂРµР°Р»РёР·РѕРІР°С‚СЊ РѕС‚РєР°С‚ РёР· СЂРµР·РµСЂРІРЅРѕР№ РєРѕРїРёРё
+    Write-Log "Ошибка при распаковке архива или замене файлов: $($_.Exception.Message)"
+    echo "Ошибка при распаковке архива или замене файлов: $($_.Exception.Message)"
+    # TODO: В случае серьезной ошибки здесь можно реализовать откат из резервной копии
     exit 1
 } finally {
-    # РћС‡РёС‰Р°РµРј РІСЂРµРјРµРЅРЅСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ
+    # Очищаем временную директорию
     if (Test-Path -Path $TempDir) { Remove-Item -Path $TempDir -Recurse -Force | Out-Null }
 }
 
-# 5. Р—Р°РїСѓСЃРє СЃР»СѓР¶Р±С‹
+# 5. Запуск службы
 if (-not ([string]::IsNullOrEmpty($ServiceNameToStop))) {
     try {
         $service = Get-Service -Name $ServiceNameToStop -ErrorAction SilentlyContinue
         if ($service -and $service.Status -eq 'Stopped') {
-            Write-Log "Р—Р°РїСѓСЃРє СЃР»СѓР¶Р±С‹ '$ServiceNameToStop'..."
-            echo "Р—Р°РїСѓСЃРє СЃР»СѓР¶Р±С‹ '$ServiceNameToStop'..."
+            Write-Log "Запуск службы '$ServiceNameToStop'..."
+            echo "Запуск службы '$ServiceNameToStop'..."
             Start-Service -Name $ServiceNameToStop -ErrorAction Stop
-            $service.WaitForStatus('Running', 60000) # РћР¶РёРґР°РµРј РґРѕ 60 СЃРµРєСѓРЅРґ
-            Write-Log "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓСЃРїРµС€РЅРѕ Р·Р°РїСѓС‰РµРЅР°."
-            echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓСЃРїРµС€РЅРѕ Р·Р°РїСѓС‰РµРЅР°."
+            $service.WaitForStatus('Running', 60000) # Ожидаем до 60 секунд
+            Write-Log "Служба '$ServiceNameToStop' успешно запущена."
+            echo "Служба '$ServiceNameToStop' успешно запущена."
         } elseif ($service -and $service.Status -eq 'Running') {
-            Write-Log "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓР¶Рµ Р·Р°РїСѓС‰РµРЅР°."
-            echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' СѓР¶Рµ Р·Р°РїСѓС‰РµРЅР°."
+            Write-Log "Служба '$ServiceNameToStop' уже запущена."
+            echo "Служба '$ServiceNameToStop' уже запущена."
         } else {
-            Write-Log "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' РЅРµ РЅР°Р№РґРµРЅР° РёР»Рё РµРµ СЃС‚Р°С‚СѓСЃ РЅРµРёР·РІРµСЃС‚РµРЅ. РџСЂРѕРІРµСЂСЏР№С‚Рµ РІСЂСѓС‡РЅСѓСЋ."
-            echo "РЎР»СѓР¶Р±Р° '$ServiceNameToStop' РЅРµ РЅР°Р№РґРµРЅР° РёР»Рё РµРµ СЃС‚Р°С‚СѓСЃ РЅРµРёР·РІРµСЃС‚РµРЅ. РџСЂРѕРІРµСЂСЏР№С‚Рµ РІСЂСѓС‡РЅСѓСЋ."
+            Write-Log "Служба '$ServiceNameToStop' не найдена или ее статус неизвестен. Проверяйте вручную."
+            echo "Служба '$ServiceNameToStop' не найдена или ее статус неизвестен. Проверяйте вручную."
         }
     } catch {
-        Write-Log "РћС€РёР±РєР° РїСЂРё Р·Р°РїСѓСЃРєРµ СЃР»СѓР¶Р±С‹ '$ServiceNameToStop': $($_.Exception.Message)"
-        echo "РћС€РёР±РєР° РїСЂРё Р·Р°РїСѓСЃРєРµ СЃР»СѓР¶Р±С‹ '$ServiceNameToStop': $($_.Exception.Message)"
+        Write-Log "Ошибка при запуске службы '$ServiceNameToStop': $($_.Exception.Message)"
+        echo "Ошибка при запуске службы '$ServiceNameToStop': $($_.Exception.Message)"
     }
 }
 
-Write-Log "РџСЂРѕС†РµСЃСЃ РѕР±РЅРѕРІР»РµРЅРёСЏ РёР· URL Р·Р°РІРµСЂС€РµРЅ." 
-echo "РџСЂРѕС†РµСЃСЃ РѕР±РЅРѕРІР»РµРЅРёСЏ РёР· URL Р·Р°РІРµСЂС€РµРЅ." 
+Write-Log "Процесс обновления из URL завершен." 
+echo "Процесс обновления из URL завершен." 

@@ -223,6 +223,12 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+
+                if (data.status === 'success') {
+                    savedSlipLines = []; // Очищаем сохраненные строки слипа
+                    displaySavedSlip(); // Обновляем отображение, скрывая слип
+                    console.log('Bank slip printed successfully. savedSlipLines cleared.');
+                }
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }

@@ -57,6 +57,7 @@
         let savedSlipLines = []; // Глобальная переменная для хранения строк слипа
 
         function displaySavedSlip() {
+            console.log('displaySavedSlip called. Current savedSlipLines:', savedSlipLines);
             const slipContentElement = document.getElementById('slip_content');
             const savedSlipDisplayElement = document.getElementById('saved_slip_display');
 
@@ -242,11 +243,18 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-                if (data.status === 'success' && data.data && data.data.slipLines) {
+                console.log('Response data for closeBankShift:', data);
+                console.log('closeBankShift - data.status:', data.status);
+                console.log('closeBankShift - data.data:', data.data);
+                console.log('closeBankShift - data.data.slipLines:', data.data ? data.data.slipLines : 'N/A');
+                console.log('closeBankShift - Array.isArray(data.data.slipLines):', data.data && Array.isArray(data.data.slipLines));
+                if (data.status === 'success' && data.data && Array.isArray(data.data.slipLines)) {
                     savedSlipLines = data.data.slipLines;
+                    console.log('savedSlipLines after update (closeBankShift):', savedSlipLines);
                     displaySavedSlip();
                 } else {
                     savedSlipLines = []; // Очищаем, если нет слипа
+                    console.log('savedSlipLines cleared (closeBankShift):', savedSlipLines);
                     displaySavedSlip();
                 }
             } catch (error) {
@@ -269,11 +277,18 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-                if (data.status === 'success' && data.data && data.data.slipLines) {
+                console.log('Response data for bankOperationPayment:', data);
+                console.log('bankOperationPayment - data.status:', data.status);
+                console.log('bankOperationPayment - data.data:', data.data);
+                console.log('bankOperationPayment - data.data.slipLines:', data.data ? data.data.slipLines : 'N/A');
+                console.log('bankOperationPayment - Array.isArray(data.data.slipLines):', data.data && Array.isArray(data.data.slipLines));
+                if (data.status === 'success' && data.data && Array.isArray(data.data.slipLines)) {
                     savedSlipLines = data.data.slipLines;
+                    console.log('savedSlipLines after update (bankOperationPayment):', savedSlipLines);
                     displaySavedSlip();
                 } else {
                     savedSlipLines = []; // Очищаем, если нет слипа
+                    console.log('savedSlipLines cleared (bankOperationPayment):', savedSlipLines);
                     displaySavedSlip();
                 }
             } catch (error) {
@@ -296,11 +311,18 @@
                 });
                 const data = await response.json();
                 document.getElementById('result').textContent = JSON.stringify(data, null, 2);
-                if (data.status === 'success' && data.data && data.data.slipLines) {
+                console.log('Response data for bankOperationReturn:', data);
+                console.log('bankOperationReturn - data.status:', data.status);
+                console.log('bankOperationReturn - data.data:', data.data);
+                console.log('bankOperationReturn - data.data.slipLines:', data.data ? data.data.slipLines : 'N/A');
+                console.log('bankOperationReturn - Array.isArray(data.data.slipLines):', data.data && Array.isArray(data.data.slipLines));
+                if (data.status === 'success' && data.data && Array.isArray(data.data.slipLines)) {
                     savedSlipLines = data.data.slipLines;
+                    console.log('savedSlipLines after update (bankOperationReturn):', savedSlipLines);
                     displaySavedSlip();
                 } else {
                     savedSlipLines = []; // Очищаем, если нет слипа
+                    console.log('savedSlipLines cleared (bankOperationReturn):', savedSlipLines);
                     displaySavedSlip();
                 }
             } catch (error) {

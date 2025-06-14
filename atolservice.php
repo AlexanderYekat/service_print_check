@@ -98,8 +98,16 @@ function runServer() {
     $uri = $_SERVER['REQUEST_URI'];
     $method = $_SERVER['REQUEST_METHOD'];
 
-    // Handle settings API
-    if ($uri === '/api/settings') {
+    // Handle root / -> simple settings
+    if ($uri === '/' && $method === 'GET') {
+        $logger->debug("Запрос на получение простой страницы настроек.");
+        header('Content-Type: text/html; charset=utf-8');
+        readfile(__DIR__ . '/templates/simple_settings.html');
+    } elseif ($uri === '/settings' && $method === 'GET') { // Handle /settings -> full settings
+        $logger->debug("Запрос на получение полной страницы настроек (для технических специалистов).");
+        header('Content-Type: text/html; charset=utf-8');
+        readfile(__DIR__ . '/templates/settings.html');
+    } elseif ($uri === '/api/settings') {
         if ($method === 'GET') {
             $logger->debug("Запрос на получение настроек.");
             echo json_encode($currentSettings->toArray(), JSON_UNESCAPED_UNICODE);
@@ -140,15 +148,20 @@ function runServer() {
         $logger->debug("Запрос на получение пути к логам.");
         echo LOG_PATH;
     } elseif ($uri === '/api/openlogs' && $method === 'POST') {
+        $logger->debug("Запрос на открытие папки с логами.");
         $logPath = LOG_PATH;
-        $command = 'start "" /MIN ' . escapeshellarg($logPath); // Для Windows, асинхронно
-        // Для Linux/macOS: $command = 'xdg-open ' . escapeshellarg($logPath);
-        // Для macOS: $command = 'open ' . escapeshellarg($logPath);
-        // Для кроссплатформенности можно использовать: if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') { ... } else { ... }
-
-        exec($command);
-        $logger->info("Открыта папка с логами: $logPath");
-        echo json_encode(['status' => 'success', 'message' => 'Папка с логами открыта'], JSON_UNESCAPED_UNICODE);
+        $command = 'start "" /MIN ' . escapeshellarg($logPath);
+        
+        // Запускаем команду в фоновом режиме, чтобы не блокировать PHP-процесс
+        $handle = popen($command, 'r');
+        if ($handle === false) {
+            $logger->error("Не удалось запустить команду popen для открытия папки логов: $command");
+            echo json_encode(['status' => 'error', 'message' => 'Не удалось запустить команду для открытия папки логов'], JSON_UNESCAPED_UNICODE);
+        } else {
+            pclose($handle);
+            $logger->info("Команда для открытия папки логов отправлена: $command");
+            echo json_encode(['status' => 'success', 'message' => 'Папка с логами открыта'], JSON_UNESCAPED_UNICODE);
+        }
     } elseif ($uri === '/api/version' && $method === 'GET') {
         $logger->debug("Запрос на получение версии программы.");
         echo VERSION_OF_PROGRAM;
@@ -188,17 +201,29 @@ function runServer() {
         $serviceName = escapeshellarg($currentSettings->serviceName);
         $logPath = escapeshellarg(LOG_PATH);
         
-        // Формируем команду для запуска PowerShell скрипта в фоновом режиме
-        //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > NULL 2>&1";
-        //$command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " > $null 2>&1";
-        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " -SkipServiceStop";
-        //$command = "powershell -NoProfile -ExecutionPolicy Bypass -File test_stop_service.ps1";
+        $command = "powershell -NoProfile -ExecutionPolicy Bypass -File \"" . $scriptPath . "\" -DownloadUrl " . $updateUrl . " -LogDirPath " . $logPath . " -ServiceNameToStop " . $serviceName . " -SkipServiceStop 2>&1";
         
         $logger->info("Команда для запуска PowerShell скрипта: $command");
-        pclose(popen($command, 'r'));
-        
-        $logger->info("Запущено обновление файлов из URL $updateUrl через PowerShell скрипт: $scriptPath");
-        echo json_encode(['status' => 'success', 'message' => 'Обновление файлов из URL запущено через PowerShell скрипт. Проверьте логи для статуса.'], JSON_UNESCAPED_UNICODE);
+
+        $handle = popen($command, 'r');
+        if ($handle === false) {
+            $errorMessage = "Не удалось запустить команду popen для обновления: $command";
+            $logger->error($errorMessage);
+            echo json_encode(['status' => 'error', 'message' => $errorMessage], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $scriptOutput = stream_get_contents($handle);
+        $exitCode = pclose($handle);
+
+        if ($exitCode === 0) {
+            $logger->info("Скрипт обновления успешно завершен. Вывод: " . $scriptOutput);
+            echo json_encode(['status' => 'success', 'message' => 'Обновление файлов запущено. Проверьте логи обновления update_from_url.log для выяснения статуса обновления.'], JSON_UNESCAPED_UNICODE);
+        } else {
+            $errorMessage = "Скрипт обновления завершился с ошибкой (код выхода: $exitCode). Вывод: " . $scriptOutput;
+            $logger->error($errorMessage);
+            echo json_encode(['status' => 'error', 'message' => "Ошибка при запуске обновления. Подробности в логах приложения."], JSON_UNESCAPED_UNICODE);
+        }
     } elseif ($uri === '/api/check-for-update' && $method === 'GET') {
         $logger->debug("Запрос на проверку новой версии на GitHub.");
 
@@ -301,10 +326,6 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
-    } elseif ($uri === '/settings.html' && $method === 'GET') {
-        $logger->debug("Запрос на получение страницы настроек.");
-        header('Content-Type: text/html; charset=utf-8');
-        readfile(__DIR__ . '/templates/settings.html');
     } elseif (strpos($uri, '/static/') === 0 && $method === 'GET') {
         // Обработка статических файлов (CSS, JS)
         $filePath = __DIR__ . $uri;

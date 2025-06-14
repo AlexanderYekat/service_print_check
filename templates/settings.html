@@ -213,7 +213,6 @@ h2 {
                     <h2>Логи</h2>
                     <p class="helper-text">Логи программы хранятся в следующей папке:</p>
                     <p id="logPath" class="log-path"></p>
-                    <button type="button" id="openLogs" class="button secondary">Открыть папку с логами</button>
                 </div>
                 
                 <div class="form-field">
@@ -372,7 +371,6 @@ h2 {
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('settingsForm');
     // const restartButton = document.getElementById('restartService'); // Удалена ссылка на закомментированную кнопку
-    const openLogsButton = document.getElementById('openLogs');
     const logPathElement = document.getElementById('logPath');
     const settingsPathElement = document.getElementById('settingsPath');
     const versionInfoElement = document.getElementById('versionInfo');
@@ -500,23 +498,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Обработчик для кнопки открытия логов
-    openLogsButton.addEventListener('click', function() {
-        fetch('/api/openlogs', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert('Папка с логами открыта');
-                } else {
-                    alert('Ошибка при открытии папки с логами: ' + data.message);
-                }
-            })
-            .catch((error) => {
-                console.error('Ошибка:', error);
-                alert('Произошла ошибка при открытии папки с логами');
-            });
-    });
-
     // Обработка сброса настроек по умолчанию
     resetDefaultsButton.addEventListener('click', function() {
         if (confirm('Вы уверены, что хотите сбросить настройки по умолчанию?')) {
@@ -610,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const updateData = await updateResponse.json();
 
                 if (updateData.status === 'success') {
-                    displayStatusMessage('Обновление файлов запущено. Пожалуйста, проверьте логи службы для статуса.');
+                    displayStatusMessage('Обновление файлов запущено. Пожалуйста, проверьте логи обновления update_from_url.log для выяснения статуса обновления.');
                     // Можно добавить перезагрузку страницы, если хотите сразу обновить информацию о версии
                     // location.reload();
                 } else {

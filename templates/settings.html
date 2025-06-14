@@ -355,6 +355,8 @@ h2 {
                     <span class="helper-text">Название репозитория на GitHub (например, CloudPosBridgePHP).</span>
                 </div>
 
+                <div id="updateStatusMessage" style="margin-bottom: 16px; font-weight: bold; color: #4CAF50;"></div>
+
                 <div class="button-container">
                     <button type="submit" class="button primary">Сохранить настройки</button>
                     <button type="button" id="resetDefaults" class="button secondary">Сбросить по умолчанию</button>
@@ -377,6 +379,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const versionInfoElement = document.getElementById('versionInfo');
     const resetDefaultsButton = document.getElementById('resetDefaults');
     const updateFilesButton = document.getElementById('updateFiles');
+    const updateStatusMessageElement = document.getElementById('updateStatusMessage');
+
+    function displayStatusMessage(message, isError = false) {
+        updateStatusMessageElement.textContent = message;
+        updateStatusMessageElement.style.color = isError ? '#F44336' : '#4CAF50'; // Красный для ошибки, зеленый для успеха
+    }
 
     // Загрузка пути к файлу настроек
     fetch('/api/settingspath')
@@ -549,9 +557,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const repoOwner = document.getElementById('githubRepoOwner').value;
         const repoName = document.getElementById('githubRepoName').value;
 
+        displayStatusMessage('Проверка наличия обновлений на GitHub...');
+
         // Попытка получить URL обновления из GitHub API, если настройки репозитория указаны
         if (repoOwner && repoName) {
-            alert('Проверка наличия обновлений на GitHub...');
             try {
                 const response = await fetch('/api/check-for-update');
                 const data = await response.json();
@@ -560,44 +569,42 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.updateAvailable) {
                         if (confirm(`${data.message}\n\nОбновить программу сейчас?`)) {
                             downloadUrl = data.downloadUrl;
-                            alert('Запуск обновления...');
+                            displayStatusMessage('Запуск обновления...');
                         } else {
-                            alert('Обновление отменено пользователем.');
+                            displayStatusMessage('Обновление отменено пользователем.');
                             return; // Пользователь отменил
                         }
                     } else {
-                        alert(data.message);
+                        displayStatusMessage(data.message);
                         return; // Обновление не требуется
                     }
                 } else {
-                    alert(`Ошибка при проверке обновлений на GitHub: ${data.error}.`);
-                    if (currentUpdateUrl && confirm('Использовать вручную указанный URL для обновления?')) {
+                    displayStatusMessage(`Ошибка при проверке обновлений на GitHub: ${data.error}.`, true);
+                    if (currentUpdateUrl) {
+                        displayStatusMessage('Используется вручную указанный URL для обновления.');
                         downloadUrl = currentUpdateUrl;
-                        alert('Используется вручную указанный URL для обновления.');
                     } else {
-                        return; // Пользователь отказался или нет URL
+                        displayStatusMessage('Нет доступного URL для обновления. Пожалуйста, укажите URL вручную или настройте репозиторий GitHub.', true);
+                        return; // Нет информации для обновления
                     }
                 }
             } catch (error) {
                 console.error('Ошибка при запросе к GitHub API:', error);
-                alert('Произошла ошибка при доступе к GitHub API. Проверьте подключение или настройки репозитория.');
-                if (currentUpdateUrl && confirm('Использовать вручную указанный URL для обновления?')) {
+                displayStatusMessage('Произошла ошибка при доступе к GitHub API. Проверьте подключение или настройки репозитория.', true);
+                if (currentUpdateUrl) {
+                    displayStatusMessage('Используется вручную указанный URL для обновления.');
                     downloadUrl = currentUpdateUrl;
-                    alert('Используется вручную указанный URL для обновления.');
                 } else {
-                    return; // Пользователь отказался или нет URL
+                    displayStatusMessage('Нет доступного URL для обновления. Пожалуйста, укажите URL вручную или настройте репозиторий GitHub.', true);
+                    return; // Нет информации для обновления
                 }
             }
         } else if (currentUpdateUrl) {
             // Если настройки GitHub не указаны, но есть updateUrl, предлагаем использовать его
-            if (confirm('Настройки репозитория GitHub не указаны. Использовать вручную указанный URL для обновления?')) {
-                downloadUrl = currentUpdateUrl;
-                alert('Используется вручную указанный URL для обновления.');
-            } else {
-                return; // Пользователь отказался
-            }
+            displayStatusMessage('Настройки репозитория GitHub не указаны. Используется вручную указанный URL для обновления.');
+            downloadUrl = currentUpdateUrl;
         } else {
-            alert('Не указаны настройки репозитория GitHub или URL для обновления. Пожалуйста, заполните необходимые поля.');
+            displayStatusMessage('Не указаны настройки репозитория GitHub или URL для обновления. Пожалуйста, заполните необходимые поля.', true);
             return; // Нет информации для обновления
         }
 
@@ -614,15 +621,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const updateData = await updateResponse.json();
 
                 if (updateData.status === 'success') {
-                    alert('Обновление файлов запущено. Пожалуйста, проверьте логи службы для статуса. Возможно, потребуется перезагрузка страницы для отображения новой версии.');
+                    displayStatusMessage('Обновление файлов запущено. Пожалуйста, проверьте логи службы для статуса.');
                     // Можно добавить перезагрузку страницы, если хотите сразу обновить информацию о версии
                     // location.reload();
                 } else {
-                    alert('Ошибка при запуске обновления: ' + updateData.message);
+                    displayStatusMessage('Ошибка при запуске обновления: ' + updateData.message, true);
                 }
             } catch (error) {
                 console.error('Ошибка при запуске обновления:', error);
-                alert('Произошла ошибка при запуске обновления: ' + error.message);
+                displayStatusMessage('Произошла ошибка при запуске обновления: ' + error.message, true);
             }
         }
     });

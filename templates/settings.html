@@ -359,7 +359,7 @@ h2 {
                     <button type="submit" class="button primary">Сохранить настройки</button>
                     <button type="button" id="resetDefaults" class="button secondary">Сбросить по умолчанию</button>
                     <button type="button" id="restartService" class="button secondary">Перезапустить службу</button>
-                    <button type="button" id="updateFiles" class="button secondary">Обновить программу</button>
+                    <button type="button" id="updateFiles" class="button secondary">Проверить обновления</button>
                 </div>
             </form>
         </main>
@@ -557,9 +557,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    const latestVersion = data.latestVersion;
-                    downloadUrl = data.downloadUrl;
-                    alert(`Найдена новая версия: ${latestVersion}. Запуск обновления...`);
+                    if (data.updateAvailable) {
+                        if (confirm(`${data.message}\n\nОбновить программу сейчас?`)) {
+                            downloadUrl = data.downloadUrl;
+                            alert('Запуск обновления...');
+                        } else {
+                            alert('Обновление отменено пользователем.');
+                            return; // Пользователь отменил
+                        }
+                    } else {
+                        alert(data.message);
+                        return; // Обновление не требуется
+                    }
                 } else {
                     alert(`Ошибка при проверке обновлений на GitHub: ${data.error}.`);
                     if (currentUpdateUrl && confirm('Использовать вручную указанный URL для обновления?')) {

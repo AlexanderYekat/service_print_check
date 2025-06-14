@@ -18,7 +18,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Private-Network: true");
 
-define('VERSION_OF_PROGRAM', '2025_06_14_01');
+define('VERSION_OF_PROGRAM', '2025_06_14_1104');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -168,7 +168,6 @@ function runServer() {
     } elseif ($uri === '/api/update-branch' && $method === 'POST') {
         $logger->info("Получен запрос на обновление файлов из URL.");
         
-        // Путь к PowerShell скрипту
         $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'update_from_url.ps1';
 
         // Получаем данные из тела запроса
@@ -246,6 +245,19 @@ function runServer() {
 
         $latestVersionTag = $releaseData['tag_name'] ?? 'unknown';
         $downloadUrl = null;
+        $currentVersion = VERSION_OF_PROGRAM; // Получаем текущую версию программы
+        $updateAvailable = false;
+        $message = "";
+
+        if (version_compare($currentVersion, $latestVersionTag, '>=')) {
+            $message = "Текущая версия ($currentVersion) равна или новее последней версии на GitHub ($latestVersionTag). Обновление не требуется.";
+            $updateAvailable = false;
+        } else {
+            $message = "Найдена новая версия: $latestVersionTag. Ваша текущая версия: $currentVersion. Доступно обновление.";
+            $updateAvailable = true;
+        }
+
+        $logger->info($message);
 
         if (isset($releaseData['assets']) && is_array($releaseData['assets'])) {
             foreach ($releaseData['assets'] as $asset) {
@@ -256,19 +268,21 @@ function runServer() {
             }
         }
 
-        if ($downloadUrl === null) {
-            $errorMessage = "Не удалось найти asset 'release.zip' в последнем релизе или отсутствует URL для скачивания.";
+        if ($updateAvailable && $downloadUrl === null) {
+            $errorMessage = "Не удалось найти asset 'release.zip' в последнем релизе или отсутствует URL для скачивания, хотя обновление доступно.";
             $logger->warning($errorMessage);
             http_response_code(404);
             echo json_encode(['error' => $errorMessage], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        $logger->info("Найдена новая версия: $latestVersionTag, URL для скачивания: $downloadUrl");
         echo json_encode([
             'status' => 'success',
+            'currentVersion' => $currentVersion, // Добавляем текущую версию в ответ
             'latestVersion' => $latestVersionTag,
-            'downloadUrl' => $downloadUrl
+            'downloadUrl' => $downloadUrl,
+            'updateAvailable' => $updateAvailable, // Указываем, доступно ли обновление
+            'message' => $message // Добавляем сообщение
         ], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/print-check' && $method === 'POST') {
         $fetchHandler->HandlePrintCheck();

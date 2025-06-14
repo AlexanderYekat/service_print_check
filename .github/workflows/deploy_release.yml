@@ -57,14 +57,14 @@ jobs:
     - name: Get current date for tag
       id: date
       run: |
-        echo "TAG_DATE=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
+        echo "TAG_DATE=$(date +'%Y_%m_%d_%H%M')" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub Release
       id: create_release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ steps.date.outputs.TAG_DATE }} # Тег релиза, например v2024.07.25-1030
-        name: Release v${{ steps.date.outputs.TAG_DATE }} # Имя релиза
+        tag_name: ${{ steps.date.outputs.TAG_DATE }} # Тег релиза, например 2024_07_25_1030
+        name: Release ${{ steps.date.outputs.TAG_DATE }} # Имя релиза
         draft: false # Установите true, если хотите создавать черновики релизов
         prerelease: false # Установите true, если это предварительный релиз
         files: |

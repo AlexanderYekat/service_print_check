@@ -4,7 +4,7 @@
 
 ## 1. Запуск установочного файла
 
-1.  Найдите установочный файл сервиса. Его можно найти по ссылке: https://github.com/AlexanderYekat/service_print_check/releases/. Обычно он называется `CloudPosBridgePHP_Setup.exe` или похожим образом.
+1.  Найдите установочный файл сервиса. Его можно найти [по ссылке](https://github.com/AlexanderYekat/service_print_check/releases/). Обычно он называется `CloudPosBridgePHP_Setup.exe` или похожим образом.
 2.  Скачайте его и дважды щелкните по нему, чтобы запустить установку.
 
 ## 2. Процесс установки

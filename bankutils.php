@@ -28,7 +28,7 @@ class TBankDriver {
             }
             $actualSuccess = true;
         } catch (Exception $e) {
-            $actualErrorMessage = "Ошибка открытия соединения с банковским терминалом: " . $e->getMessage();
+            $actualErrorMessage = "Ошибка создание объекта COM банка. Библиотека банка не зарегистрирована: " . $e->getMessage();
             $this->logger->error($actualErrorMessage);
             $this->bank = null; // Сбросить объект в случае ошибки
             $actualSuccess = false;

@@ -58,10 +58,7 @@ function runServer() {
     // Инициализация драйвера ККТ
     $err = $FptrDriver->NewSafe();
     if ($err !== null) {
-        $logger->critical("Ошибка при инициализации драйвера ККТ: $err");
-        http_response_code(500);
-        echo json_encode(['error' => "Ошибка при инициализации драйвера ККТ: $err"]);
-        exit;
+        $logger->warning("Ошибка при инициализации драйвера ККТ: $err. Работа приложения продолжается.");
     }
 
     // Создаем экземпляр CheckService, передавая ему FptrDriver и логгер
@@ -250,7 +247,7 @@ function runServer() {
             );
             $err = $kktDriver->NewSafe();
             if ($err !== null) {
-                $results['kkt'] = ['success' => false, 'message' => "Ошибка инициализации COM-объекта ККТ: $err"];
+                $results['kkt'] = ['success' => false, 'message' => "Драйвер ККТ не установлен. \n Ошибка инициализации COM-объекта ККТ: $err. "];
             } else {
                 list($isOpen, $message) = $kktDriver->Open();
                 if ($isOpen) {
@@ -274,7 +271,7 @@ function runServer() {
             if ($isOpen) {
                 $results['terminal'] = ['success' => true, 'message' => 'Терминал (банк) создан и готов к работе.'];
             } else {
-                $results['terminal'] = ['success' => false, 'message' => "Ошибка создания/открытия терминала (банк): $message"];
+                $results['terminal'] = ['success' => false, 'message' => "Ошибка создания/открытия терминала (банк) - библиотека sbrf.dll - не зарегистрирована: $message"];
             }
         } catch (Exception $e) {
             $results['terminal'] = ['success' => false, 'message' => "Исключение при диагностике терминала (банк): " . $e->getMessage()];

@@ -47,8 +47,8 @@ class TScale8Driver {
             $this->logger->info("Соединение с весами успешно открыто.");
             return [true, ""];
         } catch (Exception $e) {
-            $this->logger->error("Ошибка открытия соединения с весами: " . $e->getMessage());
-            return [false, "Ошибка открытия соединения с весами: " . $e->getMessage()];
+            $this->logger->error("Ошибка создания COM объекта весов: " . $e->getMessage());
+            return [false, "Драйвер весов не установлен: " . $e->getMessage()];
         }
     }
 

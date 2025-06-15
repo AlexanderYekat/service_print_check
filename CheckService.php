@@ -93,12 +93,63 @@ class CheckService {
         $formattedCheck = $this->FptrDriver->formatCheckJSON($checkData);
         if (!$formattedCheck['success']) {
             $this->logger->error("Ошибка форматирования JSON для чека: " . $formattedCheck['message']);
-            // В этом случае FptrDriver еще не открывался, поэтому Close не нужен
             return ['success' => false, 'message' => $formattedCheck['message']];
         }
         $checkJsonData = $formattedCheck['checkData'];
 
-        return $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck');
+        $result = []; // Инициализируем переменную для хранения результата
+        $isCommandTrulySuccessful = false;
+
+        // --- Попытка 1 --- 
+        $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt1');
+        $this->logger->info("Попытка 1 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+
+        // Проверяем успех команды с помощью SuccessCommand
+        if (isset($result['data']['response'])) {
+            $responseJsonString = json_encode($result['data']['response'], JSON_UNESCAPED_UNICODE);
+            $isCommandTrulySuccessful = $this->FptrDriver->SuccessCommand($responseJsonString);
+        }
+
+        if ($result['success'] && $isCommandTrulySuccessful) {
+            return $result; // Успех с первой попытки
+        }
+
+        // --- Попытка 2: continuePrint + повтор оригинальной команды --- 
+        $this->logger->warning("Попытка 1 печати чека не удалась или команда неуспешна. Попытка 2: continuePrint + повторная печать.");
+        $continuePrintJson = json_encode(["type" => "continuePrint"], JSON_UNESCAPED_UNICODE);
+        $continueResult = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$continuePrintJson], 'continuePrint_for_printCheck');
+        $this->logger->info("Результат 'continuePrint': " . json_encode($continueResult, JSON_UNESCAPED_UNICODE));
+
+        // Повторяем оригинальную команду печати чека после continuePrint
+        $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt2');
+        $this->logger->info("Попытка 2 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+
+        // Повторно проверяем успех команды
+        $isCommandTrulySuccessful = false;
+        if (isset($result['data']['response'])) {
+            $responseJsonString = json_encode($result['data']['response'], JSON_UNESCAPED_UNICODE);
+            $isCommandTrulySuccessful = $this->FptrDriver->SuccessCommand($responseJsonString);
+        }
+
+        if ($result['success'] && $isCommandTrulySuccessful) {
+            return $result; // Успех со второй попытки
+        }
+
+        // --- Попытка 3: CancelReceipt + повтор оригинальной команды --- 
+        $this->logger->warning("Попытка 2 печати чека не удалась или команда неуспешна. Попытка 3: CancelReceipt + повторная печать.");
+        list($cancelSuccess, $cancelErrorDesc) = $this->FptrDriver->CancelReceipt();
+        $this->logger->info("Результат 'CancelReceipt': success=" . ($cancelSuccess ? "true" : "false") . ", error=" . $cancelErrorDesc);
+
+        if (!$cancelSuccess) {
+            $this->logger->error("Не удалось отменить чек перед последней попыткой печати. Продолжаем последнюю попытку.");
+        }
+        
+        // Последняя попытка печати оригинальной команды
+        $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt3');
+        $this->logger->info("Попытка 3 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+
+        // Возвращаем окончательный результат
+        return $result;
     }
 
     /**

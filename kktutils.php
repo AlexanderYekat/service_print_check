@@ -450,4 +450,14 @@ class TFptr10Driver {
     public function getPortIpKkt() { return $this->portIpKkt; }
     public function getIpServKkt() { return $this->ipServKkt; }
     public function getEmulation() { return $this->emulation; }
+
+    public function CancelReceipt() {
+        if ($this->fptr === null) {
+            return [false, "Драйвер не инициализирован"];
+        }
+
+        $cancelJson = json_encode(["type" => "cancelReceipt"], JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($cancelJson);
+        return [$success, $commandErrorDesc];
+    }
 }

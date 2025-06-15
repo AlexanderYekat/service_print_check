@@ -60,6 +60,7 @@ class TBankDriver {
     private function callBankMethod(string $method, array $params = [], int $nFunCode = 0): array {
         $this->logger->info("Попытка вызова метода {$method} банковского терминала. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
 
+        $methodWasRunned = true;
         $actualSuccess = false;
         $actualCheque = "";
         $actualErrorDescription = "";
@@ -140,6 +141,7 @@ class TBankDriver {
                     $this->logger->error($actualErrorDescription);
                 }
             } catch (Exception $e) {
+                $methodWasRunned = false;
                 $actualErrorDescription = "Исключение при вызове метода {$method} банковского терминала: " . $e->getMessage();
                 $this->logger->error($actualErrorDescription);
                 $actualSuccess = false;
@@ -154,7 +156,9 @@ class TBankDriver {
         $finalSuccess = $this->emulation ? true : $actualSuccess;
         $returnResult = null; // This will hold either a string (error) or an array of strings (slip lines)
 
+        $finalMessage = "";
         if ($finalSuccess) {
+            $finalMessage = "Операция '{$method}' выполнена успешно.";
             if ($actualCheque != "") {
                 $returnResult = explode("\n", $actualCheque);
             } else {
@@ -165,9 +169,9 @@ class TBankDriver {
         } else {
             // For failure
             $returnResult = $actualErrorDescription != "" ? $actualErrorDescription : "Неизвестная ошибка.";
+            $finalMessage = "Операция '{$method}' выполнена c ошибкой: " . $returnResult;
         }
-
-        return [$finalSuccess, $returnResult];
+        return ['success' => $methodWasRunned, 'messsage' => $finalMessage, 'data' => ['response' =>$returnResult, 'success' => $finalSuccess]];
     }
 
     public function PayMoney(float $amount): array {

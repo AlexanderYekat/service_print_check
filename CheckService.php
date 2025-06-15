@@ -63,9 +63,14 @@ class CheckService {
         $finalMessage = "";
         
         if ($finalSuccess) {
-            $finalMessage = "Операция '{$operationName}' успешно выполнена.";
-            $this->logger->info("Операция '{$operationName}' успешно выполнена. Ответ: " . ($actualResponseString ? $actualResponseString : "Нет ответа"));
-            return ['success' => true, 'message' => $finalMessage, 'data' => ['response' => json_decode($actualResponseString, true)]];
+            $isCommandTrulySuccessful = $this->FptrDriver->SuccessCommand($actualResponseString);
+            if ($isCommandTrulySuccessful) {
+                $finalMessage = "Операция '{$operationName}' выполнена успешно. Ответ: " . ($actualResponseString ? $actualResponseString : "Нет ответа");
+            } else {
+                $finalMessage = "Операция '{$operationName}' завершилась с ошибкой: " . $actualResponseString;
+            }
+            $this->logger->info($finalMessage);
+            return ['success' => true, 'message' => $finalMessage, 'data' => ['response' => json_decode($actualResponseString, true), 'success' => $isCommandTrulySuccessful]];
         } else {
             $finalMessage = "Ошибка выполнения операции '{$operationName}': ";
             if ($connectErrorDesc) {
@@ -97,21 +102,19 @@ class CheckService {
         }
         $checkJsonData = $formattedCheck['checkData'];
 
-        $result = []; // Инициализируем переменную для хранения результата
-        $isCommandTrulySuccessful = false;
-
         // --- Попытка 1 --- 
         $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt1');
         $this->logger->info("Попытка 1 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
 
-        // Проверяем успех команды с помощью SuccessCommand
-        if (isset($result['data']['response'])) {
-            $responseJsonString = json_encode($result['data']['response'], JSON_UNESCAPED_UNICODE);
-            $isCommandTrulySuccessful = $this->FptrDriver->SuccessCommand($responseJsonString);
+        if (!$result['success']) {
+            return $result; // Возвращаем ошибку, если попытка 1 не удалась
         }
 
-        if ($result['success'] && $isCommandTrulySuccessful) {
-            return $result; // Успех с первой попытки
+        // Проверяем успех команды с помощью SuccessCommand
+        if (isset($result['data']['success'])) {
+            if ($result['data']['success']) {
+                return $result;
+            }
         }
 
         // --- Попытка 2: continuePrint + повтор оригинальной команды --- 
@@ -124,15 +127,15 @@ class CheckService {
         $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt2');
         $this->logger->info("Попытка 2 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
 
-        // Повторно проверяем успех команды
-        $isCommandTrulySuccessful = false;
-        if (isset($result['data']['response'])) {
-            $responseJsonString = json_encode($result['data']['response'], JSON_UNESCAPED_UNICODE);
-            $isCommandTrulySuccessful = $this->FptrDriver->SuccessCommand($responseJsonString);
+        if (!$result['success']) {
+            return $result; // Возвращаем ошибку, если попытка 2 не удалась
         }
 
-        if ($result['success'] && $isCommandTrulySuccessful) {
-            return $result; // Успех со второй попытки
+        // Проверяем успех команды с помощью SuccessCommand
+        if (isset($result['data']['success'])) {
+            if ($result['data']['success']) {
+                return $result;
+            }
         }
 
         // --- Попытка 3: CancelReceipt + повтор оригинальной команды --- 
@@ -148,7 +151,6 @@ class CheckService {
         $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt3');
         $this->logger->info("Попытка 3 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
 
-        // Возвращаем окончательный результат
         return $result;
     }
 
@@ -175,7 +177,6 @@ class CheckService {
                 return ['success' => false, 'message' => "Ошибка при проверке открытой смены: {$shiftErrorDesc}"];
             }
         }
-
         return $this->_executeFptrOperation([$this->FptrDriver, 'CloseShift'], [$cashier], 'CloseShift');
     }
 
@@ -205,6 +206,7 @@ class CheckService {
     private function _executeBankOperation(callable $operationCallable, array $params, string $operationName): array {
         $this->logger->info("Попытка выполнения банковской операции: {$operationName}.");
 
+        $success = true;
         list($isOpened, $connectErrorDesc) = $this->bankDriver->Open();
         if (!$isOpened) {
             $this->logger->error("Ошибка подключения к банковскому терминалу для {$operationName}: {$connectErrorDesc}");
@@ -213,35 +215,22 @@ class CheckService {
             }
         }
 
-        $success = false;
-        $response = "";
         $message = "";
-
+        $result = []; // Инициализируем переменную для хранения результата
         try {
-            list($success, $response) = call_user_func_array($operationCallable, $params);
-            $message = $success ? "Операция '{$operationName}' успешно выполнена" : "Ошибка выполнения операции '{$operationName}'";
+            $result = call_user_func_array($operationCallable, $params);
         } catch (Exception $e) {
+            $success = false;
             $this->logger->error("Исключение при выполнении банковской операции '{$operationName}': " . $e->getMessage());
             $message = 'Исключение при выполнении банковской операции: ' . $e->getMessage();
-            $success = false;
         } finally {
             $this->bankDriver->Close();
         }
-
-        if ($success) {
-            $this->logger->info("Операция '{$operationName}' успешно выполнена. Ответ: " . (is_array($response) ? json_encode($response) : $response));
-            
-            $data = [];
-            if (is_array($response)) {
-                $data['slipLines'] = $response;
-            } else {
-                $data['response'] = $response; // Fallback for any other successful string response
-            }
-            return ['success' => true, 'message' => $message, 'data' => $data];
-        } else {
-            $this->logger->error("Ошибка банковской операции '{$operationName}': {$response}");
-            return ['success' => false, 'message' => $message . ": {$response}"];
+        if (!$success) {
+            $this->logger->error("Ошибка выполнения банковской операции '{$operationName}': " . $message);
+            return ['success' => false, 'message' => $message];
         }
+        return $result;
     }
 
     public function bankOperation($operation, $params) {

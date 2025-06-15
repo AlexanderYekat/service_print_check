@@ -19,7 +19,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandlePrintCheck: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
 
@@ -30,7 +30,7 @@ class Handler {
         if (!$validationResult['success']) {
             $this->logger->error("HandlePrintCheck: Ошибка валидации данных чека: " . $validationResult['message']);
             http_response_code(400);
-            echo json_encode(['error' => $validationResult['message']]);
+            $this->sendHandlerResponse("error", $validationResult['message']);
             return;
         }
 
@@ -38,7 +38,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandlePrintCheck: Ошибка печати чека: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
 
@@ -50,7 +50,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCloseShift: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
 
@@ -62,7 +62,7 @@ class Handler {
         if (empty($cashier)) {
             $this->logger->error("HandleCloseShift: Отсутствует или пустое значение cashier.");
             http_response_code(400);
-            echo json_encode(['error' => 'Имя кассира не может быть пустым.']);
+            $this->sendHandlerResponse("error", 'Имя кассира не может быть пустым.');
             return;
         }
 
@@ -70,7 +70,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandleCloseShift: Ошибка закрытия смены: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
 
@@ -82,7 +82,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleXReport: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
         $input = file_get_contents('php://input');
@@ -94,7 +94,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandleXReport: Ошибка печати X-отчёта: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
         $this->logger->info("HandleXReport: X-отчёт напечатан.");
@@ -105,7 +105,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCashIn: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
         $input = file_get_contents('php://input');
@@ -116,7 +116,7 @@ class Handler {
         if (empty($cashier)) {
             $this->logger->error("HandleCashIn: Отсутствует или пустое значение cashier.");
             http_response_code(400);
-            echo json_encode(['error' => 'Имя кассира не может быть пустым.']);
+            $this->sendHandlerResponse("error", 'Имя кассира не может быть пустым.');
             return;
         }
 
@@ -124,7 +124,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandleCashIn: Ошибка внесения наличных: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
         $this->logger->info("HandleCashIn: Внесение наличных выполнено.");
@@ -135,7 +135,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCashOut: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
         $input = file_get_contents('php://input');
@@ -146,7 +146,7 @@ class Handler {
         if (empty($cashier)) {
             $this->logger->error("HandleCashOut: Отсутствует или пустое значение cashier.");
             http_response_code(400);
-            echo json_encode(['error' => 'Имя кассира не может быть пустым.']);
+            $this->sendHandlerResponse("error", 'Имя кассира не может быть пустым.');
             return;
         }
 
@@ -154,7 +154,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandleCashOut: Ошибка выплаты наличных: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
         $this->logger->info("HandleCashOut: Выплата наличных выполнена.");
@@ -166,7 +166,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandlePrintBankSlip: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
         $input = file_get_contents('php://input');
@@ -177,7 +177,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandlePrintBankSlip: Ошибка печати банковского слипа: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
         $this->logger->info("HandlePrintBankSlip: Банковский слип напечатан.");
@@ -188,7 +188,7 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleBankOperation: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
         $input = file_get_contents('php://input');
@@ -199,7 +199,7 @@ class Handler {
         if (!$result['success']) {
             $this->logger->error("HandleBankOperation: Ошибка банковской операции: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
         $this->logger->info("HandleBankOperation: Банковская операция выполнена.");
@@ -210,14 +210,14 @@ class Handler {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleGetWeight: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
-            echo json_encode(['error' => 'Метод не поддерживается']);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
         $result = $this->checkService->getWeight();
         if (!$result['success']) {
             $this->logger->error("HandleGetWeight: Ошибка получения веса: " . $result['message']);
             http_response_code(500);
-            echo json_encode(['error' => $result['message']]);
+            $this->sendHandlerResponse("error", $result['message']);
             return;
         }
         $this->logger->info("HandleGetWeight: Вес получен.");

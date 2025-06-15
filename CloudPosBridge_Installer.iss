@@ -24,6 +24,7 @@ Name: desktopicon; Description: "Создать ярлык на рабочем �
 Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:";
 Name: register_scale1c_dll; Description: "Зарегистрировать библиотеку весов атол март scale1C.dll"; GroupDescription: "Регистрация DLL-библиотек:";
 Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку sbrf.dll сбербанка из папки c:\sc552 для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
+; Name: install_kkt_driver; Description: "Установить драйвер ККТ (АТОЛ) 32-битный"; GroupDescription: "Установка драйверов:";
 
 [Files]
 ; Копируем все файлы из папки @myapp_dist/php в подпапку {app}\php
@@ -35,6 +36,8 @@ Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
 ; --- Новые правила копирования DLL-файлов из myapp_dist в подпапку drivers --- 
 Source: "myapp_dist\scale1C.dll"; DestDir: "{app}\drivers"; Flags: ignoreversion
+Source: "myapp_dist\KKT10-10.10.6.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+Source: "myapp_dist\KKT10-10.10.0.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
 ; --- Новые правила копирования файлов программы из текущей папки --- 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
@@ -108,6 +111,10 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDi
 ; Запуск службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
 
+; Установка драйвера ККТ
+Filename: "{app}\drivers\KKT10-10.10.0.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
+Filename: "{app}\drivers\KKT10-10.10.6.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
+
 [UninstallRun]
 ; Остановка службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "stop CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; Flags: runhidden waituntilterminated; RunOnceId: "stop_service"
@@ -121,8 +128,50 @@ Type: filesandordirs; Name: "{app}"
 WelcomeLabel2=Добро пожаловать в мастер установки CloudPosBridgePHP Service.%n%nПеред установкой, пожалуйста, убедитесь, что все необходимые драйверы для ККТ, банковского терминала и весов установлены и зарегистрированы на вашем компьютере.
 
 [Code]
+var
+  KKTDriverPage: TInputOptionWizardPage;
+
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  // MsgBox('Перед установкой, пожалуйста, убедитесь, что все необходимые драйверы (например, для COM-объектов SBRFSRV.Server, AddIn.Scale8) установлены и зарегистрированы на вашем компьютере.', mbInformation, MB_OK);
+end;
+
+procedure InitializeWizard();
+begin
+  // Создаем новую страницу для выбора версии драйвера ККТ
+  KKTDriverPage := CreateInputOptionPage(wpWelcome, 'Выбор драйвера ККТ', 'Пожалуйста, выберите версию драйвера ККТ для установки:',
+    'Какой кассовый аппарат вы используете?', True, False);
+
+  KKTDriverPage.Add('Не устанавливать драйвер ККТ');
+  KKTDriverPage.Add('Кассовый аппарат старый (не обновлялся) (KKT10-10.10.0.0-windows32-setup.exe)');
+  KKTDriverPage.Add('Кассовый аппарат новый (обновлялся) (KKT10-10.10.6.0-windows32-setup.exe)');
+  
+  // По умолчанию выбираем "не устанавливать" (индекс 0)
+  KKTDriverPage.SelectedValueIndex := 2;
+end;
+
+function ShouldInstallOldKKTDriver(): Boolean;
+begin
+  Result := (KKTDriverPage.SelectedValueIndex = 1);
+end;
+
+function ShouldInstallNewKKTDriver(): Boolean;
+begin
+  Result := (KKTDriverPage.SelectedValueIndex = 2);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssInstall then
+  begin
+    // Остановка службы перед копированием файлов
+    Exec(ExpandConstant('{app}\nssm\nssm.exe'), 'stop CloudPosBridgeServicePHP', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+  if CurStep = ssPostInstall then
+  begin
+    // Запуск службы после установки
+    Exec(ExpandConstant('{app}\nssm\nssm.exe'), 'start CloudPosBridgeServicePHP', '', SW_HIDE, ewNoWait, ResultCode);
+  end;
 end;

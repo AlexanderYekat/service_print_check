@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Тест сервиса печати чеков 2025.06.10.01</title>
+    <title>Тест сервиса печати чеков 2025.06.15.01</title>
     <meta charset="UTF-8">
     <style>
         body {
@@ -281,7 +281,7 @@
                 const data = await response.json();
                 handleJsonResponse(data, 'result');
                 console.log('Response data for closeBankShift:', data);
-                if (data.success && data.data && data.data.success && Array.isArray(data.data.slipLines)) {
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.response)) {
                     savedSlipLines = data.data.slipLines;
                     console.log('savedSlipLines after update (closeBankShift):', savedSlipLines);
                     displaySavedSlip();
@@ -311,8 +311,8 @@
                 const data = await response.json();
                 handleJsonResponse(data, 'result');
                 console.log('Response data for bankOperationPayment:', data);
-                if (data.success && data.data && data.data.success && Array.isArray(data.data.slipLines)) {
-                    savedSlipLines = data.data.slipLines;
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.response)) {
+                    savedSlipLines = data.data.response;
                     console.log('savedSlipLines after update (bankOperationPayment):', savedSlipLines);
                     displaySavedSlip();
                 } else {
@@ -341,8 +341,8 @@
                 const data = await response.json();
                 handleJsonResponse(data, 'result');
                 console.log('Response data for bankOperationReturn:', data);
-                if (data.success && data.data && data.data.success && Array.isArray(data.data.slipLines)) {
-                    savedSlipLines = data.data.slipLines;
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.response)) {
+                    savedSlipLines = data.data.response;
                     console.log('savedSlipLines after update (bankOperationReturn):', savedSlipLines);
                     displaySavedSlip();
                 } else {

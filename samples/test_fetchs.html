@@ -70,6 +70,38 @@
             }
         }
 
+        function handleJsonResponse(data, resultElementId) {
+            const resultElement = document.getElementById(resultElementId);
+            if (typeof data !== 'object' || data === null || !('success' in data)) {
+                resultElement.textContent = new Date().toLocaleString() + ': Ошибка: Неверный формат ответа от сервера: ' + JSON.stringify(data);
+                return;
+            }
+
+            let displayMessage = '';
+
+            if (data.success) {
+                displayMessage += `Команда успешно отправлена на устройство.`;
+                if (data.data) {
+                    if ('success' in data.data) { // Для операций с дополнительным полем "success" в data
+                        if (data.data.success) {
+                            displayMessage += `\nОперация выполнена успешно. Ответ: ${JSON.stringify(data.data.response, null, 2)}`;
+                        } else {
+                            displayMessage += `\nОшибка выполнения операции: ${data.data.response}`;
+                        }
+                    } else if ('weight' in data.data) { // Для получения веса
+                        displayMessage += `\nВес: ${data.data.weight}`;
+                    } else {
+                        displayMessage += `\nДанные: ${JSON.stringify(data.data, null, 2)}`;
+                    }
+                }
+            } else {
+                displayMessage += `Ошибка отправки команды на устройство: ${data.message || 'Неизвестная ошибка'}`;
+            }
+
+            resultElement.textContent = new Date().toLocaleString() + ': ' + displayMessage;
+            console.log('Processed response:', data);
+        }
+
         async function printCheck() {
             try {
                 console.log('printCheck');
@@ -107,8 +139,7 @@
                 });
                 console.log(response);
                 const data = await response.json();
-                console.log(data);
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -126,7 +157,7 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -141,7 +172,7 @@
                     }
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -158,7 +189,7 @@
                     body: JSON.stringify({})
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -178,7 +209,7 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -198,7 +229,7 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
             } catch (error) {
                 document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
@@ -222,10 +253,10 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
 
-                if (data.status === 'success') {
-                    savedSlipLines = []; // Очищаем сохраненные строки слипа
+                if (data.success && data.data && data.data.success) {
+                    savedSlipLines = []; // Очищаем сохраненные строки слипа только если операция на устройстве успешна
                     displaySavedSlip(); // Обновляем отображение, скрывая слип
                     console.log('Bank slip printed successfully. savedSlipLines cleared.');
                 }
@@ -248,18 +279,14 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
                 console.log('Response data for closeBankShift:', data);
-                console.log('closeBankShift - data.status:', data.status);
-                console.log('closeBankShift - data.data:', data.data);
-                console.log('closeBankShift - data.data.slipLines:', data.data ? data.data.slipLines : 'N/A');
-                console.log('closeBankShift - Array.isArray(data.data.slipLines):', data.data && Array.isArray(data.data.slipLines));
-                if (data.status === 'success' && data.data && Array.isArray(data.data.slipLines)) {
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.slipLines)) {
                     savedSlipLines = data.data.slipLines;
                     console.log('savedSlipLines after update (closeBankShift):', savedSlipLines);
                     displaySavedSlip();
                 } else {
-                    savedSlipLines = []; // Очищаем, если нет слипа
+                    savedSlipLines = []; // Очищаем, если нет слипа или операция неуспешна
                     console.log('savedSlipLines cleared (closeBankShift):', savedSlipLines);
                     displaySavedSlip();
                 }
@@ -282,18 +309,14 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
                 console.log('Response data for bankOperationPayment:', data);
-                console.log('bankOperationPayment - data.status:', data.status);
-                console.log('bankOperationPayment - data.data:', data.data);
-                console.log('bankOperationPayment - data.data.slipLines:', data.data ? data.data.slipLines : 'N/A');
-                console.log('bankOperationPayment - Array.isArray(data.data.slipLines):', data.data && Array.isArray(data.data.slipLines));
-                if (data.status === 'success' && data.data && Array.isArray(data.data.slipLines)) {
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.slipLines)) {
                     savedSlipLines = data.data.slipLines;
                     console.log('savedSlipLines after update (bankOperationPayment):', savedSlipLines);
                     displaySavedSlip();
                 } else {
-                    savedSlipLines = []; // Очищаем, если нет слипа
+                    savedSlipLines = []; // Очищаем, если нет слипа или операция неуспешна
                     console.log('savedSlipLines cleared (bankOperationPayment):', savedSlipLines);
                     displaySavedSlip();
                 }
@@ -316,18 +339,14 @@
                     })
                 });
                 const data = await response.json();
-                document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+                handleJsonResponse(data, 'result');
                 console.log('Response data for bankOperationReturn:', data);
-                console.log('bankOperationReturn - data.status:', data.status);
-                console.log('bankOperationReturn - data.data:', data.data);
-                console.log('bankOperationReturn - data.data.slipLines:', data.data ? data.data.slipLines : 'N/A');
-                console.log('bankOperationReturn - Array.isArray(data.data.slipLines):', data.data && Array.isArray(data.data.slipLines));
-                if (data.status === 'success' && data.data && Array.isArray(data.data.slipLines)) {
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.slipLines)) {
                     savedSlipLines = data.data.slipLines;
                     console.log('savedSlipLines after update (bankOperationReturn):', savedSlipLines);
                     displaySavedSlip();
                 } else {
-                    savedSlipLines = []; // Очищаем, если нет слипа
+                    savedSlipLines = []; // Очищаем, если нет слипа или операция неуспешна
                     console.log('savedSlipLines cleared (bankOperationReturn):', savedSlipLines);
                     displaySavedSlip();
                 }
@@ -343,8 +362,14 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                const version = await response.text();
-                document.getElementById('status_display').textContent = `Версия программы: ${version}`;
+                const textResponse = await response.text();
+                try {
+                    const data = JSON.parse(textResponse);
+                    handleJsonResponse(data, 'status_display');
+                } catch (jsonError) {
+                    // If it's not JSON, assume it's just the version string
+                    document.getElementById('status_display').textContent = `Версия программы: ${textResponse}`;
+                }
             } catch (error) {
                 document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
             }

@@ -33,7 +33,6 @@ Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
 ; --- Новые правила копирования DLL-файлов из myapp_dist в подпапку drivers --- 
 Source: "myapp_dist\scale1C.dll"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\sbrf.dll"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
 ; --- Новые правила копирования файлов программы из текущей папки --- 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
@@ -73,7 +72,7 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP "
 
 ; Регистрация DLL-библиотек
 Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\scale1C.dll"""; Flags: runhidden; StatusMsg: "Регистрация scale1C.dll...";
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll...";
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll...";
 
 ; Установка параметров приложения для PHP (тестовый скрипт)
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 

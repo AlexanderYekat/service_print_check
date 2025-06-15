@@ -22,7 +22,6 @@ define('VERSION_OF_PROGRAM', '2025_06_14_1259');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
-define('CLEAR_LOGS_FLAG_FILE', SETTINGS_DIR . '/clear_logs_on_next_startup.flag');
 
 // Здесь должны быть ваши классы/модули для работы с ККТ и настройками
 require_once 'handlers.php';
@@ -128,15 +127,6 @@ function runServer() {
                 $currentSettings->save();
                 $currentSettings->load(); // Перечитать настройки после сохранения
 
-                // Если clearLogs был включен И отличался от старого значения (или был только что включен)
-                // ИЛИ если clearLogs был включен и не был установлен флаг (на случай, если файл флага был удален вручную)
-                if ($currentSettings->clearLogs && (!$oldClearLogsSetting || !file_exists(CLEAR_LOGS_FLAG_FILE))) {
-                    file_put_contents(CLEAR_LOGS_FLAG_FILE, ''); // Создаем файл-флаг
-                    $logger->info("Файл-флаг для очистки логов при следующем запуске создан.");
-                } elseif (!$currentSettings->clearLogs && file_exists(CLEAR_LOGS_FLAG_FILE)) {
-                    unlink(CLEAR_LOGS_FLAG_FILE); // Удаляем файл-флаг, если clearLogs выключен
-                    $logger->info("Файл-флаг для очистки логов удален.");
-                }
                 $logger->info("Настройки успешно сохранены.");
                 echo json_encode(['status' => 'success', 'message' => 'Настройки сохранены'], JSON_UNESCAPED_UNICODE);
             }
@@ -368,24 +358,27 @@ function main() {
     // Передаем только путь к директории логов, имя файла добавляется внутри Logger.
     $logger = Logger::getInstance(LOG_PATH, $initialSettings->debug, !$initialSettings->disableLogging);
 
-    // Если включена очистка логов И существует файл-флаг (чтобы очистить только один раз после активации)
-    if ($initialSettings->clearLogs && file_exists(CLEAR_LOGS_FLAG_FILE)) {
-        // Формируем полный путь к лог-файлу для операций файловой системы.
-        $fullLogFilePath = LOG_PATH . DIRECTORY_SEPARATOR . 'application.log';
-        if (file_exists($fullLogFilePath)) {
-            if (unlink($fullLogFilePath)) {
-                // После удаления, используем существующий логгер и записываем сообщение.
-                $logger->info("Логи очищены при запуске (по запросу).");
+    // Если включена очистка логов
+    if ($initialSettings->clearLogs) {
+        $logFilesToClear = [
+            'application.log',
+            'nssm_stderr.log',
+            'nssm_stdout.log',
+            'update_from_url.log'
+        ];
+
+        foreach ($logFilesToClear as $logFile) {
+            $fullLogFilePath = LOG_PATH . DIRECTORY_SEPARATOR . $logFile;
+            if (file_exists($fullLogFilePath)) {
+                if (unlink($fullLogFilePath)) {
+                    $logger->info("Лог-файл '{$logFile}' очищен при запуске (по запросу).");
+                } else {
+                    $logger->error("Не удалось очистить лог-файл '{$logFile}': $fullLogFilePath (по запросу)");
+                }
             } else {
-                // Если не удалось удалить, используем существующий логгер и записываем ошибку.
-                $logger->error("Не удалось очистить файл логов: $fullLogFilePath (по запросу)");
+                $logger->info("Лог-файл '{$logFile}' не существует, очистка не требуется (по запросу).");
             }
-        } else {
-             // Если файла нет, но включена очистка, это нормально. Просто используем логгер и логируем.
-             $logger->info("Файл логов не существует, очистка не требуется (по запросу).");
         }
-        // После очистки, удаляем файл-флаг, чтобы очистка произошла только один раз
-        unlink(CLEAR_LOGS_FLAG_FILE);
     }
 
     runServer();

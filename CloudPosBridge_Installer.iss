@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.13.02
+AppVersion=2025.06.15.01
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -18,6 +18,10 @@ ArchitecturesInstallIn64BitMode=x86
 SolidCompression=yes
 ;LZMACompressionLevel=max
 Compression=lzma
+
+[Tasks]
+Name: desktopicon; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительные ярлыки:";
+Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:";
 
 [Files]
 ; Копируем все файлы из папки @myapp_dist/php в подпапку {app}\php
@@ -47,9 +51,14 @@ Name: "{app}\app\settings"
 Name: "{app}\app\logs"
 
 [Icons]
-; Создаем ярлык на рабочем столе для настроек (необязательно, но удобно)
-Name: "{group}\Настройки CloudPosBridgePHP"; Filename: "{app}\php\php.exe"; Parameters: "-S localhost:3000 -t ""{app}\app\templates"""; WorkingDir: "{app}\app"; Comment: "Запустить тестовый веб-сервер для настроек"
-Name: "{autodesktop}\Настройки CloudPosBridgePHP"; Filename: "{app}\php\php.exe"; Parameters: "-S localhost:3000 -t ""{app}\app\templates"""; WorkingDir: "{app}\app"; Comment: "Запустить тестовый веб-сервер для настроек"
+; Ярлык в папке установки (всегда создается)
+Name: "{app}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
+
+; Опциональный ярлык на рабочем столе
+Name: "{autodesktop}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: desktopicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
+
+; Опциональный ярлык в меню 'Пуск'
+Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: programgroupicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
 
 [Run]
 ; Установка службы Windows с помощью NSSM
@@ -74,6 +83,10 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRo
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateBytes 1048576"; WorkingDir: "{app}\nssm"; Flags: runhidden
 ; Ротация ежедневно (86400 секунд = 24 часа)
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateSeconds 86400"; WorkingDir: "{app}\nssm"; Flags: runhidden
+; Включаем онлайн-ротацию
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateOnline 1"; WorkingDir: "{app}\nssm"; Flags: runhidden
+; Сохраняем 7 последних лог-файлов
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateKeep 7"; WorkingDir: "{app}\nssm"; Flags: runhidden
 
 ; Установка описания службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP Description ""Служба для взаимодействия с ККТ, банковскими терминалами и весами через CloudPosBridgePHP."""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge PHP Service..."; Flags: runhidden
@@ -89,6 +102,9 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; W
 Filename: "{app}\nssm\nssm.exe"; Parameters: "stop CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; Flags: runhidden waituntilterminated; RunOnceId: "stop_service"
 ; Удаление службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "remove CloudPosBridgeServicePHP confirm"; WorkingDir: "{app}\nssm"; Flags: runhidden; RunOnceId: "remove_service"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}"
 
 [Messages]
 WelcomeLabel2=Добро пожаловать в мастер установки CloudPosBridgePHP Service.%n%nПеред установкой, пожалуйста, убедитесь, что все необходимые драйверы для ККТ, банковского терминала и весов установлены и зарегистрированы на вашем компьютере.

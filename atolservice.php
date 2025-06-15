@@ -18,7 +18,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Private-Network: true");
 
-define('VERSION_OF_PROGRAM', '2025_06_14_1259');
+define('VERSION_OF_PROGRAM', '2025_06_15_1020');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -362,18 +362,18 @@ function main() {
     if ($initialSettings->clearLogs) {
         $logFilesToClear = [
             'application.log',
-            'nssm_stderr.log',
-            'nssm_stdout.log',
+            // 'nssm_stderr.log', // Управляется NSSM, не удаляем из PHP
+            // 'nssm_stdout.log', // Управляется NSSM, не удаляем из PHP
             'update_from_url.log'
         ];
 
         foreach ($logFilesToClear as $logFile) {
             $fullLogFilePath = LOG_PATH . DIRECTORY_SEPARATOR . $logFile;
             if (file_exists($fullLogFilePath)) {
-                if (unlink($fullLogFilePath)) {
+                if (@unlink($fullLogFilePath)) { // Добавлен @ для подавления ошибок
                     $logger->info("Лог-файл '{$logFile}' очищен при запуске (по запросу).");
                 } else {
-                    $logger->error("Не удалось очистить лог-файл '{$logFile}': $fullLogFilePath (по запросу)");
+                    $logger->error("Не удалось очистить лог-файл '{$logFile}': $fullLogFilePath (по запросу). Возможно, файл используется.");
                 }
             } else {
                 $logger->info("Лог-файл '{$logFile}' не существует, очистка не требуется (по запросу).");

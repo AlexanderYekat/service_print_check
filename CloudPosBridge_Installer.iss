@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.15.01
+AppVersion=2025.06.15.02
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -31,6 +31,10 @@ Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createal
 ; Копируем nssm.exe из папки @myapp_dist/nssm в подпапку {app}\nssm
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
+; --- Новые правила копирования DLL-файлов из myapp_dist в подпапку drivers --- 
+Source: "myapp_dist\scale1C.dll"; DestDir: "{app}\drivers"; Flags: ignoreversion
+Source: "myapp_dist\sbrf.dll"; DestDir: "{app}\drivers"; Flags: ignoreversion
+
 ; --- Новые правила копирования файлов программы из текущей папки --- 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
 Source: "*.php"; DestDir: "{app}\app"; Flags: 
@@ -51,6 +55,7 @@ Source: "*.ps1"; DestDir: "{app}\app"; Flags:
 ; Создаем необходимые директории, если они еще не существуют
 Name: "{app}\app\settings"
 Name: "{app}\app\logs"
+Name: "{app}\drivers"
 
 [Icons]
 ; Ярлык в папке установки (всегда создается)
@@ -66,8 +71,11 @@ Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://loca
 ; Установка службы Windows с помощью NSSM
 Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
+; Регистрация DLL-библиотек
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\scale1C.dll"""; Flags: runhidden; StatusMsg: "Регистрация scale1C.dll...";
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll...";
+
 ; Установка параметров приложения для PHP (тестовый скрипт)
-;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-f"" ""{app}\app\index.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
 ;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f """"{app}\app\index.php"""""""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
 ;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs \""-f {app}\app\index.php\""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
@@ -115,5 +123,5 @@ WelcomeLabel2=Добро пожаловать в мастер установки
 function InitializeSetup(): Boolean;
 begin
   Result := True;
-  MsgBox('Перед установкой, пожалуйста, убедитесь, что все необходимые драйверы (например, для COM-объектов SBRFSRV.Server, AddIn.Scale8) установлены и зарегистрированы на вашем компьютере.', mbInformation, MB_OK);
+  // MsgBox('Перед установкой, пожалуйста, убедитесь, что все необходимые драйверы (например, для COM-объектов SBRFSRV.Server, AddIn.Scale8) установлены и зарегистрированы на вашем компьютере.', mbInformation, MB_OK);
 end;

@@ -155,6 +155,80 @@ function runServer() {
     } elseif ($uri === '/api/version' && $method === 'GET') {
         $logger->debug("Запрос на получение версии программы.");
         echo VERSION_OF_PROGRAM;
+    } elseif ($uri === '/api/send-logs' && $method === 'POST') {
+        $logger->debug("Запрос на отправку логов на почту.");
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $recipientEmail = $data['email'] ?? '';
+        $logDirPath = LOG_PATH; // Путь к директории с логами
+        $zipFilePath = sys_get_temp_dir() . '/logs_' . date('Ymd_His') . '.zip'; // Временный файл ZIP
+
+        $response = ['success' => false, 'message' => 'Произошла ошибка при отправке логов.'];
+
+        if (!filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+            $response = ['success' => false, 'message' => 'Неверный формат email адреса.'];
+        } elseif (!is_dir($logDirPath)) {
+            $response = ['success' => false, 'message' => 'Директория с логами не найдена: ' . $logDirPath];
+        } else {
+            $zip = new ZipArchive();
+            if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+                $files = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($logDirPath),
+                    RecursiveIteratorIterator::LEAVES_ONLY
+                );
+
+                foreach ($files as $name => $file) {
+                    if (!$file->isDir()) {
+                        $filePath = $file->getRealPath();
+                        $relativePath = substr($filePath, strlen($logDirPath) + 1);
+                        $zip->addFile($filePath, $relativePath);
+                    }
+                }
+                $zip->close();
+
+                $subject = 'Логи CloudPosBridgePHP';
+                $message = 'В приложении CloudPosBridgePHP были запрошены логи. Файл логов приложен.';
+
+                $fileContent = file_get_contents($zipFilePath);
+                $encodedContent = chunk_split(base64_encode($fileContent));
+                $fileName = basename($zipFilePath); // Имя файла для прикрепления
+
+                $boundary = md5(time());
+                $headers = 'From: no-reply@cloudposbridge.com' . "\r\n" .
+                           'MIME-Version: 1.0' . "\r\n" .
+                           "Content-Type: multipart/mixed; boundary=\"{$boundary}\"" . "\r\n";
+
+                $emailBody = "--{$boundary}\r\n" .
+                             "Content-Type: text/plain; charset=\"UTF-8\"\r\n" .
+                             "Content-Transfer-Encoding: 7bit\r\n\r\n" .
+                             $message . "\r\n\r\n" .
+                             "--{$boundary}\r\n" .
+                             "Content-Type: application/zip; name=\"{$fileName}\"\r\n" .
+                             "Content-Transfer-Encoding: base64\r\n" .
+                             "Content-Disposition: attachment; filename=\"{$fileName}\"\r\n\r\n" .
+                             $encodedContent . "\r\n" .
+                             "--{$boundary}--";
+
+                // Попытка отправки email
+                if (@mail($recipientEmail, $subject, $emailBody, $headers)) {
+                    $response = ['success' => true, 'message' => 'Логи успешно отправлены на ' . $recipientEmail];
+                    $logger->info("Логи (ZIP-архив) успешно отправлены на " . $recipientEmail);
+                } else {
+                    $response = ['success' => false, 'message' => 'Не удалось отправить логи. Проверьте настройки почтового сервера.'];
+                    $logger->error("Не удалось отправить логи (ZIP-архив) на " . $recipientEmail);
+                }
+            } else {
+                $response = ['success' => false, 'message' => 'Не удалось создать ZIP-архив логов.'];
+                $logger->error("Не удалось создать ZIP-архив логов: " . $zipFilePath);
+            }
+            // Удаляем временный ZIP-файл
+            if (file_exists($zipFilePath)) {
+                unlink($zipFilePath);
+            }
+        }
+        echo json_encode($response, JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/diagnose' && $method === 'GET') {
         $logger->debug("Запрос на выполнение диагностики.");
         header('Content-Type: application/json; charset=utf-8');

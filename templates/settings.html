@@ -354,6 +354,12 @@ h2 {
                     <span class="helper-text">Название репозитория на GitHub (например, CloudPosBridgePHP).</span>
                 </div>
 
+                <div class="form-field">
+                    <label for="emailForLogs">Email для отправки логов</label>
+                    <input type="email" id="emailForLogs" name="emailForLogs" class="text-input" placeholder="example@domain.com">
+                    <span class="helper-text">Укажите адрес электронной почты для отправки логов диагностики.</span>
+                </div>
+
                 <div id="updateStatusMessage" style="margin-bottom: 16px; font-weight: bold; color: #4CAF50;"></div>
 
                 <div class="button-container">
@@ -430,6 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('serviceName').value = settings.serviceName;
             document.getElementById('githubRepoOwner').value = settings.githubRepoOwner;
             document.getElementById('githubRepoName').value = settings.githubRepoName;
+            // Новая настройка для email для логов
+            document.getElementById('emailForLogs').value = settings.emailForLogs || '';
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
 
@@ -476,6 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
         settings.serviceName = settings.serviceName || ''; // Убедимся, что пустое поле сохраняется как пустая строка
         settings.githubRepoOwner = settings.githubRepoOwner || '';
         settings.githubRepoName = settings.githubRepoName || '';
+        settings.emailForLogs = settings.emailForLogs || ''; // Сохранение email для логов
 
         const settingsJson = JSON.stringify(settings);
 

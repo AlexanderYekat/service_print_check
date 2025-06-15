@@ -84,6 +84,7 @@ class Settings {
     public $serviceName;
     public $githubRepoOwner;
     public $githubRepoName;
+    public $emailForLogs;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -110,6 +111,7 @@ class Settings {
         $this->serviceName = "CloudPosBridgeServicePHP";
         $this->githubRepoOwner = "AlexanderYekat";
         $this->githubRepoName = "service_print_check";
+        $this->emailForLogs = "";
     }
 
     public function load(): void {
@@ -142,6 +144,7 @@ class Settings {
         $this->serviceName = $data['serviceName'] ?? $this->serviceName;
         $this->githubRepoOwner = $data['githubRepoOwner'] ?? $this->githubRepoOwner;
         $this->githubRepoName = $data['githubRepoName'] ?? $this->githubRepoName;
+        $this->emailForLogs = $data['emailForLogs'] ?? $this->emailForLogs;
     }
 
     public function toArray(): array {
@@ -165,6 +168,7 @@ class Settings {
             'serviceName' => $this->serviceName,
             'githubRepoOwner' => $this->githubRepoOwner,
             'githubRepoName' => $this->githubRepoName,
+            'emailForLogs' => $this->emailForLogs,
         ];
     }
 

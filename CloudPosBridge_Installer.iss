@@ -44,6 +44,8 @@ Source: "settings_storage\*"; DestDir: "{app}\app\settings_storage"; Flags: recu
 Source: "samples\*"; DestDir: "{app}\app\samples"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки resource в {app}\app\resource
 Source: "resource\*"; DestDir: "{app}\app\resource"; Flags: recursesubdirs createallsubdirs
+; Копируем все powershell скрипты из корневой папки приложения в {app}\app
+Source: "*.ps1"; DestDir: "{app}\app"; Flags: 
 
 [Dirs]
 ; Создаем необходимые директории, если они еще не существуют

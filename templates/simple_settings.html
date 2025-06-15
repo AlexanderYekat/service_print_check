@@ -150,7 +150,7 @@
                 <div class="form-field">
                     <label for="comScale">Номер COM-порта для весов "Атол Смарт"</label>
                     <input type="number" id="comScale" name="comScale" min="-1000" class="text-input" value="-1000">
-                    <span class="helper-text">Укажите номер COM-порта (например, 1, 2, 3), к которому подключены весы. Если не знаете, оставьте значение по умолчанию -1000.</span>
+                    <span class="helper-text">Укажите номер COM-порта (например, 1, 2, 3), к которому подключены весы. Если не знаете (можно посмостреть в диспетчере устройств, вклдака COM-порты), оставьте значение по умолчанию.</span>
                 </div>
                 
                 <div class="button-container">
@@ -161,6 +161,13 @@
                 <div id="diagnosticResults" style="margin-top: 24px; padding: 16px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; background-color: var(--md-sys-color-surface); display: none;">
                     <h3 style="margin-top: 0; font-size: 18px; color: var(--md-sys-color-on-surface);">Результаты диагностики:</h3>
                     <div id="diagnosticOutput"></div>
+                </div>
+
+                <button type="button" id="sendLogsButton" class="button secondary" style="margin-top: 16px; display: none;">Отправить логи</button>
+
+                <div id="sendLogsResults" style="margin-top: 16px; padding: 16px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; background-color: var(--md-sys-color-surface); display: none;">
+                    <h3 style="margin-top: 0; font-size: 18px; color: var(--md-sys-color-on-surface);">Отправка логов:</h3>
+                    <div id="sendLogsOutput"></div>
                 </div>
 
                 <p class="link-to-full-settings">
@@ -176,6 +183,9 @@
             const diagnoseButton = document.getElementById('diagnoseButton');
             const diagnosticResultsDiv = document.getElementById('diagnosticResults');
             const diagnosticOutputDiv = document.getElementById('diagnosticOutput');
+            const sendLogsButton = document.getElementById('sendLogsButton');
+            const sendLogsResultsDiv = document.getElementById('sendLogsResults');
+            const sendLogsOutputDiv = document.getElementById('sendLogsOutput');
 
             // Загрузка текущей настройки COM-порта весов
             fetch('/api/settings')
@@ -250,20 +260,72 @@
                     .then(response => response.json())
                     .then(data => {
                         let outputHtml = '';
+                        let allSuccess = true;
+
                         if (data.kkt) {
                             outputHtml += `<p><strong>ККТ:</strong> ${data.kkt.success ? 'ОК' : 'Ошибка: ' + data.kkt.message}</p>`;
+                            if (!data.kkt.success) allSuccess = false;
                         }
                         if (data.terminal) {
                             outputHtml += `<p><strong>Терминал (банк):</strong> ${data.terminal.success ? 'ОК' : 'Ошибка: ' + data.terminal.message}</p>`;
+                            if (!data.terminal.success) allSuccess = false;
                         }
                         if (data.scale) {
                             outputHtml += `<p><strong>Весы:</strong> ${data.scale.success ? 'ОК' : 'Ошибка: ' + data.scale.message}</p>`;
+                            if (!data.scale.success) allSuccess = false;
                         }
                         diagnosticOutputDiv.innerHTML = outputHtml;
+
+                        // Показать кнопку отправки логов, если диагностика выполнена
+                        sendLogsButton.style.display = 'block';
+
                     })
                     .catch(error => {
                         console.error('Ошибка при выполнении диагностики:', error);
                         diagnosticOutputDiv.innerHTML = '<p style="color: red;">Произошла ошибка при выполнении диагностики. Проверьте консоль.</p>';
+                        // Скрыть кнопку отправки логов в случае ошибки диагностики
+                        sendLogsButton.style.display = 'none';
+                    });
+            });
+
+            // Обработка нажатия кнопки отправки логов
+            sendLogsButton.addEventListener('click', function() {
+                sendLogsResultsDiv.style.display = 'block';
+                sendLogsOutputDiv.innerHTML = '<p>Отправка логов... Пожалуйста, подождите.</p>';
+
+                // Получаем email из настроек
+                fetch('/api/settings')
+                    .then(response => response.json())
+                    .then(settings => {
+                        const email = settings.emailForLogs || '';
+                        if (!email) {
+                            sendLogsOutputDiv.innerHTML = '<p style="color: red;">Email для отправки логов не указан в полных настройках.</p>';
+                            return;
+                        }
+
+                        fetch('/api/send-logs', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ email: email }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                sendLogsOutputDiv.innerHTML = `<p style="color: green;">${data.message}</p>`;
+                            } else {
+                                sendLogsOutputDiv.innerHTML = `<p style="color: red;">${data.message}</p>`;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Ошибка при отправке логов:', error);
+                            sendLogsOutputDiv.innerHTML = '<p style="color: red;">Произошла ошибка при отправке логов. Проверьте консоль.</p>';
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при получении email для логов:', error);
+                        sendLogsOutputDiv.innerHTML = '<p style="color: red;">Не удалось получить email для отправки логов из настроек.</p>';
                     });
             });
         });

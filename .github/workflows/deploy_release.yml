@@ -4,7 +4,7 @@ on:
   push:
     # Запускать этот workflow при пуше в ветку 'phprails' (или 'main', 'production', если у вас другая основная ветка)
     branches:
-      - phprails
+      - prod-phprails
 
 jobs:
   build_and_release:

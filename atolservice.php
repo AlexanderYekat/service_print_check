@@ -155,6 +155,85 @@ function runServer() {
     } elseif ($uri === '/api/version' && $method === 'GET') {
         $logger->debug("Запрос на получение версии программы.");
         echo VERSION_OF_PROGRAM;
+    } elseif ($uri === '/api/diagnose' && $method === 'GET') {
+        $logger->debug("Запрос на выполнение диагностики.");
+        header('Content-Type: application/json; charset=utf-8');
+
+        $results = [
+            'kkt' => ['success' => false, 'message' => 'Не проводилось'],
+            'terminal' => ['success' => false, 'message' => 'Не проводилось'],
+            'scale' => ['success' => false, 'message' => 'Не проводилось'],
+        ];
+
+        // Diagnostic for KKT
+        try {
+            $kktDriver = new TFptr10Driver(
+                $currentSettings->comKkt,
+                $currentSettings->ipKkt,
+                $currentSettings->portIpKkt,
+                $currentSettings->ipServKkt,
+                $currentSettings->emulation
+            );
+            $err = $kktDriver->NewSafe();
+            if ($err !== null) {
+                $results['kkt'] = ['success' => false, 'message' => "Ошибка инициализации COM-объекта ККТ: $err"];
+            } else {
+                list($isOpen, $message) = $kktDriver->Open();
+                if ($isOpen) {
+                    $results['kkt'] = ['success' => true, 'message' => 'Соединение с ККТ установлено.'];
+                } else {
+                    $results['kkt'] = ['success' => false, 'message' => "Ошибка соединения с ККТ: $message"];
+                }
+            }
+        } catch (Exception $e) {
+            $results['kkt'] = ['success' => false, 'message' => "Исключение при диагностике ККТ: " . $e->getMessage()];
+        } finally {
+            if (isset($kktDriver)) {
+                $kktDriver->Close();
+            }
+        }
+
+        // Diagnostic for Terminal (Bank)
+        try {
+            $bankDriver = new TBankDriver($currentSettings->bankEmulation, $logger);
+            list($isOpen, $message) = $bankDriver->Open();
+            if ($isOpen) {
+                $results['terminal'] = ['success' => true, 'message' => 'Терминал (банк) создан и готов к работе.'];
+            } else {
+                $results['terminal'] = ['success' => false, 'message' => "Ошибка создания/открытия терминала (банк): $message"];
+            }
+        } catch (Exception $e) {
+            $results['terminal'] = ['success' => false, 'message' => "Исключение при диагностике терминала (банк): " . $e->getMessage()];
+        } finally {
+            if (isset($bankDriver)) {
+                $bankDriver->Close();
+            }
+        }
+
+        // Diagnostic for Scale
+        try {
+            $scaleDriver = new TScale8Driver(
+                $currentSettings->comScale,
+                $currentSettings->baudRateScale,
+                $currentSettings->modelScale,
+                $currentSettings->emulationScale,
+                $logger
+            );
+            list($isOpen, $message) = $scaleDriver->Open();
+            if ($isOpen) {
+                $results['scale'] = ['success' => true, 'message' => 'Соединение с весами установлено.'];
+            } else {
+                $results['scale'] = ['success' => false, 'message' => "Ошибка соединения с весами: $message"];
+            }
+        } catch (Exception $e) {
+            $results['scale'] = ['success' => false, 'message' => "Исключение при диагностике весов: " . $e->getMessage()];
+        } finally {
+            if (isset($scaleDriver)) {
+                $scaleDriver->Close();
+            }
+        }
+
+        echo json_encode($results, JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/restart' && $method === 'POST') {
         $logger->info("Получен запрос на перезапуск службы.");
         

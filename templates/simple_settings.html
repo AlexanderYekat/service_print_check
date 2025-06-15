@@ -155,6 +155,12 @@
                 
                 <div class="button-container">
                     <button type="submit" class="button primary">Сохранить</button>
+                    <button type="button" id="diagnoseButton" class="button secondary">Диагностика</button>
+                </div>
+
+                <div id="diagnosticResults" style="margin-top: 24px; padding: 16px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; background-color: var(--md-sys-color-surface); display: none;">
+                    <h3 style="margin-top: 0; font-size: 18px; color: var(--md-sys-color-on-surface);">Результаты диагностики:</h3>
+                    <div id="diagnosticOutput"></div>
                 </div>
 
                 <p class="link-to-full-settings">
@@ -167,6 +173,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('simpleSettingsForm');
             const comScaleInput = document.getElementById('comScale');
+            const diagnoseButton = document.getElementById('diagnoseButton');
+            const diagnosticResultsDiv = document.getElementById('diagnosticResults');
+            const diagnosticOutputDiv = document.getElementById('diagnosticOutput');
 
             // Загрузка текущей настройки COM-порта весов
             fetch('/api/settings')
@@ -230,6 +239,32 @@
                     console.error('Ошибка:', error);
                     alert('Произошла ошибка при сохранении настройки.');
                 });
+            });
+
+            // Обработка нажатия кнопки диагностики
+            diagnoseButton.addEventListener('click', function() {
+                diagnosticResultsDiv.style.display = 'block';
+                diagnosticOutputDiv.innerHTML = '<p>Запуск диагностики... Пожалуйста, подождите.</p>';
+
+                fetch('/api/diagnose')
+                    .then(response => response.json())
+                    .then(data => {
+                        let outputHtml = '';
+                        if (data.kkt) {
+                            outputHtml += `<p><strong>ККТ:</strong> ${data.kkt.success ? 'ОК' : 'Ошибка: ' + data.kkt.message}</p>`;
+                        }
+                        if (data.terminal) {
+                            outputHtml += `<p><strong>Терминал (банк):</strong> ${data.terminal.success ? 'ОК' : 'Ошибка: ' + data.terminal.message}</p>`;
+                        }
+                        if (data.scale) {
+                            outputHtml += `<p><strong>Весы:</strong> ${data.scale.success ? 'ОК' : 'Ошибка: ' + data.scale.message}</p>`;
+                        }
+                        diagnosticOutputDiv.innerHTML = outputHtml;
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при выполнении диагностики:', error);
+                        diagnosticOutputDiv.innerHTML = '<p style="color: red;">Произошла ошибка при выполнении диагностики. Проверьте консоль.</p>';
+                    });
             });
         });
     </script>

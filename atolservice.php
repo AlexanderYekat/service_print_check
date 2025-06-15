@@ -18,7 +18,7 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Private-Network: true");
 
-define('VERSION_OF_PROGRAM', '2025_06_15_1839');
+define('VERSION_OF_PROGRAM', '2025_06_15_1854');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');

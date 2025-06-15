@@ -163,7 +163,7 @@ class TBankDriver {
                 $returnResult = explode("\n", $actualCheque);
             } else {
                 // Emulation success
-                $emulationSlip = "Эмуляция: операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО";
+                $emulationSlip = "Эмуляция '{$method}': операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО";
                 $returnResult = explode("\n", $emulationSlip);
             }
         } else {

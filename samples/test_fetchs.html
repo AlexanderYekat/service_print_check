@@ -80,7 +80,7 @@
             let displayMessage = '';
 
             if (data.success) {
-                displayMessage += `Команда успешно отправлена на устройство.`;
+                displayMessage += `Команда отправлена на устройство.`;
                 if (data.data) {
                     if ('success' in data.data) { // Для операций с дополнительным полем "success" в data
                         if (data.data.success) {

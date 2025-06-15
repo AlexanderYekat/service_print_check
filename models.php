@@ -179,14 +179,14 @@ class Settings {
 
 // Класс для ответа API (ApiResponse)
 class ApiResponse {
-    public $status;
+    public $success;
     public $message;
     public $data;
     public $id;
     public $time;
 
     public function __construct(string $status, string $message, array $data = [], string $id = "") {
-        $this->status = $status;
+        $this->success = $status === 'success';
         $this->message = $message;
         $this->data = $data;
         $this->id = $id;
@@ -195,7 +195,7 @@ class ApiResponse {
 
     public function toArray(): array {
         return [
-            'status' => $this->status,
+            'success' => $this->success,
             'message' => $this->message,
             'data' => $this->data,
             'id' => $this->id,

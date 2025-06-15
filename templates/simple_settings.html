@@ -143,6 +143,7 @@
         <header>
             <h1>Настройки весов Атол Смарт</h1>
             <p class="description">Здесь вы можете изменить номер COM-порта, к которому подключены ваши весы "Атол Смарт".</p>
+            <p class="program-version" style="font-size: 14px; color: var(--md-sys-color-outline); margin-top: 16px;">Версия программы: <span id="programVersion">Загрузка...</span></p>
         </header>
         <main>
             <form id="simpleSettingsForm">
@@ -182,6 +183,23 @@
                     console.error('Ошибка при загрузке настроек:', error);
                     // В случае ошибки, убедимся, что значение по умолчанию установлено
                     comScaleInput.value = -1000;
+                });
+
+            // Загрузка версии программы
+            fetch('/api/version')
+                .then(response => response.text())
+                .then(version => {
+                    const programVersionSpan = document.getElementById('programVersion');
+                    if (programVersionSpan) {
+                        programVersionSpan.textContent = version;
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке версии программы:', error);
+                    const programVersionSpan = document.getElementById('programVersion');
+                    if (programVersionSpan) {
+                        programVersionSpan.textContent = 'Недоступно';
+                    }
                 });
 
             // Обработка отправки формы

@@ -22,6 +22,8 @@ Compression=lzma
 [Tasks]
 Name: desktopicon; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительные ярлыки:";
 Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:";
+Name: register_scale1c_dll; Description: "Зарегистрировать библиотеку весов атол март scale1C.dll"; GroupDescription: "Регистрация DLL-библиотек:";
+Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку sbrf.dll сбербанка из папки c:\sc552 для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
 
 [Files]
 ; Копируем все файлы из папки @myapp_dist/php в подпапку {app}\php
@@ -71,8 +73,8 @@ Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://loca
 Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Регистрация DLL-библиотек
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\scale1C.dll"""; Flags: runhidden; StatusMsg: "Регистрация scale1C.dll...";
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll...";
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\scale1C.dll"""; Flags: runhidden; StatusMsg: "Регистрация scale1C.dll..."; Tasks: register_scale1c_dll
+Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll..."; Tasks: register_sbrf_dll
 
 ; Установка параметров приложения для PHP (тестовый скрипт)
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 

@@ -455,9 +455,14 @@ class TFptr10Driver {
         if ($this->fptr === null) {
             return [false, "Драйвер не инициализирован"];
         }
-
-        $cancelJson = json_encode(["type" => "cancelReceipt"], JSON_UNESCAPED_UNICODE);
-        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($cancelJson);
+        $result = $this->fptr->CancelReceipt();
+        $success = true;
+        $commandErrorDesc = "";
+        if ($result !== 0) {
+            $success = false;
+            $errorDescription = $this->fptr->errorDescription();
+            $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
+        }
         return [$success, $commandErrorDesc];
     }
 }

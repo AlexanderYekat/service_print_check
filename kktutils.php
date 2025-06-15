@@ -135,10 +135,17 @@ class TFptr10Driver {
         }
         try {
             $this->fptr->SetParam($this->fptr->LIBFPTR_PARAM_DATA_TYPE, $this->fptr->LIBFPTR_DT_SHIFT_STATE);
-            $this->fptr->QueryData();
+            $result = $this->fptr->QueryData();
+
+            $commandErrorDesc = "";
+            if ($result !== 0) {
+                $errorDescription = $this->fptr->errorDescription();
+                $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
+            }
+                
 
             $result = $this->fptr->GetParamInt($this->fptr->LIBFPTR_PARAM_SHIFT_STATE);
-            return [$result === 1, ""];
+            return [$result === 1, $commandErrorDesc]; //LIBFPTR_SS_OPENED
         } catch (Exception $e) {
             return [false, $e->getMessage()];
         }

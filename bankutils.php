@@ -77,12 +77,15 @@ class TBankDriver {
                 }
 
                 if ($nFunCode !== 0) {
+                    $this->logger->info("Вызов NFun с кодом {$nFunCode}");
                     $resultCode = $this->bank->NFun($nFunCode);
                 } else {
+                    $this->logger->info("Вызов метода {$method}");
                     $resultCode = call_user_func_array([$this->bank, $method], array_values($params));
                 }
 
                 if ($resultCode === 0) { // SBRFSRV.Server обычно возвращает 0 при успехе
+                    $this->logger->info("Метод {$method} успешно вызван. Код результата: {$resultCode}");
                     $actualSuccess = true;
                     try {
                         $actualCheque = $this->bank->GParamString("Cheque");
@@ -90,13 +93,51 @@ class TBankDriver {
                         $this->logger->warning("Параметр 'Cheque' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
                 } else {
+                    $this->logger->warning("Метод {$method} вызван с ошибкой. Код результата: {$resultCode}");
                     $actualSuccess = false;
                     try {
                         $actualErrorDescription = $this->bank->GParamString("ResultDescription");
                     } catch (Exception $e) {
                          $this->logger->warning("Параметр 'ResultDescription' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
-                    $this->logger->error("Ошибка при вызове метода {$method} (код: {$resultCode}): {$actualErrorDescription}");
+                    $RashivrovkaKodaOshibki = "";
+                    if ($resultCode === 99 || $resultCode === 4120) {
+                        $RashivrovkaKodaOshibki = "нет связи с банковским терминалом";
+                    }
+                    if ($resultCode === 403 || $resultCode === 4455) {
+                        $RashivrovkaKodaOshibki = "неверний ПИК-код";
+                    }
+                    if ($resultCode === 4451 || $resultCode === 521) {
+                        $RashivrovkaKodaOshibki = "недостаточно средств";
+                    }
+                    if ($resultCode === 253) {
+                        $RashivrovkaKodaOshibki = "аппартаный сбой";
+                    }
+                    if ($resultCode === 2000) {
+                        $RashivrovkaKodaOshibki = "операция отменена пользователем";
+                    }
+                    if ($resultCode === 2002) {
+                        $RashivrovkaKodaOshibki = "клиент слишком долго вводил ПИК-код";
+                    }
+                    if ($resultCode === 4100 || $resultCode === 4119) {
+                        $RashivrovkaKodaOshibki = "нет связи с банком";
+                    }
+                    if ($resultCode === 4134) {
+                        $RashivrovkaKodaOshibki = "на терминале давно не закрывали бакновскую смену";
+                    }
+                    if ($resultCode === 4401) {
+                        $RashivrovkaKodaOshibki = "нужно позвонить в банк";
+                    }
+                    if ($resultCode === 4404 || $resultCode === 4407 || $resultCode === 4141 || $resultCode === 4143) {
+                        $RashivrovkaKodaOshibki = "получена команда изъять карту";
+                    }
+                    if ($resultCode === 4451 || $resultCode === 5109) {
+                        $RashivrovkaKodaOshibki = "карта просрочена";
+                    }
+                    if ($actualErrorDescription == "") {
+                        $actualErrorDescription = "Ошибка при вызове метода {$method} (c кодом операции {$nFunCode}) (код ошибки: {$resultCode}) банковского терминала: {$RashivrovkaKodaOshibki}";
+                    }
+                    $this->logger->error($actualErrorDescription);
                 }
             } catch (Exception $e) {
                 $actualErrorDescription = "Исключение при вызове метода {$method} банковского терминала: " . $e->getMessage();

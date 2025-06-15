@@ -164,13 +164,16 @@ class CheckService {
 
         // Дополнительная проверка на открытую смену
         list($isShiftOpened, $shiftErrorDesc) = $this->FptrDriver->IsShiftOpened();
+        //$this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc);
         if (!$isShiftOpened && $shiftErrorDesc === "") {
             $this->logger->warning(message: "Смена уже закрыта");
             return ['success' => false, 'message' => 'Ошибка закрытия смены: смена уже закрыта'];
         }
         if ($shiftErrorDesc != "") {
             $this->logger->error("Ошибка при проверке открытой смены: {$shiftErrorDesc}");
-            return ['success' => false, 'message' => "Ошибка при проверке открытой смены: {$shiftErrorDesc}"];
+            if (!$this->FptrDriver->getEmulation()) {
+                return ['success' => false, 'message' => "Ошибка при проверке открытой смены: {$shiftErrorDesc}"];
+            }
         }
 
         return $this->_executeFptrOperation([$this->FptrDriver, 'CloseShift'], [$cashier], 'CloseShift');

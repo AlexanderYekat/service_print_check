@@ -44,6 +44,9 @@ try {
     if (Test-Path -Path $TempDir) { Remove-Item -Path $TempDir -Recurse -Force | Out-Null }
     New-Item -Path $TempDir -ItemType Directory -Force | Out-Null
 
+    # Принудительное использование TLS 1.2 для обхода ошибок SSL/TLS
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
     $zipFileName = Join-Path -Path $TempDir -ChildPath "update.zip"
     (New-Object System.Net.WebClient).DownloadFile($DownloadUrl, $zipFileName)
     Write-Log "Архив успешно загружен в $zipFileName."

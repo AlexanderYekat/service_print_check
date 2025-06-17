@@ -26,6 +26,31 @@ class TScale8Driver {
                 $this->scale = new COM("AddIn.Scale8");
             }
 
+            // Проверяем количество устройств и добавляем, если нет ни одного
+            try {
+                $deviceCount = $this->scale->DeviceCount;
+                $this->logger->info("Обнаружено устройств: {$deviceCount}");
+                if ($deviceCount == 0) {
+                    $this->logger->info("Устройств не найдено, попытка добавления устройства...");
+                    $addResult = $this->scale->AddDevice();
+                    if ($addResult === 0) { // Обычно 0 означает успех
+                        $this->logger->info("Устройство успешно добавлено.");
+                    } else {
+                        $addResultDescription = $this->scale->ResultDescription;
+                        $addResultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $addResultDescription);
+                        $this->logger->error("Ошибка при добавлении устройства: {$addResultDescription} (Код: {$addResult})");
+                        if (!$this->emulation) {
+                            return [false, "Ошибка при добавлении устройства: {$addResultDescription}"];
+                        }
+                    }
+                }
+            } catch (Exception $e) {
+                $this->logger->error("Ошибка при проверке/добавлении устройства: " . $e->getMessage());
+                if (!$this->emulation) {
+                    return [false, "Ошибка при проверке/добавлении устройства: " . $e->getMessage()];
+                }
+            }
+
             // Установка параметров
             $this->scale->PortNumber = $this->comPort;
             $this->scale->BaudRate = $this->baudRate;

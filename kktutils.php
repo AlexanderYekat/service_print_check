@@ -34,6 +34,9 @@ class TFptr10Driver {
         if ($this->fptr === null) {
             return [false, "Драйвер не инициализирован"];
         }
+        if ($this->IsOpened()) {
+            return [true, ""];
+        }
         try {
             // Применяем настройки перед открытием
             $this->applySettingsToFptr();
@@ -133,22 +136,30 @@ class TFptr10Driver {
         if ($this->fptr === null) {
             return [false, "Драйвер не инициализирован"];
         }
+        $emulation = $this->getEmulation();
+        list($isOpened, $connectErrorDesc) = $this->Open();
+        if (!$isOpened) {
+            if (!$emulation) {
+                return [false, "Ошибка подключения к ККТ: {$this->GetTypeConnection()} (Код: {$connectErrorDesc})"];
+            }
+        }
+        $shiftOpened = false;
+        $commandErrorDesc = "";
         try {
             $this->fptr->SetParam($this->fptr->LIBFPTR_PARAM_DATA_TYPE, $this->fptr->LIBFPTR_DT_SHIFT_STATE);
-            $result = $this->fptr->QueryData();
-
-            $commandErrorDesc = "";
+            $result = $this->fptr->QueryData();            
             if ($result !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
                 $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
             }
-                
-
             $result = $this->fptr->GetParamInt($this->fptr->LIBFPTR_PARAM_SHIFT_STATE);
-            return [$result === 1, $commandErrorDesc]; //LIBFPTR_SS_OPENED
+            $shiftOpened = $result === 1; //LIBFPTR_SS_OPENED = 1
         } catch (Exception $e) {
-            return [false, $e->getMessage()];
+            $commandErrorDesc = $e->getMessage();
+        } finally {
+            $this->Close();
         }
+        return [$shiftOpened, $commandErrorDesc];
     }
 
     public function PrintXReport(string $cashier) {
@@ -156,7 +167,7 @@ class TFptr10Driver {
             return [false, "", "Драйвер не инициализирован"];
         }
 
-        $closeShiftJson = json_encode([
+        $XReportJson = json_encode([
             "type" => "reportX",
             "operator" => [
                 "name" => $cashier
@@ -164,7 +175,7 @@ class TFptr10Driver {
         ], JSON_UNESCAPED_UNICODE);
 
         // Используем sendCommandAndGetAnswerFromKKT для отправки JSON-команды
-        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($closeShiftJson);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($XReportJson);
         
         // Возвращаем результат
         return [$success, $responseJson, $commandErrorDesc];
@@ -319,10 +330,14 @@ class TFptr10Driver {
             return [false, "", "Ошибка обработки ответа от ККТ"];
         }
 
-        return [true, $jsonAnswer, ""];
+        return [true, json_encode($jsonAnswer), ""];
     }
     
     public function SuccessCommand($resultJson) {
+        // Если передан массив, преобразуем его в строку
+        if (is_array($resultJson)) {
+            $resultJson = json_encode($resultJson);
+        }        
         // Проверяем наличие слов "ошибка" или "error" в ответе
         $hasError = (mb_stripos($resultJson, 'ошибка') !== false) || (mb_stripos($resultJson, 'error') !== false);
         return !$hasError;

@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.17.01
+AppVersion=2025.06.17.03
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -22,8 +22,8 @@ Compression=lzma
 [Tasks]
 Name: desktopicon; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительные ярлыки:";
 Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:";
-Name: register_scale1c_dll; Description: "Зарегистрировать библиотеку весов атол март scale1C.dll"; GroupDescription: "Регистрация DLL-библиотек:";
-Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку sbrf.dll сбербанка из папки c:\sc552 для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
+Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку сбербанка (sbrf.dll из папки c:\sc552) для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
+Name: install_fdu_driver; Description: "Установить драйвер вкесов (FDU_8_28_18_00_Full.EXE)"; GroupDescription: "Установка драйверов:";
 ; Name: install_kkt_driver; Description: "Установить драйвер ККТ (АТОЛ) 32-битный"; GroupDescription: "Установка драйверов:";
 
 [Files]
@@ -35,9 +35,10 @@ Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createal
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
 ; --- Новые правила копирования DLL-файлов из myapp_dist в подпапку drivers --- 
-Source: "myapp_dist\scale1C.dll"; DestDir: "{app}\drivers"; Flags: ignoreversion
+; Копируем все файлы из папки @myapp_dist в подпапку drivers
 Source: "myapp_dist\KKT10-10.10.6.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\KKT10-10.10.0.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
 ; --- Новые правила копирования файлов программы из текущей папки --- 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
@@ -76,8 +77,12 @@ Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://loca
 Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Регистрация DLL-библиотек
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""{app}\drivers\scale1C.dll"""; Flags: runhidden; StatusMsg: "Регистрация scale1C.dll..."; Tasks: register_scale1c_dll
 Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll..."; Tasks: register_sbrf_dll
+
+; Установка драйвера ККТ
+Filename: "{app}\drivers\KKT10-10.10.0.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
+Filename: "{app}\drivers\KKT10-10.10.6.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
+Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера FDU..."; Tasks: install_fdu_driver
 
 ; Установка параметров приложения для PHP (тестовый скрипт)
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
@@ -110,10 +115,6 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDi
 
 ; Запуск службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
-
-; Установка драйвера ККТ
-Filename: "{app}\drivers\KKT10-10.10.0.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
-Filename: "{app}\drivers\KKT10-10.10.6.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
 
 [UninstallRun]
 ; Остановка службы

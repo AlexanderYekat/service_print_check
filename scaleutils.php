@@ -23,16 +23,26 @@ class TScale8Driver {
         try {
             if ($this->scale === null) {
                 // Создание COM-объекта AddIn.Scale8
+                $this->logger->info("Попытка создание экземпляра com объекта весов");
                 $this->scale = new COM("AddIn.Scale8");
+                //$this->scale = new COM("AddIn.Scale8", null, CP_UTF8, CLSCTX_LOCAL_SERVER);                
+                //$this->scale = new COM("AddIn.Scale8", null, CP_UTF8, CLSCTX_INPROC_SERVER);                
+                //$this->scale = new COM("AddIn.Scale45");
+                $this->logger->info("COM-объект создан успешно.");
             }
 
             // Проверяем количество устройств и добавляем, если нет ни одного
             try {
+                $this->logger->info("Попытка проверки/добавления устройства...");
                 $deviceCount = $this->scale->DeviceCount;
                 $this->logger->info("Обнаружено устройств: {$deviceCount}");
+                //$this->logger->info("Попытка чтения веса...");
+                //$resReadWeight =$this->scale->ReadWeight();
+                //$this->logger->info("Чтение веса успешно: {$resReadWeight}");
                 if ($deviceCount == 0) {
                     $this->logger->info("Устройств не найдено, попытка добавления устройства...");
                     $addResult = $this->scale->AddDevice();
+                    $this->logger->info("Попытка добавления устройства: {$addResult}");
                     if ($addResult === 0) { // Обычно 0 означает успех
                         $this->logger->info("Устройство успешно добавлено.");
                     } else {
@@ -57,6 +67,7 @@ class TScale8Driver {
             $this->scale->Model = $this->model; // Атол Марта
 
             // Включение устройства
+            $this->logger->info("Попытка включения устройства...");
             $this->scale->DeviceEnabled = true;
 
             $resultDescription = $this->scale->ResultDescription;

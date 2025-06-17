@@ -227,6 +227,7 @@ class Handler {
     private function sendHandlerResponse($type, $message, $data = [], $id = "") {
         header('Content-Type: application/json');
         $response = new ApiResponse($type, $message, $data, $id);
+        $this->logger->info("Отправка ответа: " . json_encode($response->toArray(), JSON_UNESCAPED_UNICODE));
         echo json_encode($response->toArray(), JSON_UNESCAPED_UNICODE);
     }
 }

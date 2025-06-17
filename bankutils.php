@@ -56,7 +56,7 @@ class TBankDriver {
             $this->logger->error("Ошибка при закрытии соединения с банковским терминалом: " . $e->getMessage());
         }
     }
-
+    
     private function callBankMethod(string $method, array $params = [], int $nFunCode = 0): array {
         $this->logger->info("Попытка вызова метода {$method} банковского терминала. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
 
@@ -93,7 +93,7 @@ class TBankDriver {
                     $actualSuccess = true;
                     try {
                         $actualCheque = $this->bank->GParamString("Cheque");
-                        $this->logger->info("Получен слип: {$actualCheque}");
+                        $this->logger->info("Получен слип (кодировка Win): {$actualCheque}");
                     } catch (Exception $e) {
                         $this->logger->warning("Параметр 'Cheque' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
@@ -102,9 +102,14 @@ class TBankDriver {
                     $actualSuccess = false;
                     try {
                         $actualErrorDescription = $this->bank->GParamString("ResultDescription");
+                        $actualErrorDescription = iconv('CP866', 'UTF-8//IGNORE', $actualErrorDescription ?? '');
+                        if ($actualErrorDescription != "") {
+                            $this->logger->warning("Получено описание ошибки: {$actualErrorDescription}");
+                        }
                     } catch (Exception $e) {
                          $this->logger->warning("Параметр 'ResultDescription' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
+                    // Очищаем описание ошибки от невалидных символов для JSON
                     $RashivrovkaKodaOshibki = "";
                     if ($resultCode === 99 || $resultCode === 4120) {
                         $RashivrovkaKodaOshibki = "нет связи с банковским терминалом";
@@ -164,14 +169,24 @@ class TBankDriver {
         if ($finalSuccess) {
             $this->logger->info("Метод {$method} успешно вызван. Финальный успех: {$finalSuccess}");
             $finalMessage = "Операция '{$method}' выполнена успешно.";
-            if ($actualCheque != "") {
-                $returnResult = explode("\n", $actualCheque);
-                $this->logger->info("Слип получен: " . implode(", ", $returnResult));
-            } else {
-                // Emulation success
-                $emulationSlip = "Эмуляция '{$method}': операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО";
-                $returnResult = explode("\n", $emulationSlip);
+            if ($actualCheque === "") {
+                $actualCheque = file_get_contents(__DIR__ . "/samples/p");
             }
+            $this->logger->info("Получен слип (кодировка Windows): " . $actualCheque);
+            $actualCheque = iconv('CP866', 'UTF-8//IGNORE', $actualCheque  ?? '');
+            $this->logger->info("Получен слип (кодировка UTF-8): " . $actualCheque);
+            $lines = explode("\n", $actualCheque);
+            // фильтруем массив по двум условиям
+            $returnResult = array_filter($lines, function($value) {
+                // Условие 1: Строка не должна быть пустой (или состоять из пробелов)
+                $is_not_empty = trim($value) !== '';    
+                // Условие 2: В строке не должна содержаться подстрока '~S'
+                $does_not_contain_S = strpos($value, '~S') === false;
+                // Возвращаем true (оставляем элемент), только если ОБА условия выполняются
+                return $is_not_empty && $does_not_contain_S;
+            });
+            $returnResult = array_values($returnResult);
+            $this->logger->info("Слип после очистки служебюных и пустых строк: " . json_encode($returnResult));
         } else {
             // For failure
             $returnResult = $actualErrorDescription != "" ? $actualErrorDescription : "Неизвестная ошибка.";

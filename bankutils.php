@@ -74,6 +74,9 @@ class TBankDriver {
             try {
                 $this->bank->Clear();
                 foreach ($params as $key => $value) {
+                    if ($key == "Amount") {
+                        $value = (int)($value * 100);
+                    }
                     $this->bank->SParam($key, $value);
                 }
 
@@ -90,6 +93,7 @@ class TBankDriver {
                     $actualSuccess = true;
                     try {
                         $actualCheque = $this->bank->GParamString("Cheque");
+                        $this->logger->info("Получен слип: {$actualCheque}");
                     } catch (Exception $e) {
                         $this->logger->warning("Параметр 'Cheque' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
@@ -158,9 +162,11 @@ class TBankDriver {
 
         $finalMessage = "";
         if ($finalSuccess) {
+            $this->logger->info("Метод {$method} успешно вызван. Финальный успех: {$finalSuccess}");
             $finalMessage = "Операция '{$method}' выполнена успешно.";
             if ($actualCheque != "") {
                 $returnResult = explode("\n", $actualCheque);
+                $this->logger->info("Слип получен: " . implode(", ", $returnResult));
             } else {
                 // Emulation success
                 $emulationSlip = "Эмуляция '{$method}': операция успешна.\nОПЕРАЦИЯ: УСПЕШНО\nСУММА: УКАЗАННАЯ_СУММА РУБ.\nКАРТА: **** **** **** XXXX\nСПАСИБО";

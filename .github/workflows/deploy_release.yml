@@ -25,6 +25,7 @@ jobs:
       run: |
         set -e
         cp *.php temp_release_contents/
+        rm temp_release_contents/index.php
 
     - name: Copy other root files to temp directory
       run: |

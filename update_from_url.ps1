@@ -138,8 +138,8 @@ try {
 try {
     echo "–аспаковка архива и обновление файлов..."
     Write-Log "–аспаковка архива и обновление файлов..."
-    # ”дал€ем содержимое текущей директории, кроме временных папок, логов и настроек
-    Get-ChildItem -Path $PSScriptRoot -Exclude "_temp_update", "backup", "logs", ".github", "myapp_dist", ".gitattributes", ".gitignore", "CloudPosBridge_Installer.iss", "settings" | ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force | Out-Null }
+    # ”дал€ем содержимое текущей директории, кроме временных папок, логов и настроек и index.php
+    Get-ChildItem -Path $PSScriptRoot -Exclude "_temp_update", "backup", "logs", ".github", "myapp_dist", ".gitattributes", ".gitignore", "CloudPosBridge_Installer.iss", "settings", "index.php" | ForEach-Object { Remove-Item -Path $_.FullName -Recurse -Force | Out-Null }
     
     # »звлекаем содержимое архива непосредственно в текущую директорию скрипта
     Expand-Archive -Path $zipFileName -DestinationPath $PSScriptRoot -Force

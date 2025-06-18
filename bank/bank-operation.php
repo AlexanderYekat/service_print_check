@@ -62,7 +62,7 @@ function bank_operation_via_ps1($operation, $amount = null, $logger = null) {
 
     // Ждем появления файла результата (до 30 секунд)
     $waitTime = 0;
-    $maxWait = 30;
+    $maxWait = 120;
     if ($logger) $logger->info("Ожидание появления файла результата: $resultFile (максимум {$maxWait} секунд)");
     while (!file_exists($resultFile) && $waitTime < $maxWait) {
         sleep(1);

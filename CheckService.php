@@ -255,7 +255,8 @@ class CheckService {
         if (isset($altOps[$operation])) {
             $this->logger->info("Попытка операции '$operation' банковской картой: " . $params['amount']);
             require_once __DIR__ . '/bank/bank-operation.php';
-            $result = bank_operation_via_ps1($altOps[$operation], $params['amount'], $this->logger);
+            $value = (int)($params['amount'] * 100);
+            $result = bank_operation_via_ps1($altOps[$operation], $value, $this->logger);
             $this->logger->info("Результат операции '$operation': " . json_encode($result));
             return $result;
         }

@@ -32,9 +32,9 @@ Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createal
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
 ; Копируем все файлы из папки @myapp_dist в подпапку drivers
-Source: "myapp_dist\KKT10-10.10.6.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\KKT10-10.10.0.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\KKT10-10.10.6.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\KKT10-10.10.0.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
 Source: "*.php"; DestDir: "{app}\app"; Flags: 
@@ -114,7 +114,7 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; W
 ; Создание задания планировщика для возврата денег через PowerShell
 ;schtasks.exe /create /tn "BankOperationTask" /tr "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{app}\app\bank\bank-operation.ps1\"" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT
 Filename: "schtasks.exe"; \
-Parameters: "/create /tn ""BankOperationTask"" /tr ""%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File """"{app}\app\bank\bank-operation.ps1"""""" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT"; \
+Parameters: "/create /tn ""BankOperationTask"" /tr ""%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File """"{app}\app\bank\bank-operation.ps1"""""" /sc ONCE /st 00:00 /f /RL HIGHEST /IT"; \
 Flags: runhidden; \
 StatusMsg: "Создание задания BankOperationTask для возврата денег..."
 

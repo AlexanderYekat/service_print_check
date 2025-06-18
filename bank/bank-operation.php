@@ -6,19 +6,24 @@
  * @return array Результат операции
  */
 function bank_return_via_ps1($amount, $logger = null) {
-    if (!is_numeric($amount) || $amount <= 0) {
-        if ($logger) $logger->error("Некорректная сумма для возврата: " . $amount);
-        return ['success' => false, 'message' => 'Некорректная сумма для возврата.'];
-    }
+    return bank_operation_via_ps1('return', $amount, $logger);
+}
 
+/**
+ * Универсальная операция с банковским терминалом через PowerShell-скрипт bank-return.ps1
+ * @param string $operation Тип операции: 'pay', 'return', 'cancel', 'close_shift'
+ * @param float|null $amount Сумма (если требуется)
+ * @param Logger|null $logger Логгер (опционально)
+ * @return array Результат операции
+ */
+function bank_operation_via_ps1($operation, $amount = null, $logger = null) {
     $baseDir = __DIR__;
     $tempDir = $baseDir . DIRECTORY_SEPARATOR . 'temp';
     if (!is_dir($tempDir)) {
         if ($logger) $logger->info("Папка временных файлов не найдена, создаю: $tempDir");
         mkdir($tempDir, 0777, true);
-    } else {
-        if ($logger) $logger->info("Папка временных файлов найдена: $tempDir");
     }
+    $operationFile = $tempDir . DIRECTORY_SEPARATOR . 'operation.txt';
     $amountFile = $tempDir . DIRECTORY_SEPARATOR . 'amount.txt';
     $resultFile = $tempDir . DIRECTORY_SEPARATOR . 'result.json';
 
@@ -28,18 +33,31 @@ function bank_return_via_ps1($amount, $logger = null) {
         @unlink($resultFile);
     }
 
-    // Пишем сумму во временный файл
-    if ($logger) $logger->info("Пишу сумму для возврата в файл: $amountFile (значение: $amount)");
-    file_put_contents($amountFile, $amount);
-    if ($logger) $logger->info("Сумма для возврата успешно записана.");
+    // Пишем тип операции
+    if ($logger) $logger->info("Пишу тип операции в файл: $operationFile (значение: $operation)");
+    file_put_contents($operationFile, $operation);
+    if ($logger) $logger->info("Тип операции успешно записан.");
+
+    // Пишем сумму, если требуется
+    $needAmount = in_array($operation, ['pay','return','cancel']);
+    if ($needAmount) {
+        if (!is_numeric($amount) || $amount <= 0) {
+            if ($logger) $logger->error("Некорректная сумма для операции $operation: " . $amount);
+            return ['success' => false, 'message' => 'Некорректная сумма для операции.'];
+        }
+        if ($logger) $logger->info("Пишу сумму для операции в файл: $amountFile (значение: $amount)");
+        file_put_contents($amountFile, $amount);
+        if ($logger) $logger->info("Сумма для операции успешно записана.");
+    } else {
+        if (file_exists($amountFile)) @unlink($amountFile);
+    }
 
     // Запускаем уже существующее задание
-    $taskName = 'BankReturnTask';
+    $taskName = 'BankOperationTask';
     $runCmd = "schtasks /run /tn \"$taskName\"";
     if ($logger) $logger->info("Запускаю задание планировщика: $runCmd");
     $output = shell_exec($runCmd . " 2>&1");
     $output = iconv('CP866', 'UTF-8', $output);
-    //$output = iconv('Windows-1251', 'UTF-8', $output);
     if ($logger) $logger->info("Ответ от schtasks: $output");
 
     // Ждем появления файла результата (до 30 секунд)
@@ -68,12 +86,10 @@ function bank_return_via_ps1($amount, $logger = null) {
         if ($logger) $logger->error($msg);
         return ['success' => false, 'message' => $msg];
     }
-    if ($logger) $logger->info("Результат возврата через PowerShell: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+    if ($logger) $logger->info("Результат операции через PowerShell: " . json_encode($result, JSON_UNESCAPED_UNICODE));
 
-    // Приведение к единому формату
     $methodWasRunned = true;
     $finalSuccess = isset($result['Success']) ? $result['Success'] : false;
-    //$finalMessage = isset($result['Message']) ? $result['Message'] : '';
     $returnResult = '';
     if ($finalSuccess && isset($result['Cheque'])) {
         $returnResult = $result['Cheque'];

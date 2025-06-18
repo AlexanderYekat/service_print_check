@@ -235,29 +235,35 @@ class CheckService {
     }
 
     public function bankOperation($operation, $params) {
+        // Операции, требующие альтернативного PowerShell-скрипта
+        $altOps = [
+            'PayMoney'    => 'pay',
+            'ReturnMoney' => 'return',
+            'CancelPay'   => 'cancel'
+        ];
+
+        // Операции, требующие сумму
+        $needAmount = [
+            'PayMoneyOld', 'PayMoney', 'ReturnMoney', 'CancelPayOld', 'CancelPay'
+        ];
+
+        if (in_array($operation, $needAmount) && (!isset($params['amount']) || !is_numeric($params['amount']))) {
+            $this->logger->error("Не указана сумма для операции $operation.");
+            return ['success' => false, 'message' => "Не указана сумма для операции $operation."];
+        }
+
+        if (isset($altOps[$operation])) {
+            $this->logger->info("Попытка операции '$operation' банковской картой: " . $params['amount']);
+            require_once __DIR__ . '/bank/bank-operation.php';
+            $result = bank_operation_via_ps1($altOps[$operation], $params['amount'], $this->logger);
+            $this->logger->info("Результат операции '$operation': " . json_encode($result));
+            return $result;
+        }
+
         switch ($operation) {
-            case 'PayMoney':
-                if (!isset($params['amount'])) {
-                    $this->logger->error("Не указана сумма для операции PayMoney.");
-                    return ['success' => false, 'message' => 'Не указана сумма для операции PayMoney.'];
-                }
+            case 'PayMoneyOld':
                 return $this->_executeBankOperation([$this->bankDriver, 'PayMoney'], [$params['amount']], 'PayMoney');
-            case "ReturnMoney":
-                if (!isset($params['amount'])) {
-                    $this->logger->error("Не указана сумма для операции Return2Money.");
-                    return ['success' => false, 'message' => 'Не указана сумма для операции Return2Money.'];
-                }
-                $this->logger->info("Попытка возврата средств Return2Money: " . $params['amount']);
-                // Вызов альтернативного способа возврата через PowerShell-скрипт через bank-return.php
-                require_once __DIR__ . '/bank/bank-return.php';
-                $result = bank_return_via_ps1($params['amount'], $this->logger);
-                $this->logger->info("Результат возврата средств Return2Money: " . json_encode($result));
-                return $result;
-            case 'CancelPay':
-                if (!isset($params['amount'])) {
-                    $this->logger->error("Не указана сумма для операции ReturnMoney.");
-                    return ['success' => false, 'message' => 'Не указана сумма для операции ReturnMoney.'];
-                }
+            case 'CancelPayOld':
                 return $this->_executeBankOperation([$this->bankDriver, 'ReturnMoney'], [$params['amount']], 'ReturnMoney');
             case 'CloseShiftTerminal':
                 return $this->_executeBankOperation([$this->bankDriver, 'CloseShiftTerminal'], [], 'CloseShiftTerminal');

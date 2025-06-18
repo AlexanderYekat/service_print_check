@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.18.01
+AppVersion=2025.06.18.02
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -112,12 +112,11 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDi
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Создание задания планировщика для возврата денег через PowerShell
-;Filename: "schtasks.exe"; Parameters: "/create /tn \"BankReturnTask\" /tr \"powershell.exe -NoProfile -ExecutionPolicy Bypass -File '{app}\app\bank\bank-return.ps1'\" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT"; Flags: runhidden; StatusMsg: "Создание задания BankReturnTask для возврата денег..."
-;schtasks.exe /create /tn "BankReturnTask" /tr "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{app}\app\bank\bank-return.ps1\"" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT
+;schtasks.exe /create /tn "BankOperationTask" /tr "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{app}\app\bank\bank-operation.ps1\"" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT
 Filename: "schtasks.exe"; \
-Parameters: "/create /tn ""BankReturnTask"" /tr ""%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File """"{app}\app\bank\bank-return.ps1"""""" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT"; \
+Parameters: "/create /tn ""BankOperationTask"" /tr ""%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File """"{app}\app\bank\bank-operation.ps1"""""" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT"; \
 Flags: runhidden; \
-StatusMsg: "Создание задания BankReturnTask для возврата денег..."
+StatusMsg: "Создание задания BankOperationTask для возврата денег..."
 
 [UninstallRun]
 ; Остановка службы

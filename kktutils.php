@@ -43,7 +43,7 @@ class TFptr10Driver {
             $result = $this->fptr->Open();
             if ($result !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
-                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
+                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription ?? '');
                 return [false, "Ошибка открытия соединения с ККТ: " . $errorDescription];
             }
             return [$this->IsOpened(), ""];
@@ -143,6 +143,7 @@ class TFptr10Driver {
                 return [false, "Ошибка подключения к ККТ: {$this->GetTypeConnection()} (Код: {$connectErrorDesc})"];
             }
         }
+        $result = -1;
         $shiftOpened = false;
         $commandErrorDesc = "";
         try {
@@ -150,16 +151,17 @@ class TFptr10Driver {
             $result = $this->fptr->QueryData();            
             if ($result !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
-                $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
+                $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription  ?? '');
             }
             $result = $this->fptr->GetParamInt($this->fptr->LIBFPTR_PARAM_SHIFT_STATE);
+            
             $shiftOpened = $result === 1; //LIBFPTR_SS_OPENED = 1
         } catch (Exception $e) {
             $commandErrorDesc = $e->getMessage();
         } finally {
             $this->Close();
         }
-        return [$shiftOpened, $commandErrorDesc];
+        return [$shiftOpened, $commandErrorDesc, $result];
     }
 
     public function PrintXReport(string $cashier) {
@@ -287,6 +289,10 @@ class TFptr10Driver {
         }
 
         // Устанавливаем JSON-команду
+        $comJson = iconv('UTF-8', 'Windows-1251', $comJson  ?? '');
+        if ($comJson === false) {
+            return [false, "", "Ошибка конвертации кодировки"];
+        }
         $this->fptr->setParam($this->fptr->LIBFPTR_PARAM_JSON_DATA, $comJson);
 
         // отправка команды (если не эмуляция)
@@ -294,7 +300,7 @@ class TFptr10Driver {
             $result = $this->fptr->processJson();
             if ($result !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
-                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
+                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription  ?? '');
                 return [false, "", "Ошибка отправки команды на ККТ: {$errorDescription}"];
             }
         } else { // Если эмуляция, возвращаем мок-ответ
@@ -327,9 +333,9 @@ class TFptr10Driver {
         $jsonAnswer = json_decode($jsonAnswer, true);
 
         if ($jsonAnswer === null) {
-            return [false, "", "Ошибка обработки ответа от ККТ"];
+            return [true, "", ""];
         }
-
+        //return [true, "", ""];
         return [true, json_encode($jsonAnswer), ""];
     }
     
@@ -483,7 +489,7 @@ class TFptr10Driver {
         if ($result !== 0) {
             $success = false;
             $errorDescription = $this->fptr->errorDescription();
-            $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription);
+            $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription  ?? '');
         }
         return [$success, $commandErrorDesc];
     }

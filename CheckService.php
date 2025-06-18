@@ -27,8 +27,8 @@ class CheckService {
      * @return array Результат операции.
      */
     private function _executeFptrOperation(callable $operationCallable, array $params, string $operationName): array {
+        
         $this->logger->info("Попытка выполнения операции с ККТ: {$operationName}.");
-
         if ($this->FptrDriver === null) {
             $this->logger->error("Драйвер ККТ не инициализирован для {$operationName}.");
             return ['success' => false, 'message' => 'Драйвер ККТ не инициализирован.'];
@@ -165,8 +165,9 @@ class CheckService {
         }
 
         // Дополнительная проверка на открытую смену
-        list($isShiftOpened, $shiftErrorDesc) = $this->FptrDriver->IsShiftOpened();
-        //$this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc);
+        list($isShiftOpened, $shiftErrorDesc, $constOfSmeny) = $this->FptrDriver->IsShiftOpened();
+        $this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc . ", constOfSmeny=" . $constOfSmeny);
+        ////$this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc);
         if (!$isShiftOpened && $shiftErrorDesc === "") {
             $this->logger->warning(message: "Смена уже закрыта");
             return ['success' => false, 'message' => 'Ошибка закрытия смены: смена уже закрыта'];

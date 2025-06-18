@@ -47,7 +47,7 @@ class TScale8Driver {
                         $this->logger->info("Устройство успешно добавлено.");
                     } else {
                         $addResultDescription = $this->scale->ResultDescription;
-                        $addResultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $addResultDescription);
+                        $addResultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $addResultDescription  ?? '');
                         $this->logger->error("Ошибка при добавлении устройства: {$addResultDescription} (Код: {$addResult})");
                         if (!$this->emulation) {
                             return [false, "Ошибка при добавлении устройства: {$addResultDescription}"];
@@ -71,7 +71,7 @@ class TScale8Driver {
             $this->scale->DeviceEnabled = true;
 
             $resultDescription = $this->scale->ResultDescription;
-            $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription);
+            $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription  ?? '');
 
             if (!$this->scale->DeviceEnabled) {
                 $this->logger->error("Весы не подключены: {$resultDescription}");
@@ -109,7 +109,7 @@ class TScale8Driver {
                 return [true, "", $weight];
             } else {
                 $resultDescription = $this->scale->ResultDescription;
-                $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription);
+                $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription  ?? '');
                 $this->logger->error("Ошибка получения веса: {$resultDescription}.");
                 if (!$this->emulation) {
                     return [false, "Ошибка получения веса: {$resultDescription}", 0.0];

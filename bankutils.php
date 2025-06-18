@@ -80,6 +80,13 @@ class TBankDriver {
                     $this->bank->SParam($key, $value);
                 }
 
+                if ($nFunCode === 4002) {
+                    $this->logger->info("Track2");
+                    $this->bank->SParam("Track2", "QSELECT");
+                    $this->logger->info("Установка RRN");
+                    $this->bank->SParam("RRN", "00000000000");
+                }
+
                 if ($nFunCode !== 0) {
                     $this->logger->info("Вызов NFun с кодом {$nFunCode}");
                     $resultCode = $this->bank->NFun($nFunCode);
@@ -93,7 +100,7 @@ class TBankDriver {
                     $actualSuccess = true;
                     try {
                         $actualCheque = $this->bank->GParamString("Cheque");
-                        $this->logger->info("Получен слип (кодировка Win): {$actualCheque}");
+                        $this->logger->info("Получен слип (кодировка win): {$actualCheque}");
                     } catch (Exception $e) {
                         $this->logger->warning("Параметр 'Cheque' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
@@ -102,7 +109,8 @@ class TBankDriver {
                     $actualSuccess = false;
                     try {
                         $actualErrorDescription = $this->bank->GParamString("ResultDescription");
-                        $actualErrorDescription = iconv('CP866', 'UTF-8//IGNORE', $actualErrorDescription ?? '');
+                        $actualErrorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $actualErrorDescription ?? '');
+                        //$actualErrorDescription = iconv('CP866', 'UTF-8//IGNORE', $actualErrorDescription ?? '');
                         if ($actualErrorDescription != "") {
                             $this->logger->warning("Получено описание ошибки: {$actualErrorDescription}");
                         }
@@ -173,7 +181,8 @@ class TBankDriver {
                 $actualCheque = file_get_contents(__DIR__ . "/samples/p");
             }
             $this->logger->info("Получен слип (кодировка Windows): " . $actualCheque);
-            $actualCheque = iconv('CP866', 'UTF-8//IGNORE', $actualCheque  ?? '');
+            //$actualCheque = iconv('CP866', 'UTF-8//IGNORE', $actualCheque  ?? '');
+            $actualCheque = iconv('Windows-1251', 'UTF-8//IGNORE', $actualCheque  ?? '');
             $this->logger->info("Получен слип (кодировка UTF-8): " . $actualCheque);
             $lines = explode("\n", $actualCheque);
             // фильтруем массив по двум условиям
@@ -202,7 +211,8 @@ class TBankDriver {
 
     public function ReturnMoney(float $amount): array {
         $this->logger->info("Попытка возврата по безналу. Сумма: {$amount}.");
-        return $this->callBankMethod("NFun", ["Amount" => $amount], 4002);
+        return $this->callBankMethod("NFun", ["Amount" => $amount], 6004);
+        //return $this->callBankMethod("NFun", ["Amount" => $amount], 4002);
     }
 
     public function CloseShiftTerminal(): array {

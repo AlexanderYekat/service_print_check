@@ -5,18 +5,26 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+//$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
-if ($origin === 'null') {
-    header("Access-Control-Allow-Origin: null");
-} elseif ($origin) {
-    header("Access-Control-Allow-Origin: $origin");
-} else {
-    header("Access-Control-Allow-Origin: *");
-}
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-header("Access-Control-Allow-Private-Network: true");
+//if ($origin === 'null') {
+//    header("Access-Control-Allow-Origin: null");
+//} elseif ($origin) {
+//    header("Access-Control-Allow-Origin: $origin");
+//} else {
+//    header("Access-Control-Allow-Origin: *");
+//}
+//header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+//header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+//header("Access-Control-Allow-Private-Network: true");
+
+header('Access-Control-Allow-Origin: *'); 
+header("Access-Control-Allow-Credentials: true");
+header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Authorization');
+
+
+
 
 define('VERSION_OF_PROGRAM', '2025_06_17_1901');
 define('SETTINGS_DIR', __DIR__ . '/settings');

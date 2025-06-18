@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_06_17_1901');
+define('VERSION_OF_PROGRAM', '2025_06_18_1136');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -37,7 +37,7 @@ require_once 'kktutils.php';
 require_once 'models.php';
 require_once 'settings_storage/JsonFileSettingsStorage.php';
 require_once 'logger.php'; // Подключаем наш новый логгер
-require_once 'bankutils.php'; // Подключаем утилиты для работы с банком
+require_once 'bank/bankutils.php'; // Подключаем утилиты для работы с банком
 
 // Глобальные переменные (эти строки будут удалены или закомментированы)
 // $glFptrDriver = new TFptr10Driver();

@@ -202,8 +202,8 @@ class Handler {
             $this->sendHandlerResponse("error", $result['message']);
             return;
         }
-        $this->logger->info("HandleBankOperation: Банковская операция выполнена.");
-        $this->sendHandlerResponse("success", "Банковская операция выполнена", $result['data']);
+        $this->logger->info("HandleBankOperation: Банковская операция была отпралена на терминал.");
+        $this->sendHandlerResponse("success", "Банковская операция была отпралена на терминал", $result['data']);
     }
 
     public function HandleGetWeight() {

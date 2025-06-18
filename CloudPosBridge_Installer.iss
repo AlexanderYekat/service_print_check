@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.17.04
+AppVersion=2025.06.18.01
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -21,26 +21,21 @@ Compression=lzma
 
 [Tasks]
 Name: desktopicon; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительные ярлыки:";
-Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:";
+Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:"; Flags: unchecked
 Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку сбербанка (sbrf.dll из папки c:\sc552) для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
 Name: install_fdu_driver; Description: "Установить драйвер вкесов (FDU_8_28_18_00_Full.EXE)"; GroupDescription: "Установка драйверов:";
-; Name: install_kkt_driver; Description: "Установить драйвер ККТ (АТОЛ) 32-битный"; GroupDescription: "Установка драйверов:";
 
 [Files]
 ; Копируем все файлы из папки @myapp_dist/php в подпапку {app}\php
 Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createallsubdirs
-; Копируем все файлы из папки @myapp_dist/app в подпапку {app}\app
-; Source: "myapp_dist\app\*"; DestDir: "{app}\app"; Flags: recursesubdirs createallsubdirs
 ; Копируем nssm.exe из папки @myapp_dist/nssm в подпапку {app}\nssm
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
-; --- Новые правила копирования DLL-файлов из myapp_dist в подпапку drivers --- 
 ; Копируем все файлы из папки @myapp_dist в подпапку drivers
 Source: "myapp_dist\KKT10-10.10.6.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\KKT10-10.10.0.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
-; --- Новые правила копирования файлов программы из текущей папки --- 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
 Source: "*.php"; DestDir: "{app}\app"; Flags: 
 ; Копируем README.md в {app}\app
@@ -53,6 +48,8 @@ Source: "settings_storage\*"; DestDir: "{app}\app\settings_storage"; Flags: recu
 Source: "samples\*"; DestDir: "{app}\app\samples"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки resource в {app}\app\resource
 Source: "resource\*"; DestDir: "{app}\app\resource"; Flags: recursesubdirs createallsubdirs
+; Копируем файлы из папки bank в {app}\app\bank
+Source: "bank\*"; DestDir: "{app}\app\bank"; Flags: recursesubdirs createallsubdirs
 ; Копируем все powershell скрипты из корневой папки приложения в {app}\app
 Source: "*.ps1"; DestDir: "{app}\app"; Flags: 
 
@@ -61,6 +58,7 @@ Source: "*.ps1"; DestDir: "{app}\app"; Flags:
 Name: "{app}\app\settings"
 Name: "{app}\app\logs"
 Name: "{app}\drivers"
+Name: "{app}\app\bank\temp"
 
 [Icons]
 ; Ярлык в папке установки (всегда создается)
@@ -79,16 +77,13 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP "
 ; Регистрация DLL-библиотек
 Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll..."; Tasks: register_sbrf_dll
 
-; Установка драйвера ККТ
+; Установка драйвера ККТ и драйвера весов
 Filename: "{app}\drivers\KKT10-10.10.0.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
 Filename: "{app}\drivers\KKT10-10.10.6.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
 Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера FDU..."; Tasks: install_fdu_driver
 
 ; Установка параметров приложения для PHP (тестовый скрипт)
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
-;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f """"{app}\app\index.php"""""""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
-;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs \""-f {app}\app\index.php\""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden
-;Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeService AppArgs ""-f"" ""..\app\index.php"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
 
 ; Установка отображаемого имени службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP DisplayName ""CloudPosBridgePHP Service"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridgePHP Service..."; Flags: runhidden
@@ -115,6 +110,14 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDi
 
 ; Запуск службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
+
+; Создание задания планировщика для возврата денег через PowerShell
+;Filename: "schtasks.exe"; Parameters: "/create /tn \"BankReturnTask\" /tr \"powershell.exe -NoProfile -ExecutionPolicy Bypass -File '{app}\app\bank\bank-return.ps1'\" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT"; Flags: runhidden; StatusMsg: "Создание задания BankReturnTask для возврата денег..."
+;schtasks.exe /create /tn "BankReturnTask" /tr "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{app}\app\bank\bank-return.ps1\"" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT
+Filename: "schtasks.exe"; \
+Parameters: "/create /tn ""BankReturnTask"" /tr ""%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File """"{app}\app\bank\bank-return.ps1"""""" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT"; \
+Flags: runhidden; \
+StatusMsg: "Создание задания BankReturnTask для возврата денег..."
 
 [UninstallRun]
 ; Остановка службы

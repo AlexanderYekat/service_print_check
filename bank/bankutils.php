@@ -118,40 +118,7 @@ class TBankDriver {
                          $this->logger->warning("Параметр 'ResultDescription' не найден или произошла ошибка при его получении: " . $e->getMessage());
                     }
                     // Очищаем описание ошибки от невалидных символов для JSON
-                    $RashivrovkaKodaOshibki = "";
-                    if ($resultCode === 99 || $resultCode === 4120) {
-                        $RashivrovkaKodaOshibki = "нет связи с банковским терминалом";
-                    }
-                    if ($resultCode === 403 || $resultCode === 4455) {
-                        $RashivrovkaKodaOshibki = "неверний ПИК-код";
-                    }
-                    if ($resultCode === 4451 || $resultCode === 521) {
-                        $RashivrovkaKodaOshibki = "недостаточно средств";
-                    }
-                    if ($resultCode === 253) {
-                        $RashivrovkaKodaOshibki = "аппартаный сбой";
-                    }
-                    if ($resultCode === 2000) {
-                        $RashivrovkaKodaOshibki = "операция отменена пользователем";
-                    }
-                    if ($resultCode === 2002) {
-                        $RashivrovkaKodaOshibki = "клиент слишком долго вводил ПИК-код";
-                    }
-                    if ($resultCode === 4100 || $resultCode === 4119) {
-                        $RashivrovkaKodaOshibki = "нет связи с банком";
-                    }
-                    if ($resultCode === 4134) {
-                        $RashivrovkaKodaOshibki = "на терминале давно не закрывали бакновскую смену";
-                    }
-                    if ($resultCode === 4401) {
-                        $RashivrovkaKodaOshibki = "нужно позвонить в банк";
-                    }
-                    if ($resultCode === 4404 || $resultCode === 4407 || $resultCode === 4141 || $resultCode === 4143) {
-                        $RashivrovkaKodaOshibki = "получена команда изъять карту";
-                    }
-                    if ($resultCode === 4451 || $resultCode === 5109) {
-                        $RashivrovkaKodaOshibki = "карта просрочена";
-                    }
+                    $RashivrovkaKodaOshibki = $this->decodeErrorCode($resultCode);
                     if ($actualErrorDescription == "") {
                         $actualErrorDescription = "Ошибка при вызове метода {$method} (c кодом операции {$nFunCode}) (код ошибки: {$resultCode}) банковского терминала: {$RashivrovkaKodaOshibki}";
                     }
@@ -218,5 +185,41 @@ class TBankDriver {
     public function CloseShiftTerminal(): array {
         $this->logger->info("Попытка закрытия смены терминала.");
         return $this->callBankMethod("NFun", [], 6000);
+    }
+
+    private function decodeErrorCode(int $resultCode): string {
+        switch ($resultCode) {
+            case 99:
+            case 4120:
+                return "нет связи с банковским терминалом";
+            case 4100:
+            case 4119:
+                return "нет связи с банком";
+            case 403:
+            case 4455:
+                return "неверный ПИН-код";
+            case 4451:
+            case 521:
+                return "недостаточно средств";
+            case 253:
+                return "аппаратный сбой";
+            case 2000:
+                return "операция отменена пользователем";
+            case 2002:
+                return "клиент слишком долго вводил ПИК-код";
+            case 4134:
+                return "на терминале давно не закрывали банковскую смену";
+            case 4401:
+                return "нужно позвонить в банк";
+            case 4404:
+            case 4407:
+            case 4141:
+            case 4143:
+                return "получена команда изъять карту";
+            case 5109:
+                return "карта просрочена";
+            default:
+                return "";
+        }
     }
 } 

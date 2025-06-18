@@ -242,7 +242,18 @@ class CheckService {
                     return ['success' => false, 'message' => 'Не указана сумма для операции PayMoney.'];
                 }
                 return $this->_executeBankOperation([$this->bankDriver, 'PayMoney'], [$params['amount']], 'PayMoney');
-            case 'ReturnMoney':
+            case "ReturnMoney":
+                if (!isset($params['amount'])) {
+                    $this->logger->error("Не указана сумма для операции Return2Money.");
+                    return ['success' => false, 'message' => 'Не указана сумма для операции Return2Money.'];
+                }
+                $this->logger->info("Попытка возврата средств Return2Money: " . $params['amount']);
+                // Вызов альтернативного способа возврата через PowerShell-скрипт через bank-return.php
+                require_once __DIR__ . '/bank/bank-return.php';
+                $result = bank_return_via_ps1($params['amount'], $this->logger);
+                $this->logger->info("Результат возврата средств Return2Money: " . json_encode($result));
+                return $result;
+            case 'CancelPay':
                 if (!isset($params['amount'])) {
                     $this->logger->error("Не указана сумма для операции ReturnMoney.");
                     return ['success' => false, 'message' => 'Не указана сумма для операции ReturnMoney.'];

@@ -99,6 +99,22 @@ function bank_operation_via_ps1($operation, $amount = null, $logger = null) {
     $coderesult = isset($result['CodeReturn']) ? $result['CodeReturn'] : 0;
     if ($coderesult > 0) {
         $returnResult = $returnResult . decodeErrorCode($coderesult);
+    } else {
+        if ($logger) $logger->info("Получен слип (кодировка Windows): " . $returnResult);
+        $returnResult = iconv('Windows-1251', 'UTF-8//IGNORE', $returnResult  ?? '');
+        if ($logger) $logger->info("Получен слип (кодировка UTF-8): " . $returnResult);
+        $lines = explode("\n", $returnResult);
+        // фильтруем массив по двум условиям
+        $returnResult = array_filter($lines, function($value) {
+            // Условие 1: Строка не должна быть пустой (или состоять из пробелов)
+            $is_not_empty = trim($value) !== '';    
+            // Условие 2: В строке не должна содержаться подстрока '~S'
+            $does_not_contain_S = strpos($value, '~S') === false;
+            // Возвращаем true (оставляем элемент), только если ОБА условия выполняются
+            return $is_not_empty && $does_not_contain_S;
+        });
+        $returnResult = array_values($returnResult);
+        if ($logger) $logger->info("Слип после очистки служебюных и пустых строк: " . json_encode($returnResult));
     }
 
     return [

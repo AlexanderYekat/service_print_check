@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.06.18.02
+AppVersion=2025.06.18.04
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -111,10 +111,9 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDi
 ; Запуск службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
 
-; Создание задания планировщика для возврата денег через PowerShell
-;schtasks.exe /create /tn "BankOperationTask" /tr "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{app}\app\bank\bank-operation.ps1\"" /sc ONCE /st 00:00 /ru SYSTEM /f /RL HIGHEST /IT
+; Создание задания планировщика для работы с банковским терминалом
 Filename: "schtasks.exe"; \
-Parameters: "/create /tn ""BankOperationTask"" /tr ""%SystemRoot%\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File """"{app}\app\bank\bank-operation.ps1"""""" /sc ONCE /st 00:00 /f /RL HIGHEST /IT"; \
+Parameters: "/create /tn ""BankOperationTask"" /tr ""{app}\app\bank\mainbeznal.exe"" /sc ONCE /st 00:00 /f"; \
 Flags: runhidden; \
 StatusMsg: "Создание задания BankOperationTask для возврата денег..."
 
@@ -125,6 +124,7 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "stop CloudPosBridgeServicePHP"; Wo
 Filename: "{app}\nssm\nssm.exe"; Parameters: "remove CloudPosBridgeServicePHP confirm"; WorkingDir: "{app}\nssm"; Flags: runhidden; RunOnceId: "remove_service"
 
 [UninstallDelete]
+Type: filesandordirs; Name: "{app}\app\settings"; Check: ShouldDeleteSettings
 Type: filesandordirs; Name: "{app}"
 
 [Messages]
@@ -133,6 +133,7 @@ WelcomeLabel2=Добро пожаловать в мастер установки
 [Code]
 var
   KKTDriverPage: TInputOptionWizardPage;
+  DeleteSettingsCheck: TCheckBox;
 
 function InitializeSetup(): Boolean;
 begin
@@ -151,6 +152,34 @@ begin
   
   // По умолчанию выбираем "не устанавливать" (индекс 0)
   KKTDriverPage.SelectedValueIndex := 2;
+end;
+
+var
+  DeleteSettingsFlag: Boolean;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+  DeleteSettingsFlag := False; // По умолчанию не удаляем
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    // Показываем диалог перед началом удаления файлов
+    if MsgBox('Удалить папку с настройками приложения?' + #13#10 + 
+              'Если вы планируете переустановить приложение, рекомендуется сохранить настройки.', 
+              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    begin
+      DeleteSettingsFlag := True;
+    end;
+  end;
+end;
+
+function ShouldDeleteSettings(): Boolean;
+begin
+  Result := DeleteSettingsFlag;
 end;
 
 function ShouldInstallOldKKTDriver(): Boolean;

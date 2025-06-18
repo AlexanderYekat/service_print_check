@@ -155,7 +155,7 @@ class TFptr10Driver {
             }
             $result = $this->fptr->GetParamInt($this->fptr->LIBFPTR_PARAM_SHIFT_STATE);
             
-            $shiftOpened = $result === 1; //LIBFPTR_SS_OPENED = 1
+            $shiftOpened = ($result === 1 || $result === 2); //LIBFPTR_SS_OPENED = 1, LIBFPTR_SS_EXCHANGE = 2
         } catch (Exception $e) {
             $commandErrorDesc = $e->getMessage();
         } finally {

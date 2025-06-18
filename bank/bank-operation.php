@@ -100,8 +100,8 @@ function bank_operation_via_ps1($operation, $amount = null, $logger = null) {
     if ($coderesult > 0) {
         $returnResult = $returnResult . decodeErrorCode($coderesult);
     } else {
-        if ($logger) $logger->info("Получен слип (кодировка Windows): " . $returnResult);
-        $returnResult = iconv('Windows-1251', 'UTF-8//IGNORE', $returnResult  ?? '');
+        //if ($logger) $logger->info("Получен слип (кодировка Windows): " . $returnResult);
+        //$returnResult = iconv('Windows-1251', 'UTF-8//IGNORE', $returnResult  ?? '');
         if ($logger) $logger->info("Получен слип (кодировка UTF-8): " . $returnResult);
         $lines = explode("\n", $returnResult);
         // фильтруем массив по двум условиям

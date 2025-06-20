@@ -5,6 +5,9 @@ samples/screenshots/
 .gigaide/
 _temp_update/
 
+!myapp_dist/
+!myapp_dist/*.exe
+
 # Логи
 logs/*.txt
 backup/
@@ -40,3 +43,4 @@ server.key
 .qodo
 allfiles.txt
 zap.txt
+myapp_dist.7z

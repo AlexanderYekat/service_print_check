@@ -34,7 +34,7 @@ class Handler {
             return;
         }
 
-        $result = $this->checkService->printCheck($checkData);
+        $result = $this->checkService->processPrintCheck($checkData);
         if (!$result['success']) {
             $this->logger->error("HandlePrintCheck: Ошибка печати чека: " . $result['message']);
             http_response_code(500);
@@ -222,6 +222,31 @@ class Handler {
         }
         $this->logger->info("HandleGetWeight: Вес получен.");
         $this->sendHandlerResponse("success", "Вес получен", $result['data']);
+    }
+
+    public function HandleAddCheckPosition() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->logger->warning("HandleAddCheckPosition: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $session_id = $data['session_id'] ?? null;
+        $position = $data['position'] ?? null;
+        if (!$session_id || !$position) {
+            http_response_code(400);
+            $this->sendHandlerResponse("error", 'Не передан session_id или position');
+            return;
+        }
+        $result = $this->checkService->addCheckPosition($session_id, $position);
+        if (!$result['success']) {
+            http_response_code(400);
+            $this->sendHandlerResponse("error", $result['message']);
+            return;
+        }
+        $this->sendHandlerResponse("success", "Позиция добавлена", $result);
     }
 
     private function sendHandlerResponse($type, $message, $data = [], $id = "") {

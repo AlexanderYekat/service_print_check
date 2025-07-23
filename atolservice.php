@@ -39,6 +39,12 @@ require_once 'settings_storage/JsonFileSettingsStorage.php';
 require_once 'logger.php'; // Подключаем наш новый логгер
 require_once 'bank/bankutils.php'; // Подключаем утилиты для работы с банком
 
+// === Глобальный массив для хранения позиций чека по session_id ===
+global $CHECK_SESSIONS;
+if (!isset($CHECK_SESSIONS)) {
+    $CHECK_SESSIONS = [];
+}
+
 // Глобальные переменные (эти строки будут удалены или закомментированы)
 // $glFptrDriver = new TFptr10Driver();
 // $currentSettings = new Settings();
@@ -474,6 +480,8 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
+    } elseif ($uri === '/api/add-check-position' && $method === 'POST') {
+        $fetchHandler->HandleAddCheckPosition();
     } elseif (strpos($uri, '/static/') === 0 && $method === 'GET') {
         // Обработка статических файлов (CSS, JS)
         $filePath = __DIR__ . $uri;

@@ -427,7 +427,12 @@ class TFptr10Driver {
                 "amount" => $price * $quantity,
                 "tax" => [
                     "type" => $taxType
-                ]
+                ],
+                // Новые поля для маркированных товаров
+                "mark_code" => $item['mark_code'] ?? null,
+                "position_id" => $item['position_id'] ?? null,
+                "mark_status" => $item['mark_status'] ?? null,
+                "mark_check_result" => $item['mark_check_result'] ?? null
             ];
         }
     }

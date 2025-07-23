@@ -88,7 +88,7 @@ class CheckService {
         }
     }
 
-    public function printCheck($checkData) {
+    public function printCheck($checkData): array {
         // Проверяем, что $checkData является массивом
         if (!is_array($checkData)) {
             $this->logger->error("Неверный формат данных чека: данные не являются массивом.");
@@ -152,6 +152,90 @@ class CheckService {
         $this->logger->info("Попытка 3 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
 
         return $result;
+    }
+
+    /**
+     * Универсальная обработка печати чека с поддержкой обратной совместимости
+     */
+    public function processPrintCheck($data): array {
+        $session_id = $data['session_id'] ?? null;
+        $cashier = $data['cashier'] ?? '';
+        $payments = $data['payments'] ?? [];
+        $type = $data['type'] ?? 'sell';
+        if ($session_id) {
+            global $CHECK_SESSIONS;
+            $positions = $CHECK_SESSIONS[$session_id] ?? [];
+            if (empty($positions)) {
+                return ['success' => false, 'message' => 'Нет позиций для данного session_id', 'http_code' => 400];
+            }
+            foreach ($positions as $pos) {
+                if (!empty($pos['mark_code']) && ($pos['mark_kkt_status'] ?? 'ожидание') === 'ожидание') {
+                    return ['success' => false, 'message' => 'Есть маркированные позиции со статусом проверки ККТ: ожидание. Чек не может быть пробит.', 'http_code' => 400];
+                }
+            }
+            $checkData = [
+                'tableData' => $positions,
+                'cashier' => $cashier,
+                'payments' => $payments,
+                'type' => $type,
+                'taxationType' => $data['taxationType'] ?? null
+            ];
+            $result = $this->printCheck($checkData);
+            if (!$result['success']) {
+                return ['success' => false, 'message' => $result['message'], 'http_code' => 500];
+            }
+            unset($CHECK_SESSIONS[$session_id]);
+            return ['success' => true, 'data' => $result['data']];
+        } else {
+            return $this->printCheck($data);
+
+        }
+    }
+
+    /**
+     * Добавление позиции в чек (в память по session_id)
+     */
+    public function addCheckPosition($session_id, $position) {
+        global $CHECK_SESSIONS;
+        if (!$session_id || !$position) {
+            return ['success' => false, 'message' => 'Не передан session_id или position'];
+        }
+        // Генерируем position_id, если не передан
+        if (empty($position['position_id'])) {
+            $position['position_id'] = uniqid('pos_', true);
+        }
+        // Проверка марки (разрешительный режим)
+        if (!empty($position['mark_code'])) {
+            $rr_result = checkMarkPermitAPI($position['mark_code']);
+            $position['mark_permit_status'] = $rr_result['status'];
+            $position['mark_permit_result'] = $rr_result['result'];
+            $position['mark_kkt_status'] = 'ожидание';
+        }
+        // Добавляем позицию в массив
+        if (!isset($CHECK_SESSIONS[$session_id])) {
+            $CHECK_SESSIONS[$session_id] = [];
+        }
+        $CHECK_SESSIONS[$session_id][] = $position;
+        return [
+            'success' => true,
+            'position_id' => $position['position_id'],
+            'mark_permit_status' => $position['mark_permit_status'] ?? null,
+            'mark_permit_result' => $position['mark_permit_result'] ?? null,
+            'mark_kkt_status' => $position['mark_kkt_status'] ?? null
+        ];
+    }
+
+    /**
+     * Синхронная проверка марки через localhost API (разрешительный режим)
+     * Здесь пока заглушка, но можно реализовать реальный HTTP-запрос
+     */
+    private function checkMarkPermitAPI($mark_code) {
+        // TODO: заменить на реальный HTTP-запрос к API разрешительного режима
+        // Пример успешного разрешения:
+        return [
+            'status' => 'разрешено',
+            'result' => 'Марка разрешена (заглушка)'
+        ];
     }
 
     /**

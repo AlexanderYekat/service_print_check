@@ -45,6 +45,7 @@
     <button class="button" onclick="bankOperationPayment()">Оплата по терминалу</button>
     <button class="button" onclick="bankOperationReturn()">Возврат по терминалу</button>
     <button class="button" onclick="getProgramVersion()">Получить версию программы</button>
+    <button class="button" onclick="checkRR()">Разрешительный режим</button>
 
     <div id="status_display" class="result" style="background-color: #f0f0f0; border-color: #ccc;"></div>
     <div id="saved_slip_display" class="result" style="background-color: #e0ffe0; border-color: #ccffcc;"><h3>Сохраненный банковский слип:</h3><pre id="slip_content"></pre></div>
@@ -373,6 +374,26 @@
             } catch (error) {
                 document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
             }
+        }
+
+        async function checkRR() {
+            try {
+                console.log('checkRR');
+                const response = await fetch(`${API_URL}/api/checkrr`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const textResponse = await response.text();
+                try {
+                    const data = JSON.parse(textResponse);
+                    handleJsonResponse(data, 'status_display');
+                } catch (jsonError) {
+                    // If it's not JSON, assume it's just the version string
+                    document.getElementById('status_display').textContent = `Ответ: ${textResponse}`;
+                }
+            } catch (error) {
+                document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
+            }            
         }
 
         // Вызываем функцию при загрузке страницы и скрываем блок слипа по умолчанию

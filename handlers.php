@@ -4,7 +4,9 @@
 require_once 'models.php';   // Здесь структура CheckData и ApiResponse
 require_once 'validators.php'; // Новый валидатор
 require_once 'CheckService.php'; // Новый сервис
+require_once 'chznaklrr.php'; // Подключаем честный знак РР
 require_once 'logger.php'; // Подключаем логгер
+
 
 class Handler {
     private $checkService;
@@ -222,6 +224,19 @@ class Handler {
         }
         $this->logger->info("HandleGetWeight: Вес получен.");
         $this->sendHandlerResponse("success", "Вес получен", $result['data']);
+    }
+
+    public function HandleCheckRR() {
+        $result = getCdnInfo();
+        if ($result['success']) {
+            $this->logger->info("HandleCheckRR: CDN - получены");
+            $this->sendHandlerResponse("success", "CDN - получены", $result['data']);
+        } else {
+            $this->sendHandlerResponse("error", $result['message']);    
+            $errstr = $result['message'];
+            $this->logger->error("HandleCheckRR: CDN - не получены ($errstr)");
+        }
+        //$this->sendHandlerResponse("success", "CDN - получены", $result['data']);
     }
 
     public function HandleAddCheckPosition() {

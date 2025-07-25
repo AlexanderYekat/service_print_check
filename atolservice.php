@@ -482,6 +482,8 @@ function runServer() {
         $fetchHandler->HandlePrintBankSlip();
     } elseif ($uri === '/api/add-check-position' && $method === 'POST') {
         $fetchHandler->HandleAddCheckPosition();
+    } elseif ($uri === '/api/checkrr' && $method === 'GET') {
+        $fetchHandler->HandleCheckRR();
     } elseif (strpos($uri, '/static/') === 0 && $method === 'GET') {
         // Обработка статических файлов (CSS, JS)
         $filePath = __DIR__ . $uri;

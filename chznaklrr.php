@@ -2,23 +2,90 @@
 
 require_once 'logger.php'; // Подключаем логгер
 
+// Подключаем библиотеку phpdotenv если она установлена
+if (class_exists('Dotenv\Dotenv')) {
+    $dotenv = \Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv->load();
+}
+
+/**
+ * Получить конфигурационное значение из .env с fallback значением
+ * @param string $key
+ * @param string|null $default
+ * @return string|null
+ */
+function getEnvConfig($key, $default = null) {
+    // Сначала проверяем переменные окружения
+    $value = getenv($key);
+    if ($value !== false) {
+        return $value;
+    }
+    
+    // Если переменная окружения не найдена, читаем из .env файла
+    $envFile = __DIR__ . '/.env';
+    if (!file_exists($envFile)) {
+        return $default;
+    }
+    
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || $line[0] === '#') {
+            continue; // Пропускаем пустые строки и комментарии
+        }
+        
+        if (strpos($line, $key . '=') === 0) {
+            $value = trim(substr($line, strlen($key . '=')));
+            // Убираем кавычки если они есть
+            if (($value[0] === '"' && substr($value, -1) === '"') || 
+                ($value[0] === "'" && substr($value, -1) === "'")) {
+                $value = substr($value, 1, -1);
+            }
+            return $value;
+        }
+    }
+    
+    return $default;
+}
 
 /**
  * Получить X-API-KEY из .env
  * @return string|false
  */
 function getApiTokenFromEnv() {
-    $envFile = __DIR__ . '/.env';
-    if (!file_exists($envFile)) {
-        return false;
+    $token = getEnvConfig('X_API_KEY');
+    return $token ?: false;
+}
+
+/**
+ * Получить конфигурацию CDN хостов
+ * @param bool $production
+ * @return array
+ */
+function getCdnConfig($production = true) {
+    if ($production) {
+        return [
+            'host' => getEnvConfig('CDN_PROD_HOST', 'https://cdn.crpt.ru'),
+            'sandbox_host' => getEnvConfig('CDN_SANDBOX_HOST', 'https://markirovka.sandbox.crptech.ru')
+        ];
     }
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos($line, 'X_API_KEY=') === 0) {
-            return trim(substr($line, strlen('X_API_KEY=')));
-        }
-    }
-    return false;
+    return [
+        'host' => getEnvConfig('CDN_SANDBOX_HOST', 'https://markirovka.sandbox.crptech.ru'),
+        'sandbox_host' => getEnvConfig('CDN_PROD_HOST', 'https://cdn.crpt.ru')
+    ];
+}
+
+/**
+ * Получить конфигурацию локального модуля ЧЗ
+ * @return array
+ */
+function getLmczConfig() {
+    return [
+        'host' => getEnvConfig('LMCZ_HOST', 'http://127.0.0.1:5995'),
+        'username' => getEnvConfig('LMCZ_USERNAME', 'admin'),
+        'password' => getEnvConfig('LMCZ_PASSWORD', 'admin'),
+        'basic_auth' => getEnvConfig('LMCZ_BASIC_AUTH', 'YWRtaW46YWRtaW4=') // admin:admin в base64
+    ];
 }
 
 /**
@@ -37,15 +104,18 @@ function performCurlRequest($url, $headers, $postFields = null, $timeout = 30) {
         'message' => '',
         'timeout' => false
     ];
+    
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+    
     if ($postFields !== null) {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
     }
+    
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
@@ -53,16 +123,29 @@ function performCurlRequest($url, $headers, $postFields = null, $timeout = 30) {
     curl_close($ch);
     
     $result['http_code'] = $httpCode;
+    $result['response'] = $response;
+    
+    // Детальное логирование для диагностики
+    $logContext = [
+        'url' => $url,
+        'http_code' => $httpCode,
+        'curl_errno' => $curlErrno,
+        'curl_error' => $curlError,
+        'response_length' => $response ? strlen($response) : 0,
+        'timeout' => $timeout
+    ];
     
     // Проверяем на таймаут
     if ($curlErrno == CURLE_OPERATION_TIMEDOUT || $curlErrno == CURLE_OPERATION_TIMEOUTED) {
         $result['timeout'] = true;
         $result['message'] = 'Превышен таймаут ожидания ответа';
+        logger('CURL timeout: ' . json_encode($logContext));
         return $result;
     }
     
     if ($response === false || $httpCode !== 200) {
         $result['message'] = 'не удалось получить данные';
+        
         if ($curlError) {
             if (strpos($curlError, 'SSL certificate') !== false) {
                 $result['message'] = "Ошибка безопасности: не удалось проверить подлинность сервера (SSL).\n"
@@ -73,16 +156,21 @@ function performCurlRequest($url, $headers, $postFields = null, $timeout = 30) {
                     . "1. Сообщите администратору или техническому специалисту.\n"
                     . "2. Проверьте, что файл cacert.pem скачан с https://curl.se/ca/cacert.pem и путь к нему прописан в php.ini (curl.cainfo).\n"
                     . "3. Если не помогло — обратитесь в поддержку.";
+                logger('SSL certificate error: ' . json_encode($logContext));
             } else {
-                $result['message'] .= ", CURL error: $curlError";
+                $result['message'] .= ", CURL error: $curlError (errno: $curlErrno)";
+                logger('CURL error: ' . json_encode($logContext));
             }
         } else {
-            $result['message'] .= ", HTTP code: $httpCode, response: '" . var_export($response, true) . "'";
+            $result['message'] .= ", HTTP code: $httpCode";
+            // Логируем первые 500 символов ответа для диагностики
+            $logContext['response_preview'] = $response ? substr($response, 0, 500) : null;
+            logger('HTTP error: ' . json_encode($logContext));
         }
         return $result;
     }
+    
     $result['success'] = true;
-    $result['response'] = $response;
     return $result;
 }
 
@@ -118,6 +206,7 @@ function apiJsonRequest($url, $headers, $postFields = null, $timeout = 30) {
     }
     $data = json_decode($curlResult['response'], true);
     if ($data === null) {
+        logger('JSON decode error for response: ' . substr($curlResult['response'], 0, 200));
         return [
             'success' => false,
             'http_code' => $curlResult['http_code'],
@@ -181,11 +270,15 @@ function extractCisFromMark($mark) {
 /**
  * Проверить статус локального модуля ЧЗ
  * @param string|null $clientId
- * @param string $host
- * @param string $basicAuth
+ * @param string|null $host
+ * @param string|null $basicAuth
  * @return array
  */
-function isLmczReady($clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
+function isLmczReady($clientId = null, $host = null, $basicAuth = null) {
+    $config = getLmczConfig();
+    $host = $host ?: $config['host'];
+    $basicAuth = $basicAuth ?: $config['basic_auth'];
+    
     $statusResult = lmczStatus($clientId, $host, $basicAuth);
     
     if (!$statusResult['success']) {
@@ -235,27 +328,31 @@ function getCdnInfo($production = true) {
         'success' => false,
         'message' => ""
     ];
+    
     $token = getApiTokenFromEnv();
     if (!$token) {
         $returnResult['message'] = 'нет файла .env с данными о токене или нет токена';
         return $returnResult;
     }
-    $host = $production
-        ? 'https://cdn.crpt.ru'
-        : 'https://markirovka.sandbox.crptech.ru';
+    
+    $cdnConfig = getCdnConfig($production);
+    $host = $production ? $cdnConfig['host'] : $cdnConfig['sandbox_host'];
     $url = $host . '/api/v4/true-api/cdn/info';
     $headers = makeApiHeaders($token);
+    
     $apiResult = apiJsonRequest($url, $headers);
     if (!$apiResult['success']) {
         $returnResult['message'] = $apiResult['message'];
         return $returnResult;
     }
+    
     if (!isset($apiResult['data']['hosts'])) {
         return [
             'success' => false,
             'message' => $apiResult['data']['description'] ?? 'Нет hosts в ответе'
         ];
     }
+    
     return [
         'success' => true,
         'message' => "",
@@ -267,7 +364,7 @@ function getCdnInfo($production = true) {
     ];
 }
 
-function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true, $clientId = null, $lmczHost = 'http://127.0.0.1:5995', $lmczAuth = 'YWRtaW46YWRtaW4=') {
+function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true, $clientId = null, $lmczHost = null, $lmczAuth = null) {
     $returnResult = [
         'success' => false,
         'message' => '',
@@ -279,6 +376,11 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
         $returnResult['message'] = 'нет файла .env с данными о токене или нет токена';
         return $returnResult;
     }
+
+    // Получаем конфигурацию ЛМ ЧЗ
+    $lmczConfig = getLmczConfig();
+    $lmczHost = $lmczHost ?: $lmczConfig['host'];
+    $lmczAuth = $lmczAuth ?: $lmczConfig['basic_auth'];
 
     // 1. Получаем кэш CDN
     clearUnavailableCdns();
@@ -332,6 +434,132 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
         $start = microtime(true);
         $apiResult = apiJsonRequest($url, $headers, json_encode($body), 2); // 2 секунды с запасом
         $latency = (int)((microtime(true) - $start) * 1000);
+    if (!$apiResult['success']) {
+        $returnResult['message'] = $apiResult['message'];
+        $returnResult['latency'] = $latency;
+        return $returnResult;
+    }
+    $returnResult['success'] = ($apiResult['data']['code'] === 0);
+    $returnResult['message'] = $apiResult['data']['description'] ?? '';
+    $returnResult['latency'] = $latency;
+    $returnResult['data'] = $apiResult['data'];
+    return $returnResult;
+}
+
+function saveCdnCache($cdnList) {
+    $cacheFile = __DIR__ . '/cdn_cache.json';
+    file_put_contents($cacheFile, json_encode($cdnList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+function loadCdnCache() {
+    $cacheFile = __DIR__ . '/cdn_cache.json';
+    if (!file_exists($cacheFile)) return null;
+    $data = file_get_contents($cacheFile);
+    return json_decode($data, true);
+}
+
+function markCdnUnavailable($cdnHost) {
+    $cache = loadCdnCache();
+    if (!$cache) return;
+    $now = time();
+    foreach ($cache as &$cdn) {
+        if ($cdn['host'] === $cdnHost) {
+            $cdn['unavailable_until'] = $now + 15 * 60; // 15 минут
+        }
+    }
+    saveCdnCache($cache);
+}
+
+function clearUnavailableCdns() {
+    $cache = loadCdnCache();
+    if (!$cache) return;
+    $now = time();
+    foreach ($cache as &$cdn) {
+        if (isset($cdn['unavailable_until']) && $cdn['unavailable_until'] < $now) {
+            unset($cdn['unavailable_until']);
+        }
+    }
+    saveCdnCache($cache);
+}
+
+/**
+ * Инициализация ЛМ ЧЗ
+ * @param string $token X-API-KEY
+ * @param string|null $clientId
+ * @param string|null $host
+ * @param string|null $basicAuth base64(username:password)
+ * @return array
+ */
+function lmczInit($token, $clientId = null, $host = null, $basicAuth = null) {
+    $config = getLmczConfig();
+    $host = $host ?: $config['host'];
+    $basicAuth = $basicAuth ?: $config['basic_auth'];
+    
+    $url = rtrim($host, '/') . '/api/v1/init';
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Basic ' . $basicAuth
+    ];
+    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
+    $body = json_encode([ 'token' => $token ]);
+    return apiJsonRequest($url, $headers, $body);
+}
+
+/**
+ * Проверка статуса ЛМ ЧЗ
+ * @param string|null $clientId
+ * @param string|null $host
+ * @param string|null $basicAuth
+ * @return array
+ */
+function lmczStatus($clientId = null, $host = null, $basicAuth = null) {
+    $config = getLmczConfig();
+    $host = $host ?: $config['host'];
+    $basicAuth = $basicAuth ?: $config['basic_auth'];
+    
+    $url = rtrim($host, '/') . '/api/v1/status';
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Basic ' . $basicAuth
+    ];
+    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
+    return apiJsonRequest($url, $headers);
+}
+
+/**
+ * Проверка КИ в ЛМ ЧЗ (по чёрным спискам)
+ * @param string $cis
+ * @param string|null $clientId
+ * @param string|null $host
+ * @param string|null $basicAuth
+ * @return array
+ */
+function lmczCheckCis($cis, $clientId = null, $host = null, $basicAuth = null) {
+    $config = getLmczConfig();
+    $host = $host ?: $config['host'];
+    $basicAuth = $basicAuth ?: $config['basic_auth'];
+    
+    $cisEnc = rawurlencode($cis);
+    $url = rtrim($host, '/') . '/api/v1/cis/check?cis=' . $cisEnc;
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Basic ' . $basicAuth
+    ];
+    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
+    return apiJsonRequest($url, $headers);
+}
+
+// Пример использования:
+// $result = getCdnInfo();
+// var_dump($result);
+
+// Пример проверки с поддержкой офлайн режима:
+// $result = checkMarkPermitAPI('01234567890123456789', 'FN123456', true, 'CLIENT123');
+// if ($result['success']) {
+//     echo "Проверка пройдена" . ($result['checked_offline'] ? " (офлайн)" : " (онлайн)");
+// } else {
+//     echo "Ошибка: " . $result['message'];
+// });
         $attempts++;
 
         // Проверяем таймаут 1.5 сек согласно ППРФ 1944 п. 17
@@ -426,16 +654,21 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
  * Проверка маркировки через локальный модуль ЧЗ (офлайн режим)
  * @param string $mark Код маркировки
  * @param string|null $clientId
- * @param string $lmczHost
- * @param string $lmczAuth
+ * @param string|null $lmczHost
+ * @param string|null $lmczAuth
  * @return array
  */
-function checkOfflineViaLmcz($mark, $clientId = null, $lmczHost = 'http://127.0.0.1:5995', $lmczAuth = 'YWRtaW46YWRtaW4=') {
+function checkOfflineViaLmcz($mark, $clientId = null, $lmczHost = null, $lmczAuth = null) {
     $returnResult = [
         'success' => false,
         'message' => '',
         'checked_offline' => true
     ];
+
+    // Получаем конфигурацию если параметры не переданы
+    $lmczConfig = getLmczConfig();
+    $lmczHost = $lmczHost ?: $lmczConfig['host'];
+    $lmczAuth = $lmczAuth ?: $lmczConfig['basic_auth'];
 
     // Проверяем готовность ЛМ ЧЗ
     $readyCheck = isLmczReady($clientId, $lmczHost, $lmczAuth);
@@ -522,7 +755,7 @@ function getCdnHealthCheck($host, $production = true) {
         'success' => false,
         'message' => '',
         'latency' => null,
-        'data' => null
+        'data'    => null
     ];
     $token = getApiTokenFromEnv();
     if (!$token) {
@@ -533,118 +766,19 @@ function getCdnHealthCheck($host, $production = true) {
     $headers = makeApiHeaders($token);
     $start = microtime(true);
     $apiResult = apiJsonRequest($url, $headers);
+
     $latency = (int)((microtime(true) - $start) * 1000);
+
+    // Формируем итоговый результат
+    $returnResult['latency'] = $latency;
     if (!$apiResult['success']) {
+        // В случае неуспешного ответа от API
         $returnResult['message'] = $apiResult['message'];
-        $returnResult['latency'] = $latency;
         return $returnResult;
     }
-    $returnResult['success'] = ($apiResult['data']['code'] === 0);
-    $returnResult['message'] = $apiResult['data']['description'] ?? '';
-    $returnResult['latency'] = $latency;
-    $returnResult['data'] = $apiResult['data'];
+
+    // Успешная проверка здоровья CDN
+    $returnResult['success'] = true;
+    $returnResult['data']    = $apiResult['data'];
     return $returnResult;
 }
-
-function saveCdnCache($cdnList) {
-    $cacheFile = __DIR__ . '/cdn_cache.json';
-    file_put_contents($cacheFile, json_encode($cdnList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-}
-
-function loadCdnCache() {
-    $cacheFile = __DIR__ . '/cdn_cache.json';
-    if (!file_exists($cacheFile)) return null;
-    $data = file_get_contents($cacheFile);
-    return json_decode($data, true);
-}
-
-function markCdnUnavailable($cdnHost) {
-    $cache = loadCdnCache();
-    if (!$cache) return;
-    $now = time();
-    foreach ($cache as &$cdn) {
-        if ($cdn['host'] === $cdnHost) {
-            $cdn['unavailable_until'] = $now + 15 * 60; // 15 минут
-        }
-    }
-    saveCdnCache($cache);
-}
-
-function clearUnavailableCdns() {
-    $cache = loadCdnCache();
-    if (!$cache) return;
-    $now = time();
-    foreach ($cache as &$cdn) {
-        if (isset($cdn['unavailable_until']) && $cdn['unavailable_until'] < $now) {
-            unset($cdn['unavailable_until']);
-        }
-    }
-    saveCdnCache($cache);
-}
-
-/**
- * Инициализация ЛМ ЧЗ
- * @param string $token X-API-KEY
- * @param string|null $clientId
- * @param string $host
- * @param string $basicAuth base64(username:password), по умолчанию admin:admin
- * @return array
- */
-function lmczInit($token, $clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
-    $url = rtrim($host, '/') . '/api/v1/init';
-    $headers = [
-        'Content-Type: application/json',
-        'Authorization: Basic ' . $basicAuth
-    ];
-    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
-    $body = json_encode([ 'token' => $token ]);
-    return apiJsonRequest($url, $headers, $body);
-}
-
-/**
- * Проверка статуса ЛМ ЧЗ
- * @param string|null $clientId
- * @param string $host
- * @param string $basicAuth
- * @return array
- */
-function lmczStatus($clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
-    $url = rtrim($host, '/') . '/api/v1/status';
-    $headers = [
-        'Content-Type: application/json',
-        'Authorization: Basic ' . $basicAuth
-    ];
-    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
-    return apiJsonRequest($url, $headers);
-}
-
-/**
- * Проверка КИ в ЛМ ЧЗ (по чёрным спискам)
- * @param string $cis
- * @param string|null $clientId
- * @param string $host
- * @param string $basicAuth
- * @return array
- */
-function lmczCheckCis($cis, $clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
-    $cisEnc = rawurlencode($cis);
-    $url = rtrim($host, '/') . '/api/v1/cis/check?cis=' . $cisEnc;
-    $headers = [
-        'Content-Type: application/json',
-        'Authorization: Basic ' . $basicAuth
-    ];
-    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
-    return apiJsonRequest($url, $headers);
-}
-
-// Пример использования:
-// $result = getCdnInfo();
-// var_dump($result);
-
-// Пример проверки с поддержкой офлайн режима:
-// $result = checkMarkPermitAPI('01234567890123456789', 'FN123456', true, 'CLIENT123');
-// if ($result['success']) {
-//     echo "Проверка пройдена" . ($result['checked_offline'] ? " (офлайн)" : " (онлайн)");
-// } else {
-//     echo "Ошибка: " . $result['message'];
-// }

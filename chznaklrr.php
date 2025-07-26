@@ -352,6 +352,61 @@ function clearUnavailableCdns() {
     saveCdnCache($cache);
 }
 
+/**
+ * Инициализация ЛМ ЧЗ
+ * @param string $token X-API-KEY
+ * @param string|null $clientId
+ * @param string $host
+ * @param string $basicAuth base64(username:password), по умолчанию admin:admin
+ * @return array
+ */
+function lmczInit($token, $clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
+    $url = rtrim($host, '/') . '/api/v1/init';
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Basic ' . $basicAuth
+    ];
+    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
+    $body = json_encode([ 'token' => $token ]);
+    return apiJsonRequest($url, $headers, $body);
+}
+
+/**
+ * Проверка статуса ЛМ ЧЗ
+ * @param string|null $clientId
+ * @param string $host
+ * @param string $basicAuth
+ * @return array
+ */
+function lmczStatus($clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
+    $url = rtrim($host, '/') . '/api/v1/status';
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Basic ' . $basicAuth
+    ];
+    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
+    return apiJsonRequest($url, $headers);
+}
+
+/**
+ * Проверка КИ в ЛМ ЧЗ (по чёрным спискам)
+ * @param string $cis
+ * @param string|null $clientId
+ * @param string $host
+ * @param string $basicAuth
+ * @return array
+ */
+function lmczCheckCis($cis, $clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
+    $cisEnc = rawurlencode($cis);
+    $url = rtrim($host, '/') . '/api/v1/cis/check?cis=' . $cisEnc;
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Basic ' . $basicAuth
+    ];
+    if ($clientId) $headers[] = 'X-ClientId: ' . $clientId;
+    return apiJsonRequest($url, $headers);
+}
+
 // Пример использования:
 // $result = getCdnInfo();
 // var_dump($result);

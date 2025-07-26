@@ -26,18 +26,22 @@ function getApiTokenFromEnv() {
  * @param string $url
  * @param array $headers
  * @param string|null $postFields
- * @return array ['success'=>bool, 'http_code'=>int, 'response'=>mixed, 'message'=>string]
+ * @param int $timeout Таймаут в секундах
+ * @return array ['success'=>bool, 'http_code'=>int, 'response'=>mixed, 'message'=>string, 'timeout'=>bool]
  */
-function performCurlRequest($url, $headers, $postFields = null) {
+function performCurlRequest($url, $headers, $postFields = null, $timeout = 30) {
     $result = [
         'success' => false,
         'http_code' => 0,
         'response' => null,
-        'message' => ''
+        'message' => '',
+        'timeout' => false
     ];
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     if ($postFields !== null) {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
@@ -45,8 +49,18 @@ function performCurlRequest($url, $headers, $postFields = null) {
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
+    $curlErrno = curl_errno($ch);
     curl_close($ch);
+    
     $result['http_code'] = $httpCode;
+    
+    // Проверяем на таймаут
+    if ($curlErrno == CURLE_OPERATION_TIMEDOUT || $curlErrno == CURLE_OPERATION_TIMEOUTED) {
+        $result['timeout'] = true;
+        $result['message'] = 'Превышен таймаут ожидания ответа';
+        return $result;
+    }
+    
     if ($response === false || $httpCode !== 200) {
         $result['message'] = 'не удалось получить данные';
         if ($curlError) {
@@ -87,17 +101,19 @@ function makeApiHeaders($token) {
  * @param string $url
  * @param array $headers
  * @param string|null $postFields
- * @return array ['success'=>bool, 'http_code'=>int, 'data'=>mixed, 'message'=>string, 'raw_response'=>string]
+ * @param int $timeout Таймаут в секундах
+ * @return array ['success'=>bool, 'http_code'=>int, 'data'=>mixed, 'message'=>string, 'raw_response'=>string, 'timeout'=>bool]
  */
-function apiJsonRequest($url, $headers, $postFields = null) {
-    $curlResult = performCurlRequest($url, $headers, $postFields);
+function apiJsonRequest($url, $headers, $postFields = null, $timeout = 30) {
+    $curlResult = performCurlRequest($url, $headers, $postFields, $timeout);
     if (!$curlResult['success']) {
         return [
             'success' => false,
             'http_code' => $curlResult['http_code'],
             'data' => null,
             'message' => $curlResult['message'],
-            'raw_response' => $curlResult['response']
+            'raw_response' => $curlResult['response'],
+            'timeout' => $curlResult['timeout'] ?? false
         ];
     }
     $data = json_decode($curlResult['response'], true);
@@ -107,7 +123,8 @@ function apiJsonRequest($url, $headers, $postFields = null) {
             'http_code' => $curlResult['http_code'],
             'data' => null,
             'message' => 'Ошибка декодирования JSON',
-            'raw_response' => $curlResult['response']
+            'raw_response' => $curlResult['response'],
+            'timeout' => false
         ];
     }
     return [
@@ -115,7 +132,96 @@ function apiJsonRequest($url, $headers, $postFields = null) {
         'http_code' => $curlResult['http_code'],
         'data' => $data,
         'message' => $data['description'] ?? '',
-        'raw_response' => $curlResult['response']
+        'raw_response' => $curlResult['response'],
+        'timeout' => false
+    ];
+}
+
+/**
+ * Извлечь код идентификации (CIS) из кода маркировки
+ * @param string $mark Код маркировки
+ * @return string|false Код идентификации или false при ошибке
+ */
+function extractCisFromMark($mark) {
+    // Удаляем пробелы и переводы строк
+    $mark = trim($mark);
+    
+    // Для табачной продукции - удаляем МРЦ (последние 4 символа после разделителя)
+    // Проверяем, является ли это табачной продукцией по GTIN
+    if (preg_match('/^01(\d{14})/', $mark, $matches)) {
+        $gtin = $matches[1];
+        // Табачные продукты имеют GTIN начинающийся с определенных цифр
+        // Для примера используем упрощенную проверку
+        if (in_array(substr($gtin, 0, 3), ['046', '047', '048'])) {
+            // Для табачной продукции удаляем МРЦ
+            if (preg_match('/^(01\d{14}21[^)]+)(\x1D|$)/', $mark, $tobaccoMatches)) {
+                return $tobaccoMatches[1];
+            }
+        }
+    }
+    
+    // Для остальных товарных групп - удаляем криптографический код проверки
+    // Паттерн для извлечения основной части без криптографического кода
+    // Формат: 01(GTIN)21(серийный номер)[другие AI]
+    if (preg_match('/^(01\d{14}21[^)]+)(?:\x1D|$)/', $mark, $matches)) {
+        return $matches[1];
+    }
+    
+    // Если не удалось разобрать стандартным способом, пробуем альтернативные варианты
+    // Ищем до первого разделителя или конца строки
+    if (preg_match('/^([01][^)]+)(?:\x1D|$)/', $mark, $matches)) {
+        return $matches[1];
+    }
+    
+    // Если ничего не подошло, возвращаем исходный код (может быть уже CIS)
+    logger('Не удалось извлечь CIS из кода маркировки: ' . $mark);
+    return $mark;
+}
+
+/**
+ * Проверить статус локального модуля ЧЗ
+ * @param string|null $clientId
+ * @param string $host
+ * @param string $basicAuth
+ * @return array
+ */
+function isLmczReady($clientId = null, $host = 'http://127.0.0.1:5995', $basicAuth = 'YWRtaW46YWRtaW4=') {
+    $statusResult = lmczStatus($clientId, $host, $basicAuth);
+    
+    if (!$statusResult['success']) {
+        return [
+            'ready' => false,
+            'message' => 'Не удалось получить статус ЛМ ЧЗ: ' . $statusResult['message']
+        ];
+    }
+    
+    $data = $statusResult['data'];
+    
+    // Проверяем основные условия готовности
+    if (!isset($data['status']) || $data['status'] !== 'ready') {
+        return [
+            'ready' => false,
+            'message' => 'ЛМ ЧЗ не готов к работе. Статус: ' . ($data['status'] ?? 'неизвестен')
+        ];
+    }
+    
+    // Проверяем время последней синхронизации (не более 72 часов)
+    if (isset($data['lastSync'])) {
+        $lastSync = intval($data['lastSync']) / 1000; // Переводим из миллисекунд в секунды
+        $now = time();
+        $syncAge = $now - $lastSync;
+        
+        if ($syncAge > 72 * 3600) { // 72 часа в секундах
+            return [
+                'ready' => false,
+                'message' => 'ЛМ ЧЗ не синхронизировался более 72 часов. Последняя синхронизация: ' . date('Y-m-d H:i:s', $lastSync)
+            ];
+        }
+    }
+    
+    return [
+        'ready' => true,
+        'message' => 'ЛМ ЧЗ готов к работе'
     ];
 }
 
@@ -161,16 +267,19 @@ function getCdnInfo($production = true) {
     ];
 }
 
-function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true) {
+function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true, $clientId = null, $lmczHost = 'http://127.0.0.1:5995', $lmczAuth = 'YWRtaW46YWRtaW4=') {
     $returnResult = [
         'success' => false,
-        'message' => ''
+        'message' => '',
+        'checked_offline' => false
     ];
+    
     $token = getApiTokenFromEnv();
     if (!$token) {
         $returnResult['message'] = 'нет файла .env с данными о токене или нет токена';
         return $returnResult;
     }
+
     // 1. Получаем кэш CDN
     clearUnavailableCdns();
     $cdnCache = loadCdnCache();
@@ -180,8 +289,8 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
         // Обновить кэш CDN
         $cdnInfo = getCdnInfo($production);
         if (!$cdnInfo['success']) {
-            $returnResult['message'] = 'Ошибка получения списка CDN: ' . $cdnInfo['message'];
-            return $returnResult;
+            logger('Ошибка получения списка CDN: ' . $cdnInfo['message'] . '. Переходим к офлайн проверке.');
+            return checkOfflineViaLmcz($mark, $clientId, $lmczHost, $lmczAuth);
         }
         $cdnList = [];
         foreach ($cdnInfo['data']['response'] as $cdn) {
@@ -197,6 +306,7 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
         saveCdnCache($cdnList);
         $cdnCache = $cdnList;
     }
+
     // 2. Сортируем по latency, фильтруем недоступные
     $availableCdns = array_filter($cdnCache, function($cdn) use ($now) {
         return !isset($cdn['unavailable_until']) || $cdn['unavailable_until'] < $now;
@@ -207,35 +317,47 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
         $cdnCache = loadCdnCache();
         $availableCdns = $cdnCache;
     }
+
     $body = [ 'codes' => [ $mark ] ];
     if ($fiscalDriveNumber !== null) $body['fiscalDriveNumber'] = $fiscalDriveNumber;
     $headers = makeApiHeaders($token);
     $attempts = 0;
+    $onlineCheckFailed = false;
+
     foreach ($availableCdns as $cdn) {
         $host = $cdn['host'];
         $url = rtrim($host, '/') . '/api/v4/true-api/codes/check';
+        
+        // Устанавливаем таймаут 1.5 секунды для онлайн проверки
         $start = microtime(true);
-        $apiResult = apiJsonRequest($url, $headers, json_encode($body));
+        $apiResult = apiJsonRequest($url, $headers, json_encode($body), 2); // 2 секунды с запасом
         $latency = (int)((microtime(true) - $start) * 1000);
         $attempts++;
-        // Таймаут 1.5 сек
-        if ($latency > 1500) {
-            logger('CDN таймаут: ' . $host . ', latency=' . $latency . 'ms');
+
+        // Проверяем таймаут 1.5 сек согласно ППРФ 1944 п. 17
+        if ($latency > 1500 || (isset($apiResult['timeout']) && $apiResult['timeout'])) {
+            logger('CDN таймаут более 1.5 сек: ' . $host . ', latency=' . $latency . 'ms');
             if ($attempts >= 3) {
                 markCdnUnavailable($host);
             }
+            $onlineCheckFailed = true;
             continue;
         }
+
         if (!$apiResult['success']) {
             logger('Ошибка запроса к CDN ' . $host . ': ' . $apiResult['message']);
+            $onlineCheckFailed = true;
             continue;
         }
+
         $data = $apiResult['data'];
         if ($data === null) {
             $returnResult['message'] = 'Ошибка декодирования JSON';
             $returnResult['data'] = $apiResult['raw_response'];
-            return $returnResult;
+            $onlineCheckFailed = true;
+            continue;
         }
+
         // Обработка ошибок по таблице
         $code = $apiResult['http_code'];
         if ($code >= 400 && $code < 500 && $code != 401 && $code != 429) {
@@ -252,11 +374,12 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
             // 429 или 5xx: повторить, если снова ошибка — пометить CDN недоступным
             logger('CDN ' . $host . ' ответил ошибкой ' . $code . ', повторная попытка...');
             sleep(1); // небольшая задержка
-            $apiResult2 = apiJsonRequest($url, $headers, json_encode($body));
+            $apiResult2 = apiJsonRequest($url, $headers, json_encode($body), 2);
             $data2 = $apiResult2['data'];
             if (!$apiResult2['success'] || $apiResult2['http_code'] == $code) {
                 markCdnUnavailable($host);
                 logger('CDN ' . $host . ' помечен как недоступный на 15 минут');
+                $onlineCheckFailed = true;
                 continue;
             }
             $data = $data2;
@@ -264,26 +387,133 @@ function checkMarkPermitAPI($mark, $fiscalDriveNumber = null, $production = true
         if ($code >= 500 && isset($data['code']) && $data['code'] == 5000) {
             // 5xx с code=5000: не помечаем CDN недоступным, повторяем 1 раз
             logger('CDN ' . $host . ' ответил 5000, повторная попытка...');
-            $apiResult2 = apiJsonRequest($url, $headers, json_encode($body));
+            $apiResult2 = apiJsonRequest($url, $headers, json_encode($body), 2);
             $data2 = $apiResult2['data'];
             if (!$apiResult2['success'] || ($apiResult2['http_code'] >= 500 && isset($data2['code']) && $data2['code'] == 5000)) {
                 $returnResult['message'] = 'Ошибка 5000: ' . ($data2['description'] ?? '');
                 $returnResult['data'] = $data2;
-                return $returnResult;
+                $onlineCheckFailed = true;
+                continue;
             }
             $data = $data2;
         }
         if (!isset($data['code']) || $data['code'] !== 0) {
             $returnResult['message'] = $data['description'] ?? 'Ошибка проверки маркировки';
             $returnResult['data'] = $data;
-            return $returnResult;
+            $onlineCheckFailed = true;
+            continue;
         }
+
+        // Успешная онлайн проверка
         $returnResult['success'] = true;
         $returnResult['message'] = $data['description'] ?? '';
         $returnResult['data'] = $data;
+        $returnResult['checked_offline'] = false;
         return $returnResult;
     }
+
+    // Если онлайн проверка не удалась, переходим к офлайн проверке
+    if ($onlineCheckFailed) {
+        logger('Онлайн проверка не удалась, переходим к проверке через ЛМ ЧЗ');
+        return checkOfflineViaLmcz($mark, $clientId, $lmczHost, $lmczAuth);
+    }
+
     $returnResult['message'] = 'Не удалось проверить маркировку: все CDN недоступны или ошибка запроса';
+    return $returnResult;
+}
+
+/**
+ * Проверка маркировки через локальный модуль ЧЗ (офлайн режим)
+ * @param string $mark Код маркировки
+ * @param string|null $clientId
+ * @param string $lmczHost
+ * @param string $lmczAuth
+ * @return array
+ */
+function checkOfflineViaLmcz($mark, $clientId = null, $lmczHost = 'http://127.0.0.1:5995', $lmczAuth = 'YWRtaW46YWRtaW4=') {
+    $returnResult = [
+        'success' => false,
+        'message' => '',
+        'checked_offline' => true
+    ];
+
+    // Проверяем готовность ЛМ ЧЗ
+    $readyCheck = isLmczReady($clientId, $lmczHost, $lmczAuth);
+    if (!$readyCheck['ready']) {
+        $returnResult['message'] = 'ЛМ ЧЗ не готов: ' . $readyCheck['message'];
+        return $returnResult;
+    }
+
+    // Извлекаем код идентификации из кода маркировки
+    $cis = extractCisFromMark($mark);
+    if (!$cis) {
+        $returnResult['message'] = 'Не удалось извлечь код идентификации из кода маркировки';
+        return $returnResult;
+    }
+
+    logger('Проверяем код идентификации через ЛМ ЧЗ: ' . $cis);
+
+    // Выполняем проверку через ЛМ ЧЗ
+    $lmczResult = lmczCheckCis($cis, $clientId, $lmczHost, $lmczAuth);
+    
+    if (!$lmczResult['success']) {
+        $returnResult['message'] = 'Ошибка проверки через ЛМ ЧЗ: ' . $lmczResult['message'];
+        return $returnResult;
+    }
+
+    $data = $lmczResult['data'];
+    
+    // Проверяем результат
+    if (!isset($data['code']) || $data['code'] !== 0) {
+        $returnResult['message'] = 'Ошибка от ЛМ ЧЗ: ' . ($data['description'] ?? 'Неизвестная ошибка');
+        $returnResult['data'] = $data;
+        return $returnResult;
+    }
+
+    // Проверяем наличие кодов в ответе
+    if (!isset($data['codes']) || empty($data['codes'])) {
+        $returnResult['message'] = 'ЛМ ЧЗ не вернул информацию о коде';
+        $returnResult['data'] = $data;
+        return $returnResult;
+    }
+
+    $codeInfo = $data['codes'][0];
+    
+    // Проверяем, заблокирован ли код
+    if (isset($codeInfo['isBlocked']) && $codeInfo['isBlocked'] === true) {
+        $returnResult['success'] = false;
+        $returnResult['message'] = 'Код заблокирован по решению ОГВ (офлайн проверка)';
+        $returnResult['data'] = [
+            'code' => 1, // Код ошибки для заблокированного товара
+            'description' => 'Код заблокирован по решению ОГВ',
+            'codes' => [
+                [
+                    'code' => $mark,
+                    'offline_check' => true,
+                    'blocked' => true,
+                    'gtin' => $codeInfo['gtin'] ?? null
+                ]
+            ]
+        ];
+        return $returnResult;
+    }
+
+    // Код не заблокирован
+    $returnResult['success'] = true;
+    $returnResult['message'] = 'Код не заблокирован (офлайн проверка)';
+    $returnResult['data'] = [
+        'code' => 0,
+        'description' => 'Код не заблокирован (проверено офлайн)',
+        'codes' => [
+            [
+                'code' => $mark,
+                'offline_check' => true,
+                'blocked' => false,
+                'gtin' => $codeInfo['gtin'] ?? null
+            ]
+        ]
+    ];
+
     return $returnResult;
 }
 
@@ -410,3 +640,11 @@ function lmczCheckCis($cis, $clientId = null, $host = 'http://127.0.0.1:5995', $
 // Пример использования:
 // $result = getCdnInfo();
 // var_dump($result);
+
+// Пример проверки с поддержкой офлайн режима:
+// $result = checkMarkPermitAPI('01234567890123456789', 'FN123456', true, 'CLIENT123');
+// if ($result['success']) {
+//     echo "Проверка пройдена" . ($result['checked_offline'] ? " (офлайн)" : " (онлайн)");
+// } else {
+//     echo "Ошибка: " . $result['message'];
+// }

@@ -188,7 +188,6 @@ class CheckService {
             return ['success' => true, 'data' => $result['data']];
         } else {
             return $this->printCheck($data);
-
         }
     }
 
@@ -207,9 +206,34 @@ class CheckService {
         // Проверка марки (разрешительный режим)
         if (!empty($position['mark_code'])) {
             $rr_result = checkMarkPermitAPI($position['mark_code']);
-            $position['mark_permit_status'] = $rr_result['status'];
-            $position['mark_permit_result'] = $rr_result['result'];
+            //$position['mark_permit_status'] = $rr_result['status'];
+            //$position['mark_permit_result'] = $rr_result['result'];
+            $position['rr_success'] = false;
+            $position['rr_message'] = $rr_result['message'] ?? null;
+            if $rr_result['status'] === 'success') {
+                $codereq = $rr_result['code'];
+                if ($codereq === 0) {
+                    $position['isBlocked'] = $rr_result['codes'][0]['isBlocked'];
+                    $position['Timestamp'] = $rr_result['reqTimestamp'];
+                    $position['reqId'] = $rr_result['reqId'];
+                }
+                $position['rr_code'] = $codereq;
+                $position['rr_description'] = $rr_result['description'];
+
+                $this->logger->info("Проверка марки РР: code={$position['code']}, description={$position['description']}, isBlocked={$position['isBlocked']}");
+            }
+
             $position['mark_kkt_status'] = 'ожидание';
+            $resuktruncheckmarkonkkt = runCheckMarkOnKKT($position['mark_code']);
+            $position['mark_kkt_success'] = false;
+            if ($resuktruncheckmarkonkkt['status'] === 'success') {
+                $position['mark_kkt_success'] = true;
+                $position['mark_kkt_status'] = 'проверка';
+                $position['idjobcheckmark'] = $resuktruncheckmarkonkkt['result'];
+            } else {
+                $position['mark_kkt_status'] = 'ошибка';
+                $position['mark_kkt_message'] = $resuktruncheckmarkonkkt['message'];
+            }
         }
         // Добавляем позицию в массив
         if (!isset($CHECK_SESSIONS[$session_id])) {
@@ -218,10 +242,24 @@ class CheckService {
         $CHECK_SESSIONS[$session_id][] = $position;
         return [
             'success' => true,
-            'position_id' => $position['position_id'],
-            'mark_permit_status' => $position['mark_permit_status'] ?? null,
-            'mark_permit_result' => $position['mark_permit_result'] ?? null,
-            'mark_kkt_status' => $position['mark_kkt_status'] ?? null
+            'data' => [
+                'rr' => [
+                    'success' => $position['rr_success'] ?? null,
+                    'message' => $position['rr_message'] ?? null,
+                    'isBlocked' => $position['isBlocked'] ?? null,
+                    'reqId' => $position['reqId'] ?? null,
+                    'Timestamp' => $position['Timestamp'] ?? null,
+                    'code' => $position['rr_code'] ?? null
+                    'description' => $position['rr_description'] ?? null
+                ],
+                'checkkkt' => [
+                    'success' => $position['mark_kkt_success'] ?? null,
+                    'message' => $position['mark_kkt_message'] ?? null,
+                    'mark_kkt_status' => $position['mark_kkt_status'] ?? null,
+                    'idjobcheckmark' => $position['idjobcheckmark'] ?? null
+                ],
+                'position_id' => $position['position_id'],
+            ],
         ];
     }
 
@@ -233,8 +271,25 @@ class CheckService {
         // TODO: заменить на реальный HTTP-запрос к API разрешительного режима
         // Пример успешного разрешения:
         return [
-            'status' => 'разрешено',
-            'result' => 'Марка разрешена (заглушка)'
+            'status' => 'success',
+            'message' => 'OK',
+            'data' => [
+                'code' => 0,
+                'codes' => [['isBlocked' => false], 'reqId' => '1234567890', 'reqTimestamp' => '2024-07-04T12:34:56Z']],
+                'description' => 'OK'
+            ]
+        ];
+    }
+
+    /**запускасем проверку марки на ККТ*/
+    private function runCheckMarkOnKKT($imc) {
+        $db = new PDO('sqlite:' . __DIR__ . '/data/jobs.db');
+        $stmt = $db->prepare("INSERT INTO jobs(imc) VALUES(?)");
+        $stmt->execute([$imc]);
+        echo json_encode(['job_id'=>$db->lastInsertId()]);
+        return [
+            'status' => 'success',
+            'result' => $db->lastInsertId()
         ];
     }
 

@@ -256,12 +256,16 @@ class Handler {
             return;
         }
         $result = $this->checkService->addCheckPosition($session_id, $position);
+
         if (!$result['success']) {
-            http_response_code(400);
+            $this->logger->error("HandleAddCheckPosition: Ошибка добавления позиции: " . $result['message']);
+            http_response_code(500);
             $this->sendHandlerResponse("error", $result['message']);
             return;
         }
-        $this->sendHandlerResponse("success", "Позиция добавлена", $result);
+
+        $this->logger->info("HandleAddCheckPosition: поизция успешно добавлена.");
+        $this->sendHandlerResponse("success", "Поизция успешно добавлена", $result['data']);
     }
 
     private function sendHandlerResponse($type, $message, $data = [], $id = "") {

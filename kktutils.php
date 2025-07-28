@@ -498,4 +498,106 @@ class TFptr10Driver {
         }
         return [$success, $commandErrorDesc];
     }
+
+    public function GetShiftStatus(string $imc) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "getShiftStatus"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+
+    /**
+     * Начинает проверку кода марки (КМ)
+     *
+     * @param string $imc - Код марки (Base64 строка)
+     * @return array [success, responseJson, commandErrorDesc]
+     */
+    public function BeginMarkingCodeValidation(string $imc) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "beginMarkingCodeValidation",
+            "params" => [
+                "imcType" => "auto",
+                "imc" => $imc,
+                "itemEstimatedStatus" => "itemPieceSold",
+                //"itemUnits" => "kilogram",
+                "imcModeProcessing" => 0
+                //"notSendToServer" => false,
+                //"notFormRequest" => false
+            ]
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+    /**
+     * проверяем статус проверки КМ (КМ)
+     * @return array [success, responseJson, commandErrorDesc]
+     */
+    public function CheckMarkingCodeValidation() {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "getMarkingCodeValidationStatus"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+    public function AcceptMarkingCode() {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "acceptMarkingCode"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+    public function ClearMarkingCodeValidationResult() {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "clearMarkingCodeValidationResult"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+
 }

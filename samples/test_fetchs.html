@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест сервиса печати чеков 2025.06.17.01</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест сервиса печати чеков</h1>
+    
+    <button class="button" onclick="printCheck()">Печать чека</button>
+    <button class="button" onclick="closeShift()">Закрыть смену</button>
+    <button class="button" onclick="printXReport()">X-отчет</button>
+    <button class="button" onclick="getWeight()">Получить вес</button>
+    <button class="button" onclick="cashIn()">Внесение наличных</button>
+    <button class="button" onclick="cashOut()">Выплата наличных</button>
+    <button class="button" onclick="printBankSlip()">Печать банковского слипа</button>
+    <button class="button" onclick="closeBankShift()">Закрыть банковскую смену</button>
+    <button class="button" onclick="bankOperationPayment()">Оплата по терминалу</button>
+    <button class="button" onclick="bankOperationReturn()">Возврат по терминалу</button>
+    <button class="button" onclick="getProgramVersion()">Получить версию программы</button>
+    <button class="button" onclick="checkRR()">Разрешительный режим</button>
+
+    <div id="status_display" class="result" style="background-color: #f0f0f0; border-color: #ccc;"></div>
+    <div id="saved_slip_display" class="result" style="background-color: #e0ffe0; border-color: #ccffcc;"><h3>Сохраненный банковский слип:</h3><pre id="slip_content"></pre></div>
+    <div id="result" class="result"></div>
+
+    <script>
+        //const API_URL = 'http://localhost:8081';
+        const API_URL = 'http://localhost:8000';
+
+        let savedSlipLines = []; // Глобальная переменная для хранения строк слипа
+
+        function displaySavedSlip() {
+            console.log('displaySavedSlip called. Current savedSlipLines:', savedSlipLines);
+            const slipContentElement = document.getElementById('slip_content');
+            const savedSlipDisplayElement = document.getElementById('saved_slip_display');
+
+            if (savedSlipLines.length > 0) {
+                slipContentElement.textContent = savedSlipLines.join('\n');
+                savedSlipDisplayElement.style.display = 'block';
+            } else {
+                slipContentElement.textContent = 'Нет сохраненного слипа.';
+                savedSlipDisplayElement.style.display = 'none'; // Скрываем блок, если нет слипа
+            }
+        }
+
+        function handleJsonResponse(data, resultElementId) {
+            const resultElement = document.getElementById(resultElementId);
+            if (typeof data !== 'object' || data === null || !('success' in data)) {
+                resultElement.textContent = new Date().toLocaleString() + ': Ошибка: Неверный формат ответа от сервера: ' + JSON.stringify(data);
+                return;
+            }
+
+            let displayMessage = '';
+
+            if (data.success) {
+                displayMessage += `Команда отправлена на устройство.`;
+                if (data.data) {
+                    if ('success' in data.data) { // Для операций с дополнительным полем "success" в data
+                        if (data.data.success) {
+                            displayMessage += `\nОперация выполнена успешно. Ответ: ${JSON.stringify(data.data.response, null, 2)}`;
+                        } else {
+                            displayMessage += `\nОшибка выполнения операции: ${data.data.response}`;
+                        }
+                    } else if ('weight' in data.data) { // Для получения веса
+                        displayMessage += `\nВес: ${data.data.weight}`;
+                    } else {
+                        displayMessage += `\nДанные: ${JSON.stringify(data.data, null, 2)}`;
+                    }
+                }
+            } else {
+                displayMessage += `Ошибка отправки команды на устройство: ${data.message || 'Неизвестная ошибка'}`;
+            }
+
+            resultElement.textContent = new Date().toLocaleString() + ': ' + displayMessage;
+            console.log('Processed response:', data);
+        }
+
+        async function printCheck() {
+            try {
+                console.log('printCheck');
+                const response = await fetch(`${API_URL}/api/print-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tableData: [
+                            {
+                                name: 'Товар 1',
+                                quantity: '2',
+                                price: '100.00'
+                            },
+                            {
+                                name: 'Товар 2',
+                                quantity: '1',
+                                price: '200.00'
+                            }
+                        ],
+                        cashier: 'Иван Иванов',
+                        payments: [
+                            {
+                                type: 'cash',
+                                amount: 300.00
+                            },
+                            {
+                                type: 'electronically',
+                                amount: 100.00
+                            }
+                        ],
+                        type: 'sell'
+                    })
+                });
+                console.log(response);
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function closeShift() {
+            try {
+                const response = await fetch(`${API_URL}/api/close-shift`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cashier: 'Иван Иванов'
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function printXReport() {
+            try {
+                const response = await fetch(`${API_URL}/api/x-report`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function getWeight() {
+            try {
+                console.log('getWeight');
+                const response = await fetch(`${API_URL}/api/get-weight`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function cashIn() {
+            try {
+                console.log('cashIn');
+                const response = await fetch(`${API_URL}/api/cash-in`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cashier: 'Иван Иванов',
+                        amount: 500.00
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function cashOut() {
+            try {
+                console.log('cashOut');
+                const response = await fetch(`${API_URL}/api/cash-out`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cashier: 'Иван Иванов',
+                        amount: 100.00
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function printBankSlip() {
+            try {
+                if (savedSlipLines.length === 0) {
+                    document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: Нет сохраненного банковского слипа для печати. Выполните банковскую операцию сначала.';
+                    return;
+                }
+
+                console.log('printBankSlip');
+                const response = await fetch(`${API_URL}/api/print-bank-slip`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        slipLines: savedSlipLines // Используем сохраненные строки слипа
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+
+                if (data.success && data.data && data.data.success) {
+                    savedSlipLines = []; // Очищаем сохраненные строки слипа только если операция на устройстве успешна
+                    displaySavedSlip(); // Обновляем отображение, скрывая слип
+                    console.log('Bank slip printed successfully. savedSlipLines cleared.');
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function closeBankShift() {
+            try {
+                console.log('CloseShiftTerminal');
+                const response = await fetch(`${API_URL}/api/bank-operation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        operation: 'CloseShiftTerminal',
+                        params: {}
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+                console.log('Response data for closeBankShift:', data);
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.response)) {
+                    savedSlipLines = data.data.slipLines;
+                    console.log('savedSlipLines after update (closeBankShift):', savedSlipLines);
+                    displaySavedSlip();
+                } else {
+                    savedSlipLines = []; // Очищаем, если нет слипа или операция неуспешна
+                    console.log('savedSlipLines cleared (closeBankShift):', savedSlipLines);
+                    displaySavedSlip();
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function bankOperationPayment() {
+            try {
+                console.log('bankOperationPayment');
+                const response = await fetch(`${API_URL}/api/bank-operation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        operation: 'PayMoney',
+                        params: { amount: 2.00 }
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+                console.log('Response data for bankOperationPayment:', data);
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.response)) {
+                    savedSlipLines = data.data.response;
+                    console.log('savedSlipLines after update (bankOperationPayment):', savedSlipLines);
+                    displaySavedSlip();
+                } else {
+                    savedSlipLines = []; // Очищаем, если нет слипа или операция неуспешна
+                    console.log('savedSlipLines cleared (bankOperationPayment):', savedSlipLines);
+                    displaySavedSlip();
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function bankOperationReturn() {
+            try {
+                console.log('bankOperationReturn');
+                const response = await fetch(`${API_URL}/api/bank-operation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        operation: 'ReturnMoney',
+                        params: { amount: 2.00, checkNumber: '12345' }
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+                console.log('Response data for bankOperationReturn:', data);
+                if (data.success && data.data && data.data.success && Array.isArray(data.data.response)) {
+                    savedSlipLines = data.data.response;
+                    console.log('savedSlipLines after update (bankOperationReturn):', savedSlipLines);
+                    displaySavedSlip();
+                } else {
+                    savedSlipLines = []; // Очищаем, если нет слипа или операция неуспешна
+                    console.log('savedSlipLines cleared (bankOperationReturn):', savedSlipLines);
+                    displaySavedSlip();
+                }
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function getProgramVersion() {
+            try {
+                console.log('getProgramVersion');
+                const response = await fetch(`${API_URL}/api/version`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const textResponse = await response.text();
+                try {
+                    const data = JSON.parse(textResponse);
+                    handleJsonResponse(data, 'status_display');
+                } catch (jsonError) {
+                    // If it's not JSON, assume it's just the version string
+                    document.getElementById('status_display').textContent = `Версия программы: ${textResponse}`;
+                }
+            } catch (error) {
+                document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
+            }
+        }
+
+        async function checkRR() {
+            try {
+                console.log('checkRR');
+                const response = await fetch(`${API_URL}/api/checkrr`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const textResponse = await response.text();
+                try {
+                    const data = JSON.parse(textResponse);
+                    handleJsonResponse(data, 'status_display');
+                } catch (jsonError) {
+                    // If it's not JSON, assume it's just the version string
+                    document.getElementById('status_display').textContent = `Ответ: ${textResponse}`;
+                }
+            } catch (error) {
+                document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
+            }            
+        }
+
+        // Вызываем функцию при загрузке страницы и скрываем блок слипа по умолчанию
+        window.onload = function() {
+            getProgramVersion();
+            displaySavedSlip(); // Скрываем блок при загрузке страницы
+        };
+    </script>
+</body>
+</html> 

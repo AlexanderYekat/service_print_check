@@ -2,10 +2,14 @@
 
 class MarkingCode
 {
-    public string $code;
+    public string $value;
+    public ?string $inn;
+    public ?string $gtin;
 
-    public function __construct(string $code)
+    public function __construct(string $value, ?string $inn = null, ?string $gtin = null)
     {
-        $this->code = $code;
+        $this->value = $value;
+        $this->inn = $inn;
+        $this->gtin = $gtin;
     }
 }

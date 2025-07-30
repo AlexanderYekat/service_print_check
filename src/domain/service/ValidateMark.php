@@ -1,9 +1,9 @@
 <?php
 // domain/service/ValidateMarkUseCase.php
 class ValidateMarkUseCase {
-    private HonestSignGateway $gateway;
+    private ValidateMarkGateway $gateway;
     private HonestSignResult $result;
-    public function __construct(HonestSignGateway $gateway, HonestSignResult $result) {
+    public function __construct(ValidateMarkGateway $gateway) {
         $this->gateway = $gateway;
         $this->result = $result;
     }

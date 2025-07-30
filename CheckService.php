@@ -210,7 +210,7 @@ class CheckService {
             //$position['mark_permit_result'] = $rr_result['result'];
             $position['rr_success'] = false;
             $position['rr_message'] = $rr_result['message'] ?? null;
-            if $rr_result['status'] === 'success') {
+            if ($rr_result['status'] === 'success') {
                 $codereq = $rr_result['code'];
                 if ($codereq === 0) {
                     $position['isBlocked'] = $rr_result['codes'][0]['isBlocked'];

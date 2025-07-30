@@ -30,6 +30,7 @@ Output/
 .vscode/
 .idea/
 *.iml
+config/settings.json
 
 # Системные файлы
 .DS_Store

@@ -1,22 +1,22 @@
-# Скрипт для перезапуска службы CloudPosBridgePHP
+# РЎРєСЂРёРїС‚ РґР»СЏ РїРµСЂРµР·Р°РїСѓСЃРєР° СЃР»СѓР¶Р±С‹ CloudPosBridgePHP
 
-Write-Host "Остановка службы CloudPosBridgeServicePHP..."
+Write-Host "РћСЃС‚Р°РЅРѕРІРєР° СЃР»СѓР¶Р±С‹ CloudPosBridgeServicePHP..."
 try {
     Stop-Service -Name CloudPosBridgeServicePHP -ErrorAction Stop
-    Write-Host "Служба CloudPosBridgeServicePHP остановлена."
+    Write-Host "РЎР»СѓР¶Р±Р° CloudPosBridgeServicePHP РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
 }
 catch {
-    Write-Warning "Не удалось остановить службу CloudPosBridgeServicePHP. Возможно, она уже остановлена или не существует. Продолжаем."
+    Write-Warning "РќРµ СѓРґР°Р»РѕСЃСЊ РѕСЃС‚Р°РЅРѕРІРёС‚СЊ СЃР»СѓР¶Р±Сѓ CloudPosBridgeServicePHP. Р’РѕР·РјРѕР¶РЅРѕ, РѕРЅР° СѓР¶Рµ РѕСЃС‚Р°РЅРѕРІР»РµРЅР° РёР»Рё РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚. РџСЂРѕРґРѕР»Р¶Р°РµРј."
 }
 
-Write-Host "Запуск службы CloudPosBridgeServicePHP..."
+Write-Host "Р—Р°РїСѓСЃРє СЃР»СѓР¶Р±С‹ CloudPosBridgeServicePHP..."
 try {
     Start-Service -Name CloudPosBridgeServicePHP -ErrorAction Stop
-    Write-Host "Служба CloudPosBridgeServicePHP запущена."
+    Write-Host "РЎР»СѓР¶Р±Р° CloudPosBridgeServicePHP Р·Р°РїСѓС‰РµРЅР°."
 }
 catch {
-    Write-Error "Не удалось запустить службу CloudPosBridgeServicePHP: $_"
+    Write-Error "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ СЃР»СѓР¶Р±Сѓ CloudPosBridgeServicePHP: $_"
     exit 1
 }
 
-Write-Host "Перезапуск службы завершен." 
+Write-Host "РџРµСЂРµР·Р°РїСѓСЃРє СЃР»СѓР¶Р±С‹ Р·Р°РІРµСЂС€РµРЅ." 

@@ -31,6 +31,8 @@ Output/
 .idea/
 *.iml
 config/settings.json
+vendor/
+composer.lock
 
 # Системные файлы
 .DS_Store

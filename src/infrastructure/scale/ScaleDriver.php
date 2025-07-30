@@ -2,6 +2,7 @@
 // scaleutils.php
 
 class TScale8Driver {
+    private $comClass;
     private $scale = null;
     private $comPort; // Номер COM-порта
     private $baudRate; // Скорость передачи данных (BaudRate)
@@ -9,11 +10,12 @@ class TScale8Driver {
     private $emulation; // Флаг эмуляции
     private $logger; // Добавляем свойство для логгера
 
-    public function __construct(int $comPort = 1001, int $baudRate = 18, int $model = 38, bool $emulation = false, ?Logger $logger = null) {
+    public function __construct(int $comPort = 1001, int $baudRate = 18, int $model = 38, string $comClass = "AddIn.Scale8", bool $emulation = false, ?Logger $logger = null) {
         $this->comPort = $comPort;
         $this->baudRate = $baudRate;
         $this->model = $model;
         $this->emulation = $emulation;
+        $this->comClass = $comClass;
         $this->logger = $logger ?? Logger::getInstance(); // Инициализируем логгер или получаем существующий экземпляр
     }
 
@@ -24,10 +26,7 @@ class TScale8Driver {
             if ($this->scale === null) {
                 // Создание COM-объекта AddIn.Scale8
                 $this->logger->info("Попытка создание экземпляра com объекта весов");
-                $this->scale = new COM("AddIn.Scale8");
-                //$this->scale = new COM("AddIn.Scale8", null, CP_UTF8, CLSCTX_LOCAL_SERVER);                
-                //$this->scale = new COM("AddIn.Scale8", null, CP_UTF8, CLSCTX_INPROC_SERVER);                
-                //$this->scale = new COM("AddIn.Scale45");
+                $this->scale = new COM($this->comClass);
                 $this->logger->info("COM-объект создан успешно.");
             }
 
@@ -36,9 +35,6 @@ class TScale8Driver {
                 $this->logger->info("Попытка проверки/добавления устройства...");
                 $deviceCount = $this->scale->DeviceCount;
                 $this->logger->info("Обнаружено устройств: {$deviceCount}");
-                //$this->logger->info("Попытка чтения веса...");
-                //$resReadWeight =$this->scale->ReadWeight();
-                //$this->logger->info("Чтение веса успешно: {$resReadWeight}");
                 if ($deviceCount == 0) {
                     $this->logger->info("Устройств не найдено, попытка добавления устройства...");
                     $addResult = $this->scale->AddDevice();

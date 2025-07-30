@@ -1,42 +1,39 @@
 <?php
+
+require_once __DIR__ . '/../../interface/ScaleInterface.php';
+require_once __DIR__ . '/../../domain/model/WeightResult.php';
+
 class SerialScaleAdapter implements ScaleInterface
 {
-    private string $comPort;
+    private $settingsPath;
 
-    public function __construct(string $comPort)
+    public function __construct($settingsPath)
     {
-        $this->comPort = $comPort;
+        $this->settingsPath = $settingsPath;
     }
+
 
     public function getWeight(): WeightResult
     {
-        $handle = @fopen($this->comPort, 'r+');
-        if ($handle === false) {
-            return new WeightResult(false, "Не удалось открыть порт {$this->comPort}");
+        $settings = json_decode(file_get_contents($this->settingsPath), true);
+        $scaleSettings = $settings['scale'] ?? [];
+        $comPort = $scaleSettings['com_port'];
+        $baudRate = $scaleSettings['baud_rate'];
+        $model = $scaleSettings['model'];
+        $comClass = $scaleSettings['com_class'];
+        $emulation = $scaleSettings['emulation'];
+
+        $scaleDriver = new TScale8Driver($comPort, $baudRate, $model, $comClass, $emulation);
+        list($isOpened, $connectErrorDesc) = $scaleDriver->Open();
+        if (!$isOpened) {
+            return new WeightResult(false, "Ошибка подключения к весам: {$connectErrorDesc}");
         }
-
-        stream_set_timeout($handle, 1, 0); // таймаут 1 сек
-
-        $data = fread($handle, 100);
-        fclose($handle);
-
-        // Здесь нужен парсер под твой формат данных!
-        $weight = $this->parseWeightData($data);
-
-        if ($weight === null) {
-            return new WeightResult(false, "Ошибка парсинга данных веса");
+        list($success, $readErrorDesc, $weight) = $scaleDriver->ReadWeight();
+        if (!$success) {
+            $scaleDriver->Close();
+            return new WeightResult(false, "Ошибка чтения веса: {$readErrorDesc}");
         }
-
-        return new WeightResult(true, null, new Weight($weight, 'g'));
-    }
-
-    private function parseWeightData(string $data): ?float
-    {
-        // Реализуй парсинг по формату своего устройства!
-        // Например, если данные — просто число:
-        if (preg_match('/(\d+(\.\d+)?)/', $data, $matches)) {
-            return floatval($matches[1]);
-        }
-        return null;
+        $scaleDriver->Close();
+        return new WeightResult(true, null, $weight);
     }
 }

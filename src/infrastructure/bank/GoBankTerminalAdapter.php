@@ -1,3 +1,4 @@
+<?php
 class GoBankTerminalAdapter implements BankTerminalInterface {
     public function pay(float $amount): BankResult {
         // 1. Запустить Go-бинарь с нужными параметрами (shell_exec, proc_open, etc)

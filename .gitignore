@@ -27,6 +27,7 @@ Output/
 #go.mod
 
 # Директории и файлы IDE
+.gigaide/
 .vscode/
 .idea/
 *.iml

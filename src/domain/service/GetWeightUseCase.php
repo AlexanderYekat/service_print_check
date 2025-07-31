@@ -12,20 +12,7 @@ class GetWeightUseCase {
     }
     
     public function execute(): OperationResult {
-        $weightResult = $this->scale->getWeight();
-        
-        // Преобразование в доменный результат
-        if ($weightResult->success) {
-            return OperationResult::success(
-                [
-                    'weight' => $weightResult->weight    // Вес в доменных данных
-                ],
-                $weightResult->message ?? 'Вес получен успешно'
-            );
-        } else {
-            return OperationResult::failure(
-                $weightResult->message ?? 'Ошибка получения веса'
-            );
-        }
+        // Адаптер уже возвращает правильный OperationResult
+        return $this->scale->getWeight();
     }
 }

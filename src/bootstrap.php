@@ -9,7 +9,7 @@ require_once __DIR__ . '/domain/model/Check.php';
 require_once __DIR__ . '/domain/model/BankResult.php';
 require_once __DIR__ . '/domain/model/BankTransaction.php';
 require_once __DIR__ . '/domain/model/OperationResult.php';
-require_once __DIR__ . '/domain/model/WeightResult.php';
+
 require_once __DIR__ . '/domain/model/MarkingCode.php';
 require_once __DIR__ . '/domain/model/HonestSignResult.php';
 

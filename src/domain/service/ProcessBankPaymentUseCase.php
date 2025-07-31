@@ -1,62 +1,223 @@
 <?php
 
-require_once __DIR__ . '/../model/OperationResult.php';
-require_once __DIR__ . '/../../interface/BankTerminalInterface.php';
+namespace App\Domain\Service;
 
-// domain/service/ProcessBankPaymentUseCase.php
-class ProcessBankPaymentUseCase {
-    private BankTerminalInterface $terminal;
+use App\Domain\Model\OperationResult;
+use App\Domain\Model\BankTransaction;
+use App\Interface\BankTerminalInterface;
+use App\Infrastructure\Logger\LoggerInterface;
+use InvalidArgumentException;
+
+/**
+ * UseCase для обработки банковских платежей
+ * 
+ * Инкапсулирует бизнес-логику операций с банковским терминалом:
+ * - валидация входных данных
+ * - логирование операций
+ * - обработка результатов
+ * - создание доменных объектов
+ */
+class ProcessBankPaymentUseCase
+{
+    private BankTerminalInterface $bankTerminal;
+    private LoggerInterface $logger;
     
-    public function __construct(BankTerminalInterface $terminal) {
-        $this->terminal = $terminal;
-    }
-    
-    public function pay(float $amount): OperationResult {
-        // 1. Валидация суммы
-        if ($amount <= 0) {
-            return OperationResult::failure('Сумма должна быть положительной');
-        }
-        
-        // 2. Операция через банковский терминал
-        $bankResult = $this->terminal->pay($amount);
-        
-        // 3. Преобразование в доменный результат
-        return $this->convertBankResultToOperationResult($bankResult, 'Операция оплаты');
-    }
-    
-    public function refund(float $amount): OperationResult {
-        if ($amount <= 0) {
-            return OperationResult::failure('Сумма должна быть положительной');
-        }
-        
-        $bankResult = $this->terminal->refund($amount);
-        return $this->convertBankResultToOperationResult($bankResult, 'Операция возврата');
-    }
-    
-    public function closeShift(): OperationResult {
-        $bankResult = $this->terminal->closeShift();
-        return $this->convertBankResultToOperationResult($bankResult, 'Закрытие смены');
+    public function __construct(
+        BankTerminalInterface $bankTerminal,
+        LoggerInterface $logger
+    ) {
+        $this->bankTerminal = $bankTerminal;
+        $this->logger = $logger;
     }
     
     /**
-     * Преобразует результат банковского терминала в доменный OperationResult
+     * Выполнить платеж через банковский терминал
+     *
+     * @param float $amount Сумма платежа
+     * @return OperationResult Результат операции
      */
-    private function convertBankResultToOperationResult($bankResult, string $operationType): OperationResult {
-        if ($bankResult->success) {
-            return OperationResult::success(
-                [
-                    'slip' => $bankResult->slipLines ?? [],        // Слип — доменная логика банковской операции
-                    'result_code' => $bankResult->resultCode       // Код результата банка
-                ],
-                $bankResult->message ?? "$operationType успешно завершена"
-            );
-        } else {
-            return OperationResult::failure(
-                $bankResult->message ?? "$operationType завершена с ошибкой",
-                [
-                    'result_code' => $bankResult->resultCode
-                ]
-            );
+    public function pay(float $amount): OperationResult
+    {
+        $this->logger->info("Начало обработки платежа на сумму: {$amount}");
+        
+        try {
+            // Валидация входных данных
+            $this->validateAmount($amount);
+            
+            // Выполнение операции через терминал
+            $result = $this->bankTerminal->pay($amount);
+            
+            if ($result->isSuccess()) {
+                $this->logger->info("Платеж успешно обработан на сумму: {$amount}");
+                return $this->createTransactionResult($result, 'payment', $amount);
+            } else {
+                $this->logger->error("Ошибка обработки платежа: " . $result->getErrorMessage());
+                return $result;
+            }
+            
+        } catch (InvalidArgumentException $e) {
+            $this->logger->error("Ошибка валидации платежа: " . $e->getMessage());
+            return OperationResult::failure($e->getMessage());
+        } catch (\Exception $e) {
+            $this->logger->error("Неожиданная ошибка при обработке платежа: " . $e->getMessage());
+            return OperationResult::failure("Внутренняя ошибка системы");
         }
+    }
+    
+    /**
+     * Выполнить возврат денежных средств
+     *
+     * @param float $amount Сумма возврата
+     * @return OperationResult Результат операции
+     */
+    public function refund(float $amount): OperationResult
+    {
+        $this->logger->info("Начало обработки возврата на сумму: {$amount}");
+        
+        try {
+            // Валидация входных данных
+            $this->validateAmount($amount);
+            
+            // Выполнение операции через терминал
+            $result = $this->bankTerminal->refund($amount);
+            
+            if ($result->isSuccess()) {
+                $this->logger->info("Возврат успешно обработан на сумму: {$amount}");
+                return $this->createTransactionResult($result, 'refund', $amount);
+            } else {
+                $this->logger->error("Ошибка обработки возврата: " . $result->getErrorMessage());
+                return $result;
+            }
+            
+        } catch (InvalidArgumentException $e) {
+            $this->logger->error("Ошибка валидации возврата: " . $e->getMessage());
+            return OperationResult::failure($e->getMessage());
+        } catch (\Exception $e) {
+            $this->logger->error("Неожиданная ошибка при обработке возврата: " . $e->getMessage());
+            return OperationResult::failure("Внутренняя ошибка системы");
+        }
+    }
+    
+    /**
+     * Отменить операцию
+     *
+     * @param float $amount Сумма операции для отмены
+     * @return OperationResult Результат операции
+     */
+    public function cancel(float $amount): OperationResult
+    {
+        $this->logger->info("Начало отмены операции на сумму: {$amount}");
+        
+        try {
+            // Валидация входных данных
+            $this->validateAmount($amount);
+            
+            // Выполнение операции через терминал
+            $result = $this->bankTerminal->cancel($amount);
+            
+            if ($result->isSuccess()) {
+                $this->logger->info("Операция успешно отменена на сумму: {$amount}");
+                return $this->createTransactionResult($result, 'cancel', $amount);
+            } else {
+                $this->logger->error("Ошибка отмены операции: " . $result->getErrorMessage());
+                return $result;
+            }
+            
+        } catch (InvalidArgumentException $e) {
+            $this->logger->error("Ошибка валидации отмены: " . $e->getMessage());
+            return OperationResult::failure($e->getMessage());
+        } catch (\Exception $e) {
+            $this->logger->error("Неожиданная ошибка при отмене операции: " . $e->getMessage());
+            return OperationResult::failure("Внутренняя ошибка системы");
+        }
+    }
+    
+    /**
+     * Закрыть смену банковского терминала
+     *
+     * @return OperationResult Результат операции
+     */
+    public function closeShift(): OperationResult
+    {
+        $this->logger->info("Начало закрытия смены банковского терминала");
+        
+        try {
+            // Выполнение операции через терминал
+            $result = $this->bankTerminal->closeShift();
+            
+            if ($result->isSuccess()) {
+                $this->logger->info("Смена банковского терминала успешно закрыта");
+                return $this->createShiftCloseResult($result);
+            } else {
+                $this->logger->error("Ошибка закрытия смены: " . $result->getErrorMessage());
+                return $result;
+            }
+            
+        } catch (\Exception $e) {
+            $this->logger->error("Неожиданная ошибка при закрытии смены: " . $e->getMessage());
+            return OperationResult::failure("Внутренняя ошибка системы");
+        }
+    }
+    
+    /**
+     * Валидация суммы операции
+     *
+     * @param float $amount Сумма для валидации
+     * @throws InvalidArgumentException При некорректной сумме
+     */
+    private function validateAmount(float $amount): void
+    {
+        if ($amount <= 0) {
+            throw new InvalidArgumentException("Сумма должна быть положительной");
+        }
+        
+        if ($amount > 999999.99) {
+            throw new InvalidArgumentException("Сумма слишком большая");
+        }
+        
+        // Проверяем количество знаков после запятой (не более 2)
+        if (round($amount, 2) !== $amount) {
+            throw new InvalidArgumentException("Сумма должна содержать не более 2 знаков после запятой");
+        }
+    }
+    
+    /**
+     * Создать результат банковской транзакции
+     *
+     * @param OperationResult $terminalResult Результат от терминала
+     * @param string $operationType Тип операции
+     * @param float $amount Сумма операции
+     * @return OperationResult
+     */
+    private function createTransactionResult(
+        OperationResult $terminalResult, 
+        string $operationType, 
+        float $amount
+    ): OperationResult {
+        $transaction = new BankTransaction(
+            $operationType,
+            $amount,
+            $terminalResult->getData()
+        );
+        
+        return OperationResult::success([
+            'transaction' => $transaction,
+            'slip' => $terminalResult->getData()
+        ]);
+    }
+    
+    /**
+     * Создать результат закрытия смены
+     *
+     * @param OperationResult $terminalResult Результат от терминала
+     * @return OperationResult
+     */
+    private function createShiftCloseResult(OperationResult $terminalResult): OperationResult
+    {
+        return OperationResult::success([
+            'operation' => 'shift_close',
+            'slip' => $terminalResult->getData(),
+            'timestamp' => time()
+        ]);
     }
 }

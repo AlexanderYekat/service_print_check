@@ -1,7 +1,6 @@
 <?php
 
 require_once __DIR__ . '/../../interface/ScaleInterface.php';
-require_once __DIR__ . '/../../domain/model/WeightResult.php';
 
 class SerialScaleAdapter implements ScaleInterface
 {
@@ -13,7 +12,7 @@ class SerialScaleAdapter implements ScaleInterface
     }
 
 
-    public function getWeight(): WeightResult
+    public function getWeight(): OperationResult
     {
         $settings = json_decode(file_get_contents($this->settingsPath), true);
         $scaleSettings = $settings['scale'] ?? [];
@@ -26,14 +25,14 @@ class SerialScaleAdapter implements ScaleInterface
         $scaleDriver = new TScale8Driver($comPort, $baudRate, $model, $comClass, $emulation);
         list($isOpened, $connectErrorDesc) = $scaleDriver->Open();
         if (!$isOpened) {
-            return new WeightResult(false, "Ошибка подключения к весам: {$connectErrorDesc}");
+            return OperationResult::failure("Ошибка подключения к весам: {$connectErrorDesc}");
         }
         list($success, $readErrorDesc, $weight) = $scaleDriver->ReadWeight();
         if (!$success) {
             $scaleDriver->Close();
-            return new WeightResult(false, "Ошибка чтения веса: {$readErrorDesc}");
+            return OperationResult::failure("Ошибка чтения веса: {$readErrorDesc}");
         }
         $scaleDriver->Close();
-        return new WeightResult(true, null, $weight);
+        return OperationResult::success(['weight' => $weight], 'Вес получен успешно');
     }
 }

@@ -21,7 +21,7 @@ class SerialKktAdapter implements PrinterInterface
         $this->emulation = $emulation;
     }
 
-    public function printCheck(Check $check): OperationResult
+    public function printCheck(Check $check, array $markCheckData = []): OperationResult
     {
         try {
             // 1. Инициализируем драйвер
@@ -37,8 +37,8 @@ class SerialKktAdapter implements PrinterInterface
             }
 
             try {
-                // 3. Форматируем чек в JSON
-                $checkJson = $this->formatCheckToJson($check);
+                // 3. Форматируем чек в JSON с данными проверок маркировок
+                $checkJson = $this->formatCheckToJson($check, $markCheckData);
 
                 // 4. Отправляем команду на печать
                 list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($checkJson);
@@ -179,37 +179,57 @@ class SerialKktAdapter implements PrinterInterface
     /**
      * Форматирует чек в JSON для отправки на ККТ
      */
-    private function formatCheckToJson(Check $check): string
+    private function formatCheckToJson(Check $check, array $markCheckData = []): string
     {
-        // Формируем позиции чека
+        // Формируем позиции чека используя доменную модель
         $checkItems = [];
-        foreach ($check->tableData as $item) {
-            $taxType = "none";
-            if (!empty($item['taxNDS'])) {
-                if (strpos($item['taxNDS'], "vat") === 0) {
-                    $taxType = $item['taxNDS'];
-                } else {
-                    $taxType = "vat" . $item['taxNDS'];
+        foreach ($check->getItems() as $item) {
+            $position = [
+                "type" => "position",
+                "name" => $item->getName(),
+                "price" => $item->getPrice(),
+                "quantity" => $item->getQuantity(),
+                "amount" => $item->getSum(),
+                "tax" => [
+                    "type" => "none"  // TODO: добавить поддержку налогов в доменную модель
+                ]
+            ];
+            
+            // Если у позиции есть маркировка, добавляем данные проверки
+            if ($item->hasMarkingCode()) {
+                $markingCode = $item->getMarkingCode();
+                $cleanCode = $markingCode->getCleanCode();
+                
+                $position["mark_code"] = $markingCode->getRawCode();
+                
+                // Ищем данные проверки для этой марки
+                if (isset($markCheckData[$cleanCode])) {
+                    $checkData = $markCheckData[$cleanCode];
+                    
+                    // Данные разрешительного режима
+                    if (!empty($checkData['permit_check'])) {
+                        $permitResult = $checkData['permit_check']['result'];
+                        $position["permit_check_status"] = $permitResult->success ? "success" : "failed";
+                        if ($permitResult->success && !empty($permitResult->getData())) {
+                            $position["permit_check_data"] = $permitResult->getData();
+                        }
+                    }
+                    
+                    // Данные проверки ККТ
+                    if (!empty($checkData['ecr_check'])) {
+                        $ecrResult = $checkData['ecr_check']['result'];
+                        $position["ecr_check_status"] = $ecrResult->success ? "success" : "failed";
+                        if ($ecrResult->success && !empty($ecrResult->getData())) {
+                            $position["ecr_check_data"] = $ecrResult->getData();
+                        }
+                    }
+                    
+                    // Общий статус проверки марки
+                    $position["mark_fully_checked"] = $checkData['is_fully_checked'];
                 }
             }
             
-            $quantity = floatval($item['quantity']);
-            $price = floatval($item['price']);
-            $checkItems[] = [
-                "type" => "position",
-                "name" => $item['name'],
-                "price" => $price,
-                "quantity" => $quantity,
-                "amount" => $price * $quantity,
-                "tax" => [
-                    "type" => $taxType
-                ],
-                // Поля для маркированных товаров
-                "mark_code" => $item['mark_code'] ?? null,
-                "position_id" => $item['position_id'] ?? null,
-                "mark_status" => $item['mark_status'] ?? null,
-                "mark_check_result" => $item['mark_check_result'] ?? null
-            ];
+            $checkItems[] = $position;
         }
 
         // Считаем общую сумму
@@ -218,35 +238,34 @@ class SerialKktAdapter implements PrinterInterface
             $totalAmount += $item['amount'];
         }
 
-        // Формируем оплаты
+        // Формируем оплаты используя доменную модель
         $payments = [];
-        if (empty($check->payments)) {
+        foreach ($check->getPayments() as $payment) {
+            $payments[] = [
+                "type" => $payment->getType(),
+                "sum" => $payment->getAmount()
+            ];
+        }
+        
+        // Если нет платежей, добавляем наличные на полную сумму
+        if (empty($payments)) {
             $payments[] = [
                 "type" => "cash",
                 "sum" => $totalAmount
             ];
-        } else {
-            foreach ($check->payments as $payment) {
-                $payments[] = [
-                    "type" => $payment['type'],
-                    "sum" => floatval($payment['amount'])
-                ];
-            }
         }
 
-        $checkType = !empty($check->type) ? $check->type : "sell";
-
         $checkJSON = [
-            "type" => $checkType,
+            "type" => $check->getType(),
             "operator" => [
-                "name" => $check->cashier
+                "name" => $check->getCashier()
             ],
             "items" => $checkItems,
             "payments" => $payments
         ];
 
-        if (!empty($check->taxationSystem)) {
-            $checkJSON['taxationType'] = $check->taxationSystem;
+        if (!empty($check->getTaxationSystem())) {
+            $checkJSON['taxationType'] = $check->getTaxationSystem();
         }
 
         return json_encode($checkJSON, JSON_UNESCAPED_UNICODE);

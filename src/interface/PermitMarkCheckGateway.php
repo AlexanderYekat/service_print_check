@@ -12,7 +12,8 @@ interface PermitMarkCheckGateway
     /**
      * Синхронно вызывает внешний API (например, Честный Знак).
      * @param MarkingCode $code Код маркировки для проверки
+     * @param array $context Дополнительный контекст (может содержать fiscalDriveNumber)
      * @return OperationResult с user_status + machine_data (uuid, time и пр.).
      */
-    public function checkPermit(MarkingCode $code): OperationResult;
+    public function checkPermit(MarkingCode $code, array $context = []): OperationResult;
 }

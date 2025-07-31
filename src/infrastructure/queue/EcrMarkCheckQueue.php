@@ -24,7 +24,7 @@ class EcrMarkCheckQueue
     /**
      * Добавляет задачу в очередь и возвращает taskId
      */
-    public function enqueueTask(MarkingCode $code): string
+    public function enqueueTask(MarkingCode $code, array $context = []): string
     {
         $taskId = uniqid('ecr_mark_', true);
         $queue = $this->loadQueue();
@@ -33,8 +33,8 @@ class EcrMarkCheckQueue
             'task_id' => $taskId,
             'code' => [
                 'value' => $code->value,
-                'inn' => $code->inn,
-                'gtin' => $code->gtin
+                'inn' => $context['inn'] ?? '',
+                'gtin' => $context['gtin'] ?? ''
             ],
             'operation' => 'ecr_check',
             'created_at' => date('Y-m-d H:i:s'),

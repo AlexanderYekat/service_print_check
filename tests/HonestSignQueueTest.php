@@ -26,7 +26,7 @@ class HonestSignQueueTest
     public function testAddToQueue()
     {
         $queue = new HonestSignQueue($this->testQueuePath);
-        $code = new MarkingCode("01234567890123456789", "1234567890", "4607184110117");
+        $code = new MarkingCode("01234567890123456789");
         
         $queue->addToQueue($code, 'validate');
         

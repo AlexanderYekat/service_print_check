@@ -4,6 +4,8 @@ require_once __DIR__ . '/../domain/service/PermitMarkCheckUseCase.php';
 require_once __DIR__ . '/../infrastructure/honest_sign/HttpPermitMarkCheckGateway.php';
 require_once __DIR__ . '/../domain/model/MarkingCode.php';
 require_once __DIR__ . '/../infrastructure/logger/FileLogger.php';
+require_once __DIR__ . '/../infrastructure/printer/SerialKktAdapter.php';
+require_once __DIR__ . '/../infrastructure/settings_storage/JsonFileSettingsStorage.php';
 
 /**
  * Контроллер для синхронной проверки марки в разрешительном режиме
@@ -12,18 +14,29 @@ class PermitMarkCheckController
 {
     private PermitMarkCheckUseCase $useCase;
     private FileLogger $logger;
+    private JsonFileSettingsStorage $settingsStorage;
+    private SerialKktAdapter $kktAdapter;
+    private array $config;
 
     public function __construct()
     {
         $this->logger = new FileLogger('logs/api.log');
         
-        // Загружаем настройки из файла или переменных окружения
-        $settings = $this->loadSettings();
+        // Загружаем настройки
+        $this->settingsStorage = new JsonFileSettingsStorage(__DIR__ . '/../../config/settings.json');
+        $this->config = $this->settingsStorage->load();
+        
+        // Инициализируем ККТ адаптер для получения fiscalDriveNumber
+        $this->kktAdapter = new SerialKktAdapter(
+            $this->config['printer']['com_class'] ?? 'AddIn.Fptr10',
+            $this->config['printer']['com_port'] ?? 'COM1',
+            $this->config['printer']['emulation'] ?? true
+        );
         
         // Инициализируем зависимости
         $gateway = new HttpPermitMarkCheckGateway(
-            $settings['honest_sign_api_url'] ?? 'https://api.markirovka.ru',
-            $settings['honest_sign_api_key'] ?? ''
+            $this->config['honest_sign']['api_url'] ?? 'https://api.markirovka.ru',
+            $this->config['honest_sign']['x-api-token'] ?? ''
         );
         
         $this->useCase = new PermitMarkCheckUseCase($gateway);
@@ -43,13 +56,29 @@ class PermitMarkCheckController
                 return;
             }
 
-            $markingCode = new MarkingCode(
-                $request['marking_code'],
-                $request['inn'] ?? null,
-                $request['gtin'] ?? null
-            );
+            $markingCode = new MarkingCode($request['marking_code']);
 
-            $result = $this->useCase->execute($markingCode);
+            // Формируем контекст для передачи всех дополнительных параметров
+            $context = [];
+            
+            // Добавляем ИНН и GTIN в контекст (согласно ТЗ не храним в доменной модели)
+            if (!empty($request['inn'])) {
+                $context['inn'] = $request['inn'];
+            }
+            if (!empty($request['gtin'])) {
+                $context['gtin'] = $request['gtin'];
+            }
+            
+            // Проверяем, нужно ли включать fiscalDriveNumber
+            if ($this->config['honest_sign']['includeFiscalDriveNumberInMarkCheck'] ?? false) {
+                $fiscalDriveNumber = $this->getFiscalDriveNumber();
+                if ($fiscalDriveNumber !== null) {
+                    $context['fiscalDriveNumber'] = $fiscalDriveNumber;
+                    $this->logger->info("FiscalDriveNumber добавлен в контекст проверки марки: {$fiscalDriveNumber}");
+                }
+            }
+
+            $result = $this->useCase->execute($markingCode, $context);
 
             if ($result->success) {
                 $this->sendSuccess($result->getData(), $result->message);
@@ -117,15 +146,32 @@ class PermitMarkCheckController
     }
 
     /**
-     * Загружает настройки
+     * Получает номер фискального накопителя из кэша или ККТ
+     * @return string|null Номер ФН или null в случае ошибки
      */
-    private function loadSettings(): array
+    private function getFiscalDriveNumber(): ?string
     {
-        $settingsFile = __DIR__ . '/../../settings_storage/settings.json';
-        if (file_exists($settingsFile)) {
-            $content = file_get_contents($settingsFile);
-            return json_decode($content, true) ?? [];
+        try {
+            // Сначала проверяем кэш
+            $cachedFnNumber = $this->settingsStorage->getFiscalDriveNumber();
+            if ($cachedFnNumber !== null) {
+                $this->logger->info("FiscalDriveNumber получен из кэша: {$cachedFnNumber}");
+                return $cachedFnNumber;
+            }
+
+            // Если в кэше нет - читаем с ККТ
+            $this->logger->info("FiscalDriveNumber не найден в кэше, читаем с ККТ устройства");
+            $fnNumber = $this->kktAdapter->readFiscalDriveNumberFromDevice();
+            
+            // Сохраняем в кэш
+            $this->settingsStorage->setFiscalDriveNumber($fnNumber);
+            $this->logger->info("FiscalDriveNumber получен с ККТ и сохранен в кэш: {$fnNumber}");
+            
+            return $fnNumber;
+
+        } catch (Exception $e) {
+            $this->logger->error("Ошибка получения FiscalDriveNumber: " . $e->getMessage());
+            return null;
         }
-        return [];
     }
 }

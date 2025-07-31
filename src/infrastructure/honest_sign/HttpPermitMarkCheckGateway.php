@@ -22,11 +22,13 @@ class HttpPermitMarkCheckGateway implements PermitMarkCheckGateway
 
     /**
      * Синхронная проверка марки в разрешительном режиме
+     * @param MarkingCode $code Код маркировки для проверки
+     * @param array $context Дополнительный контекст (может содержать fiscalDriveNumber)
      */
-    public function checkPermit(MarkingCode $code): OperationResult
+    public function checkPermit(MarkingCode $code, array $context = []): OperationResult
     {
         try {
-            $response = $this->performApiRequest($code);
+            $response = $this->performApiRequest($code, $context);
             
             if ($response['success']) {
                 return OperationResult::success([
@@ -67,15 +69,22 @@ class HttpPermitMarkCheckGateway implements PermitMarkCheckGateway
 
     /**
      * Выполняет HTTP-запрос к API
+     * @param MarkingCode $code Код маркировки
+     * @param array $context Контекст с дополнительными параметрами
      */
-    private function performApiRequest(MarkingCode $code): array
+    private function performApiRequest(MarkingCode $code, array $context = []): array
     {
         $postData = [
             'marking_code' => $code->value,
             'mode' => 'permit',
-            'inn' => $code->inn ?? '',
-            'gtin' => $code->gtin ?? ''
+            'inn' => $context['inn'] ?? '',
+            'gtin' => $context['gtin'] ?? ''
         ];
+
+        // Добавляем fiscalDriveNumber если он есть в контексте
+        if (!empty($context['fiscalDriveNumber'])) {
+            $postData['fiscalDriveNumber'] = $context['fiscalDriveNumber'];
+        }
 
         $headers = [
             'Content-Type: application/json',

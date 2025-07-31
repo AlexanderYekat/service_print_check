@@ -36,13 +36,18 @@ class EcrMarkCheckController
                 return;
             }
 
-            $markingCode = new MarkingCode(
-                $request['marking_code'],
-                $request['inn'] ?? null,
-                $request['gtin'] ?? null
-            );
+            $markingCode = new MarkingCode($request['marking_code']);
 
-            $taskId = $this->useCase->enqueue($markingCode);
+            // Формируем контекст с дополнительными параметрами для ECR проверки
+            $context = [];
+            if (!empty($request['inn'])) {
+                $context['inn'] = $request['inn'];
+            }
+            if (!empty($request['gtin'])) {
+                $context['gtin'] = $request['gtin'];
+            }
+
+            $taskId = $this->useCase->enqueue($markingCode, $context);
 
             $this->sendSuccess([
                 'task_id' => $taskId,

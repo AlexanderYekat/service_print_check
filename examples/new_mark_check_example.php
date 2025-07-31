@@ -13,14 +13,17 @@ require_once __DIR__ . '/../src/domain/model/MarkingCode.php';
 
 echo "=== Пример новой архитектуры проверки марки ===\n\n";
 
-// Создаем тестовый код маркировки
-$markingCode = new MarkingCode(
-    '010463003759026521uHpB8gXVVdi\u001d910092\u001d92dGVz/yx9tgLxk3g==',
-    '7736207543',
-    '04630037590265'
-);
+// Создаем тестовый код маркировки (согласно ТЗ - только значение)
+$markingCode = new MarkingCode('010463003759026521uHpB8gXVVdi\u001d910092\u001d92dGVz/yx9tgLxk3g==');
 
-echo "Код маркировки: {$markingCode->value}\n\n";
+// Дополнительные параметры передаем через контекст
+$context = [
+    'inn' => '7736207543',
+    'gtin' => '04630037590265'
+];
+
+echo "Код маркировки: {$markingCode->value}\n";
+echo "ИНН: {$context['inn']}, GTIN: {$context['gtin']}\n\n";
 
 // ===========================================
 // 1. РАЗРЕШИТЕЛЬНЫЙ РЕЖИМ (синхронный)
@@ -38,7 +41,7 @@ $permitUseCase = new PermitMarkCheckUseCase($permitGateway);
 echo "Выполняем синхронную проверку марки в разрешительном режиме...\n";
 
 try {
-    $permitResult = $permitUseCase->execute($markingCode);
+    $permitResult = $permitUseCase->execute($markingCode, $context);
     
     if ($permitResult->success) {
         echo "✅ Разрешительная проверка успешна!\n";
@@ -67,7 +70,7 @@ echo "Ставим задачу проверки марки на ККТ в оч�
 
 try {
     // Постановка в очередь
-    $taskId = $ecrUseCase->enqueue($markingCode);
+    $taskId = $ecrUseCase->enqueue($markingCode, $context);
     echo "✅ Задача поставлена в очередь. Task ID: {$taskId}\n";
     
     // Проверяем статус сразу (задача должна быть в pending)

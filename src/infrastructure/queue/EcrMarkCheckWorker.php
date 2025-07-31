@@ -42,14 +42,16 @@ class EcrMarkCheckWorker
                 
                 // Восстанавливаем MarkingCode из данных задачи
                 $codeData = $task['code'];
-                $markingCode = new MarkingCode(
-                    $codeData['value'],
-                    $codeData['inn'] ?? null,
-                    $codeData['gtin'] ?? null
-                );
+                $markingCode = new MarkingCode($codeData['value']);
+
+                // Формируем контекст с дополнительными данными
+                $context = [
+                    'inn' => $codeData['inn'] ?? '',
+                    'gtin' => $codeData['gtin'] ?? ''
+                ];
 
                 // Выполняем проверку марки на ККТ
-                $checkResult = $this->performEcrMarkCheck($markingCode);
+                $checkResult = $this->performEcrMarkCheck($markingCode, $context);
                 
                 if ($checkResult['success']) {
                     $this->queue->saveTaskResult($taskId, true, $checkResult['data']);
@@ -86,13 +88,13 @@ class EcrMarkCheckWorker
     /**
      * Выполняет проверку марки на ККТ через API
      */
-    private function performEcrMarkCheck(MarkingCode $code): array
+    private function performEcrMarkCheck(MarkingCode $code, array $context = []): array
     {
         $postData = [
             'marking_code' => $code->value,
             'mode' => 'ecr',
-            'inn' => $code->inn ?? '',
-            'gtin' => $code->gtin ?? ''
+            'inn' => $context['inn'] ?? '',
+            'gtin' => $context['gtin'] ?? ''
         ];
 
         $headers = [

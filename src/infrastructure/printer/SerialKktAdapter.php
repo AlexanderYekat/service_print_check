@@ -796,4 +796,74 @@ class SerialKktAdapter implements PrinterInterface
     public function getPortIpKkt() { return $this->portIpKkt; }
     public function getIpServKkt() { return $this->ipServKkt; }
     public function getEmulation() { return $this->emulation; }
+
+    /**
+     * Получает номер фискального накопителя с устройства ККТ
+     * @return string Номер фискального накопителя
+     * @throws Exception Если не удалось получить номер ФН
+     */
+    public function readFiscalDriveNumberFromDevice(): string 
+    {
+        try {
+            // 1. Инициализируем драйвер
+            $initError = $this->ensureDriverInitialized();
+            if ($initError !== null) {
+                throw new Exception("Ошибка инициализации драйвера: " . $initError);
+            }
+
+            // 2. Открываем соединение с ККТ
+            list($isOpened, $connectErrorDesc) = $this->openConnection();
+            if (!$isOpened && !$this->emulation) {
+                throw new Exception("Ошибка подключения к ККТ: " . $connectErrorDesc);
+            }
+
+            try {
+                // 3. Если режим эмуляции, возвращаем тестовый номер ФН
+                if ($this->emulation) {
+                    return "9999078900000961"; // Тестовый номер из mock-данных
+                }
+
+                // 4. Формируем команду запроса состояния ККТ
+                $statusCommand = json_encode([
+                    "type" => "getDeviceStatus"
+                ]);
+
+                // 5. Отправляем команду на ККТ
+                list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($statusCommand);
+
+                if (!$success) {
+                    throw new Exception("Ошибка получения статуса ККТ: " . $commandErrorDesc);
+                }
+
+                // 6. Парсим ответ
+                $response = json_decode($responseJson, true);
+                if ($response === null) {
+                    throw new Exception("Некорректный ответ от ККТ при запросе статуса");
+                }
+
+                // 7. Извлекаем номер ФН из ответа
+                $fnNumber = null;
+                if (isset($response['fiscalParams']['fnNumber'])) {
+                    $fnNumber = $response['fiscalParams']['fnNumber'];
+                } elseif (isset($response['status']['fnNumber'])) {
+                    $fnNumber = $response['status']['fnNumber'];
+                } elseif (isset($response['fnNumber'])) {
+                    $fnNumber = $response['fnNumber'];
+                }
+
+                if (empty($fnNumber)) {
+                    throw new Exception("Номер фискального накопителя не найден в ответе ККТ");
+                }
+
+                return (string)$fnNumber;
+
+            } finally {
+                // 8. Закрываем соединение
+                $this->closeConnection();
+            }
+
+        } catch (Exception $e) {
+            throw new Exception("Не удалось получить номер фискального накопителя: " . $e->getMessage());
+        }
+    }
 }

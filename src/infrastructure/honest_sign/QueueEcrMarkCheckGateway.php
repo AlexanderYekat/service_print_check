@@ -20,9 +20,9 @@ class QueueEcrMarkCheckGateway implements EcrMarkCheckGateway
     /**
      * Ставит задачу проверки марки на ККТ в очередь
      */
-    public function enqueueMarkCheck(MarkingCode $code): string
+    public function enqueueMarkCheck(MarkingCode $code, array $context = []): string
     {
-        return $this->queue->enqueueTask($code);
+        return $this->queue->enqueueTask($code, $context);
     }
 
     /**

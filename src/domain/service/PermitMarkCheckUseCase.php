@@ -20,10 +20,11 @@ class PermitMarkCheckUseCase
     /**
      * Выполняет синхронную проверку марки в разрешительном режиме
      * @param MarkingCode $code Код маркировки для проверки
+     * @param array $context Дополнительный контекст (может содержать fiscalDriveNumber)
      * @return OperationResult Результат с user_status и machine_data
      */
-    public function execute(MarkingCode $code): OperationResult 
+    public function execute(MarkingCode $code, array $context = []): OperationResult 
     {
-        return $this->gateway->checkPermit($code);
+        return $this->gateway->checkPermit($code, $context);
     }
 }

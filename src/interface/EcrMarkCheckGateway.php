@@ -12,9 +12,10 @@ interface EcrMarkCheckGateway
     /**
      * Ставит задачу проверки марки на ККТ в очередь (асинхронно).
      * @param MarkingCode $code Код маркировки для проверки
+     * @param array $context Дополнительный контекст (inn, gtin и пр.)
      * @return string taskId — идентификатор задания (для последующего запроса статуса)
      */
-    public function enqueueMarkCheck(MarkingCode $code): string;
+    public function enqueueMarkCheck(MarkingCode $code, array $context = []): string;
 
     /**
      * Получает результат проверки по taskId 

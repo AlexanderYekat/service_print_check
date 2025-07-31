@@ -20,11 +20,12 @@ class EcrMarkCheckUseCase
     /**
      * Ставит задачу проверки марки на ККТ в очередь
      * @param MarkingCode $code Код маркировки для проверки
+     * @param array $context Дополнительный контекст (inn, gtin и пр.)
      * @return string taskId — идентификатор задания для последующего запроса статуса
      */
-    public function enqueue(MarkingCode $code): string 
+    public function enqueue(MarkingCode $code, array $context = []): string 
     {
-        return $this->gateway->enqueueMarkCheck($code);
+        return $this->gateway->enqueueMarkCheck($code, $context);
     }
     
     /**

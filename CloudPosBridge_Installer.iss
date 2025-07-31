@@ -39,39 +39,47 @@ Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: i
 Source: "myapp_dist\VC_redist.x64.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\VC_redist.x86.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
-; Копируем все PHP файлы из корневой папки приложения в {app}\app
-Source: "*.php"; DestDir: "{app}\app"; Flags: 
-; Копируем README.md в {app}\app
-Source: "README.md"; DestDir: "{app}\app"; Flags: 
-; Копируем файлы из папки templates в {app}\app\templates
-Source: "templates\*"; DestDir: "{app}\app\templates"; Flags: recursesubdirs createallsubdirs
-; Копируем файлы из папки settings_storage в {app}\app\settings_storage
-Source: "settings_storage\*"; DestDir: "{app}\app\settings_storage"; Flags: recursesubdirs createallsubdirs
-; Копируем файлы из папки samples в {app}\app\samples
-Source: "samples\*"; DestDir: "{app}\app\samples"; Flags: recursesubdirs createallsubdirs
-; Копируем файлы из папки resource в {app}\app\resource
-Source: "resource\*"; DestDir: "{app}\app\resource"; Flags: recursesubdirs createallsubdirs
-; Копируем файлы из папки bank в {app}\app\bank
-Source: "bank\*"; DestDir: "{app}\app\bank"; Flags: recursesubdirs createallsubdirs
-; Копируем все powershell скрипты из корневой папки приложения в {app}\app
-Source: "*.ps1"; DestDir: "{app}\app"; Flags: 
+; === НОВАЯ АРХИТЕКТУРА: Чистое разделение по слоям ===
+; Копируем src (бизнес-логика, адаптеры, контроллеры)
+Source: "src\*"; DestDir: "{app}\src"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Копируем public (точка входа для Web/API)
+Source: "public\*"; DestDir: "{app}\public"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Копируем config (только конфиги) - не перезаписываем если уже есть
+Source: "config\*"; DestDir: "{app}\config"; Flags: recursesubdirs createallsubdirs onlyifdoesntexist
+; Копируем bank (только Go-бинарь и его temp-файлы)
+Source: "bank\*"; DestDir: "{app}\bank"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Копируем scripts (только служебные и обновляющие скрипты)
+Source: "scripts\*"; DestDir: "{app}\scripts"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Копируем vendor (только PHP-зависимости Composer)
+Source: "vendor\*"; DestDir: "{app}\vendor"; Flags: recursesubdirs createallsubdirs ignoreversion
+
+; === ДОПОЛНИТЕЛЬНЫЕ ФАЙЛЫ ===
+; Копируем README.md в корень
+Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
+; Копируем файлы из папки templates
+Source: "templates\*"; DestDir: "{app}\templates"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Копируем файлы из папки resource
+Source: "resource\*"; DestDir: "{app}\resource"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Копируем samples
+Source: "samples\*"; DestDir: "{app}\samples"; Flags: recursesubdirs createallsubdirs ignoreversion 
 
 [Dirs]
-; Создаем необходимые директории, если они еще не существуют
-Name: "{app}\app\settings"
-Name: "{app}\app\logs"
+; Создаем необходимые директории, если они еще не существуют (НОВАЯ АРХИТЕКТУРА)
+Name: "{app}\logs"
 Name: "{app}\drivers"
-Name: "{app}\app\bank\temp"
+Name: "{app}\bank\temp"
+Name: "{app}\settings"
+Name: "{app}\settings_storage"
 
 [Icons]
-; Ярлык в папке установки (всегда создается)
-Name: "{app}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
+; Ярлык в папке установки (всегда создается) - НОВАЯ АРХИТЕКТУРА
+Name: "{app}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\resource\icon.ico"
 
 ; Опциональный ярлык на рабочем столе
-Name: "{autodesktop}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: desktopicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
+Name: "{autodesktop}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: desktopicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\resource\icon.ico"
 
 ; Опциональный ярлык в меню 'Пуск'
-Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: programgroupicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
+Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: programgroupicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\resource\icon.ico"
 
 [Run]
 ; Установка службы Windows с помощью NSSM
@@ -89,15 +97,15 @@ Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waitun
 Filename: "{app}\drivers\VC_redist.x64.exe"; Parameters: "/quiet"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x64)..."; Tasks: install_vcredist; Check: IsWin64
 Filename: "{app}\drivers\VC_redist.x86.exe"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x86)..."; Tasks: install_vcredist; Check: not IsWin64
 
-; Установка параметров приложения для PHP (тестовый скрипт)
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
+; Установка параметров приложения для PHP (НОВАЯ АРХИТЕКТУРА: публичная точка входа)
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\public\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта (новая архитектура)..."; Flags: runhidden 
 
 ; Установка отображаемого имени службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP DisplayName ""CloudPosBridgePHP Service"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
-; Настройка перенаправления стандартного вывода и ошибок
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppStdout ""{app}\app\logs\nssm_stdout.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppStderr ""{app}\app\logs\nssm_stderr.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
+; Настройка перенаправления стандартного вывода и ошибок (НОВАЯ АРХИТЕКТУРА)
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppStdout ""{app}\logs\nssm_stdout.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppStderr ""{app}\logs\nssm_stderr.log"""; WorkingDir: "{app}\nssm"; Flags: runhidden
 ; Включаем ротацию логов
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRotateFiles 1"; WorkingDir: "{app}\nssm"; Flags: runhidden
 ; Ротация каждые 1 МБ
@@ -112,17 +120,17 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppRo
 ; Установка описания службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP Description ""Служба для взаимодействия с ККТ, банковскими терминалами и весами через CloudPosBridgePHP."""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridge PHP Service..."; Flags: runhidden
 
-; Установка папки приложения для NSSM (очень важно для корректной работы путей PHP)
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDirectory ""{app}\app"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка директории службы..."; Flags: runhidden
+; Установка папки приложения для NSSM (НОВАЯ АРХИТЕКТУРА: рабочая директория = public)
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppDirectory ""{app}\public"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка директории службы (новая архитектура)..."; Flags: runhidden
 
 ; Запуск службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "start CloudPosBridgeServicePHP"; WorkingDir: "{app}\nssm"; StatusMsg: "Запуск службы CloudPosBridgePHP Service..."; Flags: runhidden
 
-; Создание задания планировщика для работы с банковским терминалом
+; Создание задания планировщика для работы с банковским терминалом (НОВАЯ АРХИТЕКТУРА)
 Filename: "schtasks.exe"; \
-Parameters: "/create /tn ""BankOperationTask"" /tr ""{app}\app\bank\mainbeznal.exe"" /sc ONCE /st 00:00 /f"; \
+Parameters: "/create /tn ""BankOperationTask"" /tr ""{app}\bank\mainbeznal.exe"" /sc ONCE /st 00:00 /f"; \
 Flags: runhidden; \
-StatusMsg: "Создание задания BankOperationTask для возврата денег..."
+StatusMsg: "Создание задания BankOperationTask для возврата денег (новая архитектура)..."
 
 [UninstallRun]
 ; Остановка службы
@@ -131,7 +139,11 @@ Filename: "{app}\nssm\nssm.exe"; Parameters: "stop CloudPosBridgeServicePHP"; Wo
 Filename: "{app}\nssm\nssm.exe"; Parameters: "remove CloudPosBridgeServicePHP confirm"; WorkingDir: "{app}\nssm"; Flags: runhidden; RunOnceId: "remove_service"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}\app\settings"; Check: ShouldDeleteSettings
+; НОВАЯ АРХИТЕКТУРА: Удаляем пользовательские настройки только по запросу
+Type: filesandordirs; Name: "{app}\config"; Check: ShouldDeleteSettings
+Type: filesandordirs; Name: "{app}\settings"; Check: ShouldDeleteSettings
+Type: filesandordirs; Name: "{app}\settings_storage"; Check: ShouldDeleteSettings
+Type: filesandordirs; Name: "{app}\logs"; Check: ShouldDeleteSettings
 Type: filesandordirs; Name: "{app}"
 
 [Messages]

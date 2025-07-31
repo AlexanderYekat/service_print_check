@@ -1,10 +1,15 @@
 <?php
 
+namespace App\Api;
+
 require_once __DIR__ . '/BaseController.php';
+
+use App\Api\BaseController;
+// LoggerInterface в глобальном namespace
 
 class VersionController extends BaseController
 {
-    public function __construct(LoggerInterface $logger)
+    public function __construct(\LoggerInterface $logger)
     {
         parent::__construct($logger);
     }

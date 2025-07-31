@@ -1,9 +1,11 @@
 <?php
 
-require_once __DIR__ . '/../src/domain/service/GetWeightUseCase.php';
-require_once __DIR__ . '/../src/infrastructure/scale/FakeScaleAdapter.php';
-require_once __DIR__ . '/../src/domain/model/OperationResult.php';
-require_once __DIR__ . '/../src/interface/ScaleInterface.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
+
+use App\Domain\Service\GetWeightUseCase;
+use App\Infrastructure\Scale\FakeScaleAdapter;
+use App\Domain\Model\OperationResult;
+use App\Interface\ScaleInterface;
 
 class GetWeightUseCaseTest extends \PHPUnit\Framework\TestCase {
     public function testReturnsFakeWeight() {

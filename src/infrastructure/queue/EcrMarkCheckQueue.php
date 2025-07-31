@@ -1,7 +1,9 @@
 <?php
 
-require_once __DIR__ . '/../../domain/model/MarkingCode.php';
-require_once __DIR__ . '/../../domain/model/OperationResult.php';
+namespace App\Infrastructure\Queue;
+
+use App\Domain\Model\MarkingCode;
+use App\Domain\Model\OperationResult;
 
 /**
  * Очередь для асинхронной проверки марки на ККТ

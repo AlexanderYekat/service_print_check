@@ -1,6 +1,9 @@
 <?php
-require_once __DIR__ . '/../domain/model/OperationResult.php';
-require_once __DIR__ . '/../domain/model/Check.php';
+
+namespace App\Interface;
+
+use App\Domain\Model\OperationResult;
+use App\Domain\Model\Check;
 
 interface PrinterInterface {
     /**

@@ -3,12 +3,10 @@
 namespace App\Infrastructure\Bank;
 
 use App\Interface\BankTerminalInterface;
+use App\Interface\HealthCheckable;
 use App\Interface\SettingsStorageInterface;
-use App\Infrastructure\Logger\LoggerInterface;
 use App\Domain\Model\OperationResult;
 use Exception;
-
-require_once __DIR__ . '/../../interface/HealthCheckable.php';
 
 /**
  * Адаптер для работы с банковским терминалом через Go-программу
@@ -22,14 +20,14 @@ require_once __DIR__ . '/../../interface/HealthCheckable.php';
 class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
 {
     private SettingsStorageInterface $settingsStorage;
-    private LoggerInterface $logger;
+    private \LoggerInterface $logger;
     private string $binaryPath;
     private int $timeout;
     private bool $emulation;
 
     public function __construct(
         SettingsStorageInterface $settingsStorage, 
-        LoggerInterface $logger
+        \LoggerInterface $logger
     ) {
         $this->settingsStorage = $settingsStorage;
         $this->logger = $logger;
@@ -53,7 +51,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     /**
      * {@inheritdoc}
      */
-    public function pay(float $amount): OperationResult
+    public function pay(float $amount): \OperationResult
     {
         $this->logger->info("Выполнение оплаты через банковский терминал, сумма: {$amount}");
         return $this->executeOperation('pay', $amount);
@@ -62,7 +60,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     /**
      * {@inheritdoc}
      */
-    public function refund(float $amount): OperationResult
+    public function refund(float $amount): \OperationResult
     {
         $this->logger->info("Выполнение возврата через банковский терминал, сумма: {$amount}");
         return $this->executeOperation('return', $amount);
@@ -71,7 +69,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     /**
      * {@inheritdoc}
      */
-    public function cancel(float $amount): OperationResult
+    public function cancel(float $amount): \OperationResult
     {
         $this->logger->info("Отмена операции в банковском терминале, сумма: {$amount}");
         return $this->executeOperation('cancel', $amount);
@@ -80,7 +78,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     /**
      * {@inheritdoc}
      */
-    public function closeShift(): OperationResult
+    public function closeShift(): \OperationResult
     {
         $this->logger->info("Закрытие смены банковского терминала");
         return $this->executeOperation('close_shift');
@@ -93,7 +91,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
      * @param float|null $amount Сумма (если требуется)
      * @return OperationResult
      */
-    private function executeOperation(string $operation, ?float $amount = null): OperationResult
+    private function executeOperation(string $operation, ?float $amount = null): \OperationResult
     {
         if ($this->emulation) {
             return $this->createEmulationResult($operation, $amount);
@@ -124,7 +122,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
             
         } catch (Exception $e) {
             $this->logger->error("Ошибка выполнения банковской операции '{$operation}': " . $e->getMessage());
-            return OperationResult::failure("Ошибка банковского терминала: " . $e->getMessage());
+            return \OperationResult::failure("Ошибка банковского терминала: " . $e->getMessage());
         }
     }
 
@@ -262,7 +260,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     /**
      * Разобрать результат от Go-программы в OperationResult
      */
-    private function parseResult(array $result): OperationResult
+    private function parseResult(array $result): \OperationResult
     {
         $success = $result['Success'] ?? false;
         $message = $result['Message'] ?? '';
@@ -273,7 +271,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
             // Обрабатываем слип
             $slip = $this->processSlip($cheque);
             $this->logger->info("Операция выполнена успешно, получен слип из " . count($slip) . " строк");
-            return OperationResult::success($slip);
+            return \OperationResult::success($slip);
         } else {
             // Обрабатываем ошибку
             $errorMessage = $message;
@@ -285,7 +283,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
             }
             
             $this->logger->error("Банковская операция завершилась с ошибкой: {$errorMessage}");
-            return OperationResult::failure($errorMessage);
+            return \OperationResult::failure($errorMessage);
         }
     }
 
@@ -312,7 +310,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     /**
      * Создать результат эмуляции для тестирования
      */
-    private function createEmulationResult(string $operation, ?float $amount): OperationResult
+    private function createEmulationResult(string $operation, ?float $amount): \OperationResult
     {
         $this->logger->info("Эмуляция банковской операции: {$operation}" . ($amount ? " на сумму {$amount}" : ""));
         
@@ -327,7 +325,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
             "====================================="
         ];
 
-        return OperationResult::success(array_filter($slip));
+        return \OperationResult::success(array_filter($slip));
     }
 
     /**

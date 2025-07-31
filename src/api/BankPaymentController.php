@@ -6,7 +6,7 @@ use App\Api\BaseController;
 use App\Api\Request\RequestValidator;
 use App\Api\Response\ResponseFormatter;
 use App\Domain\Service\ProcessBankPaymentUseCase;
-use App\Infrastructure\Logger\LoggerInterface;
+// LoggerInterface в глобальном namespace
 use Exception;
 
 /**
@@ -24,7 +24,7 @@ class BankPaymentController extends BaseController
 
     public function __construct(
         ProcessBankPaymentUseCase $bankPaymentUseCase,
-        LoggerInterface $logger
+        \LoggerInterface $logger
     ) {
         parent::__construct($logger);
         $this->bankPaymentUseCase = $bankPaymentUseCase;
@@ -36,7 +36,7 @@ class BankPaymentController extends BaseController
      * @param array $request HTTP-запрос
      * @return array Результат операции
      */
-    public function handle(array $request): array
+    public function handle(array $request = []): void
     {
         try {
             // Валидация запроса
@@ -45,13 +45,25 @@ class BankPaymentController extends BaseController
             // Выполнение операции
             $result = $this->executeOperation($validatedRequest);
             
-            // Форматирование ответа
-            return $this->formatResponse($result);
+            // Отправка успешного ответа через BaseController
+            echo json_encode($this->formatResponse($result), JSON_UNESCAPED_UNICODE);
             
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->logger->error("Ошибка обработки банковского платежа: " . $e->getMessage());
-            return ResponseFormatter::error($e->getMessage());
+            echo json_encode(ResponseFormatter::error($e->getMessage()), JSON_UNESCAPED_UNICODE);
         }
+    }
+
+    /**
+     * Реализация абстрактного метода из BaseController
+     * 
+     * @param array $request Валидированный запрос
+     * @return array Результат выполнения
+     */
+    protected function executeUseCase(array $request): array
+    {
+        $result = $this->executeOperation($request);
+        return $this->formatResponse($result);
     }
 
     /**

@@ -1,6 +1,8 @@
 <?php
 
-require_once __DIR__ . '/../infrastructure/logger/LoggerInterface.php';
+namespace App\Api;
+
+// LoggerInterface в глобальном namespace
 
 /**
  * Базовый контроллер для всех API контроллеров
@@ -8,9 +10,9 @@ require_once __DIR__ . '/../infrastructure/logger/LoggerInterface.php';
  */
 abstract class BaseController
 {
-    protected LoggerInterface $logger;
+    protected \LoggerInterface $logger;
     
-    public function __construct(LoggerInterface $logger)
+    public function __construct(\LoggerInterface $logger)
     {
         $this->logger = $logger;
     }
@@ -41,7 +43,7 @@ abstract class BaseController
             $this->sendErrorResponse($e->getMessage(), 422, $startTime);
         } catch (InfrastructureException $e) {
             $this->sendErrorResponse($e->getMessage(), 503, $startTime);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             $this->logger->error('Unexpected error in controller', [
                 'controller' => get_class($this),
                 'error' => $e->getMessage(),
@@ -153,14 +155,14 @@ abstract class BaseController
 /**
  * Исключение для ошибок валидации
  */
-class ValidationException extends Exception {}
+class ValidationException extends \Exception {}
 
 /**
  * Исключение для ошибок бизнес-логики
  */
-class BusinessLogicException extends Exception {}
+class BusinessLogicException extends \Exception {}
 
 /**
  * Исключение для ошибок инфраструктуры (интеграции, аппаратуры)
  */
-class InfrastructureException extends Exception {}
+class InfrastructureException extends \Exception {}

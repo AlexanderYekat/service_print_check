@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../../interface/SettingsStorageInterface.php';
+use App\Interface\SettingsStorageInterface;
 
 /**
  * Реализация хранения настроек в JSON файле
@@ -38,9 +38,8 @@ class JsonFileSettingsStorage implements SettingsStorageInterface
             throw new Exception("Не удалось прочитать файл настроек: {$this->filePath}");
         }
 
-        // Удаляем комментарии из JSON (// и /**/)
-        $content = preg_replace('/\/\/.*$/m', '', $content);
-        $content = preg_replace('/\/\*.*?\*\//s', '', $content);
+        // JSON не поддерживает комментарии по стандарту
+        // Удаление комментариев убрано чтобы не ломать URL в JSON
 
         $data = json_decode($content, true);
         if ($data === null && json_last_error() !== JSON_ERROR_NONE) {

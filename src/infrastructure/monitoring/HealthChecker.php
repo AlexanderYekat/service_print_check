@@ -1,6 +1,8 @@
 <?php
 
-require_once __DIR__ . '/../../interface/HealthCheckable.php';
+namespace App\Infrastructure\Monitoring;
+
+use App\Interface\HealthCheckable;
 
 /**
  * Проверка состояния всех инфраструктурных компонентов системы

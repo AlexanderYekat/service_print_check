@@ -1,5 +1,7 @@
 <?php
 
+namespace App\Domain\Model;
+
 /**
  * Универсальный результат операции с ККТ
  */

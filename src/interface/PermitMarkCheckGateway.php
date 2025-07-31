@@ -1,7 +1,9 @@
 <?php
 
-require_once __DIR__ . '/../domain/model/MarkingCode.php';
-require_once __DIR__ . '/../domain/model/OperationResult.php';
+namespace App\Interface;
+
+use App\Domain\Model\MarkingCode;
+use App\Domain\Model\OperationResult;
 
 /**
  * Интерфейс для синхронной проверки марки в разрешительном режиме

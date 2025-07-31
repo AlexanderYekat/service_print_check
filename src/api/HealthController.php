@@ -1,13 +1,17 @@
 <?php
 
+namespace App\Api;
+
 require_once __DIR__ . '/BaseController.php';
-require_once __DIR__ . '/../infrastructure/monitoring/HealthChecker.php';
+use App\Api\BaseController;
+use App\Infrastructure\Monitoring\HealthChecker;
+// LoggerInterface в глобальном namespace
 
 class HealthController extends BaseController
 {
     private HealthChecker $healthChecker;
 
-    public function __construct(HealthChecker $healthChecker, LoggerInterface $logger)
+    public function __construct(HealthChecker $healthChecker, \LoggerInterface $logger)
     {
         parent::__construct($logger);
         $this->healthChecker = $healthChecker;

@@ -1,10 +1,17 @@
 <?php
 
+namespace App\Api;
+
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../domain/service/PermitMarkCheckUseCase.php';
 require_once __DIR__ . '/../domain/model/MarkingCode.php';
 require_once __DIR__ . '/../infrastructure/printer/SerialKktAdapter.php';
-require_once __DIR__ . '/../infrastructure/settings_storage/JsonFileSettingsStorage.php';
+require_once __DIR__ . '/../../JsonFileSettingsStorage.php';
+
+use App\Api\BaseController;
+use App\Domain\Service\PermitMarkCheckUseCase;
+use App\Infrastructure\Printer\SerialKktAdapter;
+// Остальные классы пока в глобальном namespace
 
 /**
  * Контроллер для синхронной проверки марки в разрешительном режиме
@@ -12,16 +19,16 @@ require_once __DIR__ . '/../infrastructure/settings_storage/JsonFileSettingsStor
 class PermitMarkCheckController extends BaseController
 {
     private PermitMarkCheckUseCase $useCase;
-    private JsonFileSettingsStorage $settingsStorage;
+    private \JsonFileSettingsStorage $settingsStorage;
     private SerialKktAdapter $kktAdapter;
     private array $config;
 
     public function __construct(
         PermitMarkCheckUseCase $useCase,
-        JsonFileSettingsStorage $settingsStorage,
+        \JsonFileSettingsStorage $settingsStorage,
         SerialKktAdapter $kktAdapter,
         array $config,
-        LoggerInterface $logger
+        \LoggerInterface $logger
     ) {
         parent::__construct($logger);
         $this->useCase = $useCase;

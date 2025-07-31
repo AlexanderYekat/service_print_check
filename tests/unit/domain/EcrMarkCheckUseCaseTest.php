@@ -10,11 +10,13 @@
  * - Обработка различных статусов задач
  */
 
-require_once __DIR__ . '/../../../src/domain/service/EcrMarkCheckUseCase.php';
-require_once __DIR__ . '/../../../src/domain/service/MarkCheckRegistry.php';
-require_once __DIR__ . '/../../../src/domain/model/MarkingCode.php';
-require_once __DIR__ . '/../../../src/domain/model/OperationResult.php';
-require_once __DIR__ . '/../../../src/interface/EcrMarkCheckGateway.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
+
+use App\Domain\Service\EcrMarkCheckUseCase;
+use App\Domain\Service\MarkCheckRegistry;
+use App\Domain\Model\MarkingCode;
+use App\Domain\Model\OperationResult;
+use App\Interface\EcrMarkCheckGateway;
 
 class EcrMarkCheckUseCaseTest
 {

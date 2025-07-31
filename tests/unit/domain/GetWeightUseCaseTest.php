@@ -9,9 +9,11 @@
  * - Интеграция с различными типами весов
  */
 
-require_once __DIR__ . '/../../../src/domain/service/GetWeightUseCase.php';
-require_once __DIR__ . '/../../../src/domain/model/OperationResult.php';
-require_once __DIR__ . '/../../../src/interface/ScaleInterface.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
+
+use App\Domain\Service\GetWeightUseCase;
+use App\Domain\Model\OperationResult;
+use App\Interface\ScaleInterface;
 
 class GetWeightUseCaseTest
 {

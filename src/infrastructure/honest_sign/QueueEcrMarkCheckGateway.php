@@ -1,9 +1,11 @@
 <?php
 
-require_once __DIR__ . '/../../interface/EcrMarkCheckGateway.php';
-require_once __DIR__ . '/../../domain/model/OperationResult.php';
-require_once __DIR__ . '/../../domain/model/MarkingCode.php';
-require_once __DIR__ . '/../queue/EcrMarkCheckQueue.php';
+namespace App\Infrastructure\HonestSign;
+
+use App\Interface\EcrMarkCheckGateway;
+use App\Domain\Model\OperationResult;
+use App\Domain\Model\MarkingCode;
+use App\Infrastructure\Queue\EcrMarkCheckQueue;
 
 /**
  * Реализация асинхронной проверки марки на ККТ через очередь

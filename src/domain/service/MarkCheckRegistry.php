@@ -1,7 +1,9 @@
 <?php
 
-require_once __DIR__ . '/../model/MarkingCode.php';
-require_once __DIR__ . '/../model/OperationResult.php';
+namespace App\Domain\Service;
+
+use App\Domain\Model\MarkingCode;
+use App\Domain\Model\OperationResult;
 
 /**
  * Реестр результатов проверок маркировочных кодов

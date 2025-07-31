@@ -9,7 +9,7 @@
  * php FiscalDriveNumberManager.php set <number>  - установить номер ФН вручную
  */
 
-require_once __DIR__ . '/../infrastructure/settings_storage/JsonFileSettingsStorage.php';
+require_once __DIR__ . '/../../JsonFileSettingsStorage.php';
 require_once __DIR__ . '/../infrastructure/printer/SerialKktAdapter.php';
 require_once __DIR__ . '/../infrastructure/logger/FileLogger.php';
 

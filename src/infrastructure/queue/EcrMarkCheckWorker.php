@@ -1,8 +1,8 @@
 <?php
 
-require_once __DIR__ . '/EcrMarkCheckQueue.php';
-// HttpHonestSignGateway больше не нужен - EcrMarkCheckWorker работает напрямую с API
-require_once __DIR__ . '/../../domain/model/MarkingCode.php';
+namespace App\Infrastructure\Queue;
+
+use App\Domain\Model\MarkingCode;
 
 /**
  * Воркер для обработки асинхронных задач проверки марки на ККТ

@@ -1,9 +1,12 @@
 <?php
-require_once __DIR__ . '/../../interface/PrinterInterface.php';
-require_once __DIR__ . '/../../interface/SettingsStorageInterface.php';
-require_once __DIR__ . '/../model/Check.php';
-require_once __DIR__ . '/../model/OperationResult.php';
-require_once __DIR__ . '/MarkMatchingService.php';
+
+namespace App\Domain\Service;
+
+use App\Interface\PrinterInterface;
+use App\Interface\SettingsStorageInterface;
+use App\Domain\Model\Check;
+use App\Domain\Model\OperationResult;
+use App\Domain\Service\MarkMatchingService;
 
 /**
  * Use Case для печати чека с сопоставлением результатов проверок маркировок

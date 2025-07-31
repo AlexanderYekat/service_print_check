@@ -1,5 +1,7 @@
 <?php
 
+namespace App\Domain\Model;
+
 /**
  * Доменная модель банковской транзакции
  * 

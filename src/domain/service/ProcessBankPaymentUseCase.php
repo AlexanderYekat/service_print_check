@@ -2,10 +2,9 @@
 
 namespace App\Domain\Service;
 
-// use App\Domain\Model\OperationResult; // Убрали namespace из модели
-// use App\Domain\Model\BankTransaction; // Убрали namespace из модели
 use App\Interface\BankTerminalInterface;
-use App\Infrastructure\Logger\LoggerInterface;
+use App\Domain\Model\BankTransaction;
+use App\Domain\Model\OperationResult;
 use InvalidArgumentException;
 
 /**
@@ -20,11 +19,11 @@ use InvalidArgumentException;
 class ProcessBankPaymentUseCase
 {
     private BankTerminalInterface $bankTerminal;
-    private LoggerInterface $logger;
+    private \LoggerInterface $logger;
     
     public function __construct(
         BankTerminalInterface $bankTerminal,
-        LoggerInterface $logger
+        \LoggerInterface $logger
     ) {
         $this->bankTerminal = $bankTerminal;
         $this->logger = $logger;

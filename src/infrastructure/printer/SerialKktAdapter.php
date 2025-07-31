@@ -1,8 +1,11 @@
 <?php
-require_once __DIR__ . '/../../interface/PrinterInterface.php';
-require_once __DIR__ . '/../../interface/HealthCheckable.php';
-require_once __DIR__ . '/../../domain/model/Check.php';
-require_once __DIR__ . '/../../domain/model/OperationResult.php';
+
+namespace App\Infrastructure\Printer;
+
+use App\Interface\PrinterInterface;
+use App\Interface\HealthCheckable;
+use App\Domain\Model\Check;
+use App\Domain\Model\OperationResult;
 
 class SerialKktAdapter implements PrinterInterface, HealthCheckable
 {

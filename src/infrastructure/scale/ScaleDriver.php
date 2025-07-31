@@ -1,5 +1,32 @@
 <?php
+
+namespace App\Infrastructure\Scale;
+
 // scaleutils.php
+
+// Простой Logger для совместимости
+class Logger {
+    private static $instance;
+    
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    public function info($message) { 
+        error_log("[INFO] " . date('Y-m-d H:i:s') . " $message");
+    }
+    
+    public function error($message) { 
+        error_log("[ERROR] " . date('Y-m-d H:i:s') . " $message");
+    }
+    
+    public function warning($message) { 
+        error_log("[WARNING] " . date('Y-m-d H:i:s') . " $message");
+    }
+}
 
 class TScale8Driver {
     private $comClass;
@@ -26,7 +53,7 @@ class TScale8Driver {
             if ($this->scale === null) {
                 // Создание COM-объекта AddIn.Scale8
                 $this->logger->info("Попытка создание экземпляра com объекта весов");
-                $this->scale = new COM($this->comClass);
+                $this->scale = new \COM($this->comClass);
                 $this->logger->info("COM-объект создан успешно.");
             }
 

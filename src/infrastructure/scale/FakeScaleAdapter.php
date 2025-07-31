@@ -1,6 +1,9 @@
 <?php
 
-require_once __DIR__ . '/../../interface/ScaleInterface.php';
+namespace App\Infrastructure\Scale;
+
+use App\Interface\ScaleInterface;
+use App\Domain\Model\OperationResult;
 
 class FakeScaleAdapter implements ScaleInterface
 {

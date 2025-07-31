@@ -1,7 +1,11 @@
 <?php
 
-require_once __DIR__ . '/../../interface/ScaleInterface.php';
-require_once __DIR__ . '/../../interface/HealthCheckable.php';
+namespace App\Infrastructure\Scale;
+
+use App\Interface\ScaleInterface;
+use App\Interface\HealthCheckable;
+use App\Domain\Model\OperationResult;
+use App\Infrastructure\Scale\TScale8Driver;
 
 class SerialScaleAdapter implements ScaleInterface, HealthCheckable
 {

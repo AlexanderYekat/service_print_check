@@ -1,9 +1,13 @@
 <?php
 
-require_once __DIR__ . '/../model/MarkingCode.php';
-require_once __DIR__ . '/../model/Check.php';
-require_once __DIR__ . '/../model/CheckItem.php';
-require_once __DIR__ . '/MarkCheckRegistry.php';
+namespace App\Domain\Service;
+
+use App\Domain\Model\MarkingCode;
+use App\Domain\Model\Check;
+use App\Domain\Model\CheckItem;
+use App\Domain\Service\MarkCheckRegistry;
+use Exception;
+use Throwable;
 
 /**
  * Исключение при ошибке сопоставления маркировок

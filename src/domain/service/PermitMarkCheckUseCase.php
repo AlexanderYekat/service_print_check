@@ -1,9 +1,10 @@
 <?php
 
-require_once __DIR__ . '/../model/OperationResult.php';
-require_once __DIR__ . '/../model/MarkingCode.php';
-require_once __DIR__ . '/../../interface/PermitMarkCheckGateway.php';
-require_once __DIR__ . '/MarkCheckRegistry.php';
+namespace App\Domain\Service;
+
+use App\Interface\PermitMarkCheckGateway;
+use App\Domain\Model\OperationResult;
+use App\Domain\Model\MarkingCode;
 
 /**
  * Use Case для синхронной проверки марки в разрешительном режиме

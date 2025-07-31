@@ -1,7 +1,9 @@
 <?php
 
-require_once __DIR__ . '/../model/OperationResult.php';
-require_once __DIR__ . '/../../interface/ScaleInterface.php';
+namespace App\Domain\Service;
+
+use App\Domain\Model\OperationResult;
+use App\Interface\ScaleInterface;
 
 // domain/service/GetWeightUseCase.php
 class GetWeightUseCase {

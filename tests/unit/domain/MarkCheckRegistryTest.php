@@ -10,9 +10,11 @@
  * - Очистка старых результатов
  */
 
-require_once __DIR__ . '/../../../src/domain/service/MarkCheckRegistry.php';
-require_once __DIR__ . '/../../../src/domain/model/MarkingCode.php';
-require_once __DIR__ . '/../../../src/domain/model/OperationResult.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
+
+use App\Domain\Service\MarkCheckRegistry;
+use App\Domain\Model\MarkingCode;
+use App\Domain\Model\OperationResult;
 
 class MarkCheckRegistryTest
 {

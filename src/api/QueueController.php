@@ -1,8 +1,11 @@
 <?php
 
+namespace App\Api;
+
 require_once __DIR__ . '/BaseController.php';
-require_once __DIR__ . '/../infrastructure/queue/EcrMarkCheckWorker.php';
-require_once __DIR__ . '/../infrastructure/queue/EcrMarkCheckQueue.php';
+use App\Api\BaseController;
+use App\Infrastructure\Queue\{EcrMarkCheckWorker, EcrMarkCheckQueue};
+// LoggerInterface в глобальном namespace
 
 class QueueController extends BaseController
 {
@@ -10,7 +13,7 @@ class QueueController extends BaseController
     private EcrMarkCheckQueue $queue;
     private string $action;
 
-    public function __construct(EcrMarkCheckWorker $worker, EcrMarkCheckQueue $queue, LoggerInterface $logger)
+    public function __construct(EcrMarkCheckWorker $worker, EcrMarkCheckQueue $queue, \LoggerInterface $logger)
     {
         parent::__construct($logger);
         $this->worker = $worker;

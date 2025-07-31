@@ -1,8 +1,10 @@
 <?php
 
-require_once __DIR__ . '/../../interface/PermitMarkCheckGateway.php';
-require_once __DIR__ . '/../../domain/model/OperationResult.php';
-require_once __DIR__ . '/../../domain/model/MarkingCode.php';
+namespace App\Infrastructure\HonestSign;
+
+use App\Interface\PermitMarkCheckGateway;
+use App\Domain\Model\OperationResult;
+use App\Domain\Model\MarkingCode;
 
 /**
  * Реализация синхронной проверки марки в разрешительном режиме через HTTP API

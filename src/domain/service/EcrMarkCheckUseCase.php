@@ -1,8 +1,14 @@
 <?php
 
+namespace App\Domain\Service;
+
+use App\Domain\Model\OperationResult;
+use App\Domain\Model\MarkingCode;
+use App\Interface\EcrMarkCheckGateway;
+
 require_once __DIR__ . '/../model/OperationResult.php';
 require_once __DIR__ . '/../model/MarkingCode.php';
-require_once __DIR__ . '/../../interface/EcrMarkCheckGateway.php';
+// Используем автозагрузку вместо require_once
 require_once __DIR__ . '/MarkCheckRegistry.php';
 
 /**

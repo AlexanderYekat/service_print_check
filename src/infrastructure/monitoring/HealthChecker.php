@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../../interface/PrinterInterface.php';
 require_once __DIR__ . '/../../interface/BankTerminalInterface.php';
-require_once __DIR__ . '/../../interface/ValidateMarkGateway.php';
+// ValidateMarkGateway удален - мониторинг Честного Знака временно отключен
 require_once __DIR__ . '/../../interface/ScaleInterface.php';
 
 class HealthChecker
@@ -125,22 +125,14 @@ class HealthChecker
         return ['success' => true, 'message' => 'Банковский терминал доступен'];
     }
 
-    private function checkHonestSign(ValidateMarkGateway $gateway): array
+    private function checkHonestSign($gateway): array
     {
-        if ($gateway instanceof HttpHonestSignGateway) {
-            $queueStatus = $gateway->getQueueStatus();
-            
-            return [
-                'success' => true,
-                'message' => 'Сервис Честного Знака доступен',
-                'details' => [
-                    'queue_status' => $queueStatus,
-                    'pending_items' => $queueStatus['pending']
-                ]
-            ];
-        }
-        
-        return ['success' => true, 'message' => 'Сервис Честного Знака доступен'];
+        // Честный Знак теперь работает через новую архитектуру (permit/ecr контроллеры)
+        // Мониторинг временно отключен
+        return [
+            'success' => true, 
+            'message' => 'Мониторинг Честного Знака отключен (новая архитектура)'
+        ];
     }
 
     private function checkScale(ScaleInterface $scale): array

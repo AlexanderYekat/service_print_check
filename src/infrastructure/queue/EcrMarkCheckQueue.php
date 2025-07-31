@@ -198,6 +198,52 @@ class EcrMarkCheckQueue
         $this->saveResults($results);
     }
 
+    /**
+     * Получает статус очереди
+     */
+    public function getQueueStatus(): array
+    {
+        $queue = $this->loadQueue();
+        $results = $this->loadResults();
+        
+        $stats = [
+            'total' => 0,
+            'pending' => 0,
+            'processing' => 0,
+            'completed' => 0,
+            'failed' => 0
+        ];
+        
+        foreach ($queue as $task) {
+            $stats['total']++;
+            $stats[$task['status']]++;
+        }
+        
+        // Добавляем завершенные задачи из результатов, которых уже нет в очереди
+        $completedFromResults = 0;
+        foreach ($results as $taskId => $result) {
+            $foundInQueue = false;
+            foreach ($queue as $task) {
+                if ($task['task_id'] === $taskId) {
+                    $foundInQueue = true;
+                    break;
+                }
+            }
+            if (!$foundInQueue) {
+                $completedFromResults++;
+                if ($result['success']) {
+                    $stats['completed']++;
+                } else {
+                    $stats['failed']++;
+                }
+            }
+        }
+        
+        $stats['total'] += $completedFromResults;
+        
+        return $stats;
+    }
+
     private function ensureFilesExist(): void
     {
         if (!file_exists($this->queuePath)) {

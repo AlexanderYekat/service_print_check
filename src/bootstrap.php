@@ -11,14 +11,14 @@ require_once __DIR__ . '/domain/model/BankTransaction.php';
 require_once __DIR__ . '/domain/model/OperationResult.php';
 
 require_once __DIR__ . '/domain/model/MarkingCode.php';
-require_once __DIR__ . '/domain/model/HonestSignResult.php';
+// HonestSignResult удален - заменен на OperationResult
 
 // Interfaces
 require_once __DIR__ . '/interface/PrinterInterface.php';
 require_once __DIR__ . '/interface/BankTerminalInterface.php';
 require_once __DIR__ . '/interface/ScaleInterface.php';
 require_once __DIR__ . '/interface/SettingsStorageInterface.php';
-require_once __DIR__ . '/interface/ValidateMarkGateway.php';
+// ValidateMarkGateway удален - заменен на PermitMarkCheckGateway и EcrMarkCheckGateway
 
 // Infrastructure adapters
 require_once __DIR__ . '/infrastructure/printer/SerialKktAdapter.php';
@@ -27,16 +27,18 @@ require_once __DIR__ . '/infrastructure/bank/GoBankTerminalAdapter.php';
 require_once __DIR__ . '/infrastructure/scale/SerialScaleAdapter.php';
 require_once __DIR__ . '/infrastructure/scale/FakeScaleAdapter.php';
 require_once __DIR__ . '/infrastructure/settings_storage/JsonFileSettingsStorage.php';
-require_once __DIR__ . '/infrastructure/honest_sign/HttpHonestSignGateway.php';
-require_once __DIR__ . '/infrastructure/queue/HonestSignQueue.php';
+// HttpHonestSignGateway и HonestSignQueue удалены - заменены новой архитектурой
+require_once __DIR__ . '/infrastructure/honest_sign/HttpPermitMarkCheckGateway.php';
+require_once __DIR__ . '/infrastructure/honest_sign/QueueEcrMarkCheckGateway.php';
 require_once __DIR__ . '/infrastructure/monitoring/HealthChecker.php';
 
 // Use cases
 require_once __DIR__ . '/domain/service/PrintCheckUseCase.php';
 require_once __DIR__ . '/domain/service/ProcessBankPaymentUseCase.php';
 require_once __DIR__ . '/domain/service/GetWeightUseCase.php';
-require_once __DIR__ . '/domain/service/ValidateMark.php';
-require_once __DIR__ . '/domain/service/SendToHonestSignUseCase.php';
+// ValidateMarkUseCase удален - заменен на PermitMarkCheckUseCase и EcrMarkCheckUseCase
+require_once __DIR__ . '/infrastructure/queue/EcrMarkCheckQueue.php';
+require_once __DIR__ . '/infrastructure/queue/EcrMarkCheckWorker.php';
 
 // Infrastructure
 require_once __DIR__ . '/infrastructure/logger/LoggerInterface.php';
@@ -111,28 +113,30 @@ $bankAdapter = new GoBankTerminalAdapter(
 
 $scaleAdapter = new SerialScaleAdapter(__DIR__ . '/../config/settings.json');
 
-$honestSignQueue = new HonestSignQueue();
-$honestSignGateway = new HttpHonestSignGateway(
-    $config['honest_sign']['api_url'],
-    $config['honest_sign']['api_key'],
-    $config['honest_sign']['use_queue'],
-    $config['honest_sign']['timeout'],
-    $honestSignQueue
-);
+// Старые компоненты Честного Знака удалены
+// Новая архитектура использует отдельные gateway'и для permit и ecr режимов
+// которые создаются напрямую в соответствующих контроллерах
 
 // Создание Use Cases
 $printCheckUseCase = new PrintCheckUseCase($printerAdapter, $settingsStorage);
 $bankPaymentUseCase = new ProcessBankPaymentUseCase($bankAdapter);
 $getWeightUseCase = new GetWeightUseCase($scaleAdapter);
-$validateMarkUseCase = new ValidateMarkUseCase($honestSignGateway);
-$sendToHonestSignUseCase = new SendToHonestSignUseCase($honestSignGateway);
+// validateMarkUseCase удален - заменен на новую архитектуру проверки марок
+
+// Новая архитектура очереди для ECR проверки марок
+$ecrMarkCheckQueue = new EcrMarkCheckQueue();
+$ecrMarkCheckWorker = new EcrMarkCheckWorker(
+    $ecrMarkCheckQueue,
+    $config['api_url'] ?? 'https://api.markirovka.ru', 
+    $config['api_key'] ?? ''
+);
 
 // Настройка HealthChecker
 $healthChecker = new HealthChecker();
 $healthChecker->addService('printer', $printerAdapter, 'printer');
 $healthChecker->addService('bank', $bankAdapter, 'bank');
 $healthChecker->addService('scale', $scaleAdapter, 'scale');
-$healthChecker->addService('honest_sign', $honestSignGateway, 'honest_sign');
+// honest_sign удален из мониторинга - новая архитектура не требует глобального gateway
 
 // Создание контроллеров
 $printCheckController = new PrintCheckController($printCheckUseCase, $logger);
@@ -141,7 +145,7 @@ $getWeightController = new GetWeightController($getWeightUseCase);
 $closeShiftController = new CloseShiftController($bankPaymentUseCase);
 $versionController = new VersionController();
 $healthController = new HealthController($healthChecker, $logger);
-$queueController = new QueueController($sendToHonestSignUseCase);
+$queueController = new QueueController($ecrMarkCheckWorker, $ecrMarkCheckQueue);
 
 // Глобальный DI контейнер
 $GLOBALS['di'] = [
@@ -153,15 +157,18 @@ $GLOBALS['di'] = [
     'printer' => $printerAdapter,
     'bank' => $bankAdapter,
     'scale' => $scaleAdapter,
-    'honest_sign' => $honestSignGateway,
+    // 'honest_sign' удален - используйте новые permit/ecr контроллеры
     'health_checker' => $healthChecker,
     
     // Use Cases
     'print_check_use_case' => $printCheckUseCase,
     'bank_payment_use_case' => $bankPaymentUseCase,
     'get_weight_use_case' => $getWeightUseCase,
-    'validate_mark_use_case' => $validateMarkUseCase,
-    'send_to_honest_sign_use_case' => $sendToHonestSignUseCase,
+    // validate_mark_use_case удален - используйте новые permit/ecr контроллеры
+    
+    // Queue components
+    'ecr_mark_check_queue' => $ecrMarkCheckQueue,
+    'ecr_mark_check_worker' => $ecrMarkCheckWorker,
     
     // Controllers
     'print_check_controller' => $printCheckController,

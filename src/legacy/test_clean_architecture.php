@@ -28,8 +28,8 @@ foreach ($healthReport['services'] as $name => $status) {
 }
 
 // Проверка очереди
-echo "\n📋 Статус очереди Честного Знака:\n";
-$queueStatus = $GLOBALS['di']['send_to_honest_sign_use_case']->getQueueStatus();
+echo "\n📋 Статус очереди ККТ проверки марок:\n";
+$queueStatus = $GLOBALS['di']['ecr_mark_check_queue']->getQueueStatus();
 echo "Всего элементов: {$queueStatus['total']}\n";
 echo "Ожидающих: {$queueStatus['pending']}\n";
 echo "Завершенных: {$queueStatus['completed']}\n";

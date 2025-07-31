@@ -61,7 +61,7 @@ try {
 
 // Демонстрация очереди
 echo "\n📋 Демонстрация системы очередей:\n";
-$queueStatus = $GLOBALS['di']['send_to_honest_sign_use_case']->getQueueStatus();
+$queueStatus = $GLOBALS['di']['ecr_mark_check_queue']->getQueueStatus();
 echo "Всего элементов в очереди: {$queueStatus['total']}\n";
 echo "Ожидающих обработки: {$queueStatus['pending']}\n";
 echo "Завершенных: {$queueStatus['completed']}\n";
@@ -85,7 +85,9 @@ $useCases = [
     'print_check_use_case',
     'bank_payment_use_case', 
     'get_weight_use_case',
-    'send_to_honest_sign_use_case'
+    'permit_mark_check_use_case',
+    'ecr_mark_check_use_case'
+    // validate_mark_use_case удален - заменен на новую архитектуру permit/ecr
 ];
 
 foreach ($useCases as $useCase) {
@@ -98,8 +100,11 @@ foreach ($useCases as $useCase) {
 $interfaces = [
     'PrinterInterface' => 'src/interface/PrinterInterface.php',
     'BankTerminalInterface' => 'src/interface/BankTerminalInterface.php',
-    'ValidateMarkGateway' => 'src/interface/ValidateMarkGateway.php',
-    'LoggerInterface' => 'src/infrastructure/logger/LoggerInterface.php'
+    'ScaleInterface' => 'src/interface/ScaleInterface.php',
+    'SettingsStorageInterface' => 'src/interface/SettingsStorageInterface.php',
+    'LoggerInterface' => 'src/infrastructure/logger/LoggerInterface.php',
+    'EcrMarkCheckQueue' => 'src/infrastructure/queue/EcrMarkCheckQueue.php',
+    'EcrMarkCheckWorker' => 'src/infrastructure/queue/EcrMarkCheckWorker.php'
 ];
 
 foreach ($interfaces as $interface => $path) {
@@ -112,8 +117,11 @@ foreach ($interfaces as $interface => $path) {
 $adapters = [
     'GoBankTerminalAdapter' => 'банковские операции',
     'SerialKktAdapter' => 'печать чеков',
-    'HttpHonestSignGateway' => 'Честный Знак',
-    'FileLogger' => 'логирование'
+    'SerialScaleAdapter' => 'весы',
+    'JsonFileSettingsStorage' => 'настройки',
+    'FileLogger' => 'логирование',
+    'EcrMarkCheckQueue' => 'очередь ККТ',
+    'EcrMarkCheckWorker' => 'очередь ККТ'
 ];
 
 foreach ($adapters as $adapter => $responsibility) {

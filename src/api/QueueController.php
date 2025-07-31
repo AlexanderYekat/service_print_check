@@ -1,25 +1,29 @@
 <?php
 
-require_once __DIR__ . '/../domain/service/SendToHonestSignUseCase.php';
+require_once __DIR__ . '/../infrastructure/queue/EcrMarkCheckWorker.php';
+require_once __DIR__ . '/../infrastructure/queue/EcrMarkCheckQueue.php';
 
 class QueueController
 {
-    private SendToHonestSignUseCase $useCase;
+    private EcrMarkCheckWorker $worker;
+    private EcrMarkCheckQueue $queue;
 
-    public function __construct(SendToHonestSignUseCase $useCase)
+    public function __construct(EcrMarkCheckWorker $worker, EcrMarkCheckQueue $queue)
     {
-        $this->useCase = $useCase;
+        $this->worker = $worker;
+        $this->queue = $queue;
     }
 
     public function handleStatus(): void
     {
         try {
-            $status = $this->useCase->getQueueStatus();
+            $status = $this->queue->getQueueStatus();
             
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'success' => true,
                 'data' => $status,
+                'message' => 'Статус очереди получен',
                 'timestamp' => date('Y-m-d H:i:s')
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         } catch (Exception $e) {
@@ -36,7 +40,7 @@ class QueueController
     public function handleProcess(): void
     {
         try {
-            $results = $this->useCase->processQueue();
+            $results = $this->worker->processQueue();
             
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([

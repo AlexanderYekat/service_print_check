@@ -1,7 +1,7 @@
 <?php
 
 require_once __DIR__ . '/EcrMarkCheckQueue.php';
-require_once __DIR__ . '/../honest_sign/HttpHonestSignGateway.php';
+// HttpHonestSignGateway больше не нужен - EcrMarkCheckWorker работает напрямую с API
 require_once __DIR__ . '/../../domain/model/MarkingCode.php';
 
 /**

@@ -70,17 +70,10 @@ function handleCleanArchitectureRequest()
             }
             break;
 
-        // API для Честного Знака (старая архитектура)
-        case '/api/honest-sign/validate':
-            if ($method === 'POST') {
-                require_once __DIR__ . '/api/ValidateMarkController.php';
-                $controller = new ValidateMarkController($GLOBALS['di']['validate_mark_use_case']);
-                $controller->handle($input);
-            } else {
-                http_response_code(405);
-                echo json_encode(['error' => 'Method not allowed']);
-            }
-            break;
+        // API для Честного Знака (старая архитектура) - УДАЛЕНО
+        // Заменено на новую архитектуру:
+        // - POST /api/permit-mark-check для разрешительного режима
+        // - POST /api/ecr-mark-check/enqueue для ККТ режима
 
         // API для проверки марки - новая архитектура
         case '/api/permit-mark-check':
@@ -175,7 +168,6 @@ function handleCleanArchitectureRequest()
                     'POST /api/bank/refund', 
                     'POST /api/bank/close-shift',
                     'GET /api/get-weight',
-                    'POST /api/honest-sign/validate',
                     'POST /api/permit-mark-check',
                     'POST /api/ecr-mark-check/enqueue',
                     'GET /api/ecr-mark-check/result/{taskId}',
@@ -213,7 +205,6 @@ function handleApiDocumentation()
                 'description' => 'Получение веса с весов'
             ],
             'honest_sign' => [
-                'validate' => ['method' => 'POST', 'url' => '/api/honest-sign/validate', 'description' => 'Старая архитектура'],
                 'permit_check' => ['method' => 'POST', 'url' => '/api/permit-mark-check', 'description' => 'Синхронная проверка в разрешительном режиме'],
                 'ecr_enqueue' => ['method' => 'POST', 'url' => '/api/ecr-mark-check/enqueue', 'description' => 'Постановка проверки ККТ в очередь'],
                 'ecr_result' => ['method' => 'GET', 'url' => '/api/ecr-mark-check/result/{taskId}', 'description' => 'Получение результата проверки ККТ']

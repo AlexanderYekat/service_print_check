@@ -130,6 +130,14 @@ class Check
     }
 
     /**
+     * Проверить, есть ли в чеке товары с маркировкой
+     */
+    public function hasMarkingCodes(): bool
+    {
+        return count($this->getMarkedItems()) > 0;
+    }
+
+    /**
      * Проверить все ли суммы позиций корректны
      */
     public function areAllItemSumsCorrect(): bool

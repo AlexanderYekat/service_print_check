@@ -6,7 +6,7 @@ require_once __DIR__ . '/constants.php';
 
 // Domain models
 require_once __DIR__ . '/domain/model/Check.php';
-require_once __DIR__ . '/domain/model/BankResult.php';
+require_once __DIR__ . '/domain/model/BankPaymentRequest.php';
 require_once __DIR__ . '/domain/model/BankTransaction.php';
 require_once __DIR__ . '/domain/model/OperationResult.php';
 

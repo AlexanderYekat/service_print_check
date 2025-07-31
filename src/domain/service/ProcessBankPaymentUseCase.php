@@ -2,8 +2,8 @@
 
 namespace App\Domain\Service;
 
-use App\Domain\Model\OperationResult;
-use App\Domain\Model\BankTransaction;
+// use App\Domain\Model\OperationResult; // Убрали namespace из модели
+// use App\Domain\Model\BankTransaction; // Убрали namespace из модели
 use App\Interface\BankTerminalInterface;
 use App\Infrastructure\Logger\LoggerInterface;
 use InvalidArgumentException;

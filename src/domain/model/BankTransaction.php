@@ -1,80 +1,73 @@
 <?php
 
-namespace App\Domain\Model;
-
 /**
- * Доменная модель банковской транзакции
- * 
- * Представляет операцию с банковским терминалом:
- * - тип операции (оплата, возврат, отмена)
- * - сумма операции
- * - результат выполнения
- * - дополнительные данные (слип, коды ошибок)
+ * Банковская транзакция - результат/факт выполненной операции
+ * Создается ТОЛЬКО после получения ответа от банковского терминала
+ * Все поля всегда известны - никаких null состояний!
  */
 class BankTransaction
 {
     private string $type;
     private float $amount;
-    private array $resultData;
-    private \DateTime $timestamp;
+    private bool $isSuccessful;
+    private ?int $errorCode;
+    private ?string $errorMessage;
+    private ?string $slip;
 
     public function __construct(
         string $type,
         float $amount,
-        array $resultData = []
+        bool $isSuccessful,
+        ?int $errorCode = null,
+        ?string $errorMessage = null,
+        ?string $slip = null
     ) {
+        $this->validateInputs($type, $amount, $isSuccessful, $errorCode, $errorMessage);
+        
         $this->type = $type;
         $this->amount = $amount;
-        $this->resultData = $resultData;
-        $this->timestamp = new \DateTime();
+        $this->isSuccessful = $isSuccessful;
+        $this->errorCode = $errorCode;
+        $this->errorMessage = $errorMessage;
+        $this->slip = $slip;
     }
 
-    /**
-     * Получить тип операции
-     */
     public function getType(): string
     {
         return $this->type;
     }
 
-    /**
-     * Получить сумму операции
-     */
     public function getAmount(): float
     {
         return $this->amount;
     }
 
-    /**
-     * Получить данные результата
-     */
-    public function getResultData(): array
+    public function isSuccessful(): bool
     {
-        return $this->resultData;
+        return $this->isSuccessful;
+    }
+
+    public function getErrorCode(): ?int
+    {
+        return $this->errorCode;
+    }
+
+    public function getErrorMessage(): ?string
+    {
+        return $this->errorMessage;
+    }
+
+    public function getSlip(): ?string
+    {
+        return $this->slip;
     }
 
     /**
-     * Получить временную метку операции
+     * Проверить, есть ли ошибка
      */
-    public function getTimestamp(): \DateTime
+    public function hasError(): bool
     {
-        return $this->timestamp;
-    }
-
-    /**
-     * Получить слип операции, если есть
-     */
-    public function getSlip(): ?array
-    {
-        return $this->resultData['slip'] ?? null;
-    }
-
-    /**
-     * Получить код результата операции
-     */
-    public function getResultCode(): ?int
-    {
-        return $this->resultData['result_code'] ?? null;
+        return !$this->isSuccessful;
     }
 
     /**
@@ -82,52 +75,58 @@ class BankTransaction
      */
     public function isMoneyOperation(): bool
     {
-        return in_array($this->type, ['pay', 'refund', 'cancel']);
+        return in_array($this->type, ['payment', 'refund', 'cancellation']);
     }
 
     /**
-     * Создать транзакцию из массива данных
-     */
-    public static function fromArray(array $data): self
-    {
-        return new self(
-            $data['type'] ?? $data['operation'] ?? 'unknown',
-            (float)($data['amount'] ?? 0),
-            $data['resultData'] ?? $data['result'] ?? []
-        );
-    }
-
-    /**
-     * Преобразовать транзакцию в массив
+     * Сериализация для API-слоя
      */
     public function toArray(): array
     {
         return [
             'type' => $this->type,
             'amount' => $this->amount,
-            'result_data' => $this->resultData,
-            'timestamp' => $this->timestamp->format('Y-m-d H:i:s')
+            'is_successful' => $this->isSuccessful,
+            'error_code' => $this->errorCode,
+            'error_message' => $this->errorMessage,
+            'slip' => $this->slip
         ];
     }
 
     /**
-     * Получить описание операции
+     * Создать успешную транзакцию
      */
-    public function getDescription(): string
+    public static function createSuccessful(string $type, float $amount, ?string $slip = null): self
     {
-        $descriptions = [
-            'pay' => 'Оплата',
-            'refund' => 'Возврат',
-            'cancel' => 'Отмена',
-            'close_shift' => 'Закрытие смены'
-        ];
+        return new self($type, $amount, true, null, null, $slip);
+    }
 
-        $baseDescription = $descriptions[$this->type] ?? 'Неизвестная операция';
-        
-        if ($this->isMoneyOperation()) {
-            return $baseDescription . ' на сумму ' . number_format($this->amount, 2, '.', ' ') . ' руб.';
+    /**
+     * Создать неуспешную транзакцию
+     */
+    public static function createFailed(string $type, float $amount, int $errorCode, string $errorMessage): self
+    {
+        return new self($type, $amount, false, $errorCode, $errorMessage, null);
+    }
+
+    /**
+     * Валидация входных данных
+     */
+    private function validateInputs(string $type, float $amount, bool $isSuccessful, ?int $errorCode, ?string $errorMessage): void
+    {
+        $allowedTypes = ['payment', 'refund', 'cancellation', 'close_shift'];
+        if (!in_array($type, $allowedTypes)) {
+            throw new InvalidArgumentException("Недопустимый тип операции: {$type}");
         }
-        
-        return $baseDescription;
+
+        // Для денежных операций сумма обязательна
+        if (in_array($type, ['payment', 'refund', 'cancellation']) && $amount <= 0) {
+            throw new InvalidArgumentException("Для операции {$type} сумма должна быть больше нуля");
+        }
+
+        // Если операция неуспешна, должен быть код ошибки
+        if (!$isSuccessful && $errorCode === null) {
+            throw new InvalidArgumentException('Для неуспешной операции обязателен код ошибки');
+        }
     }
 }

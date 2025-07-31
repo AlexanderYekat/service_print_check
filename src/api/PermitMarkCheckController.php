@@ -1,45 +1,67 @@
 <?php
 
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../domain/service/PermitMarkCheckUseCase.php';
-require_once __DIR__ . '/../infrastructure/honest_sign/HttpPermitMarkCheckGateway.php';
 require_once __DIR__ . '/../domain/model/MarkingCode.php';
-require_once __DIR__ . '/../infrastructure/logger/FileLogger.php';
 require_once __DIR__ . '/../infrastructure/printer/SerialKktAdapter.php';
 require_once __DIR__ . '/../infrastructure/settings_storage/JsonFileSettingsStorage.php';
 
 /**
  * Контроллер для синхронной проверки марки в разрешительном режиме
  */
-class PermitMarkCheckController
+class PermitMarkCheckController extends BaseController
 {
     private PermitMarkCheckUseCase $useCase;
-    private FileLogger $logger;
     private JsonFileSettingsStorage $settingsStorage;
     private SerialKktAdapter $kktAdapter;
     private array $config;
 
-    public function __construct()
+    public function __construct(
+        PermitMarkCheckUseCase $useCase,
+        JsonFileSettingsStorage $settingsStorage,
+        SerialKktAdapter $kktAdapter,
+        array $config,
+        LoggerInterface $logger
+    ) {
+        parent::__construct($logger);
+        $this->useCase = $useCase;
+        $this->settingsStorage = $settingsStorage;
+        $this->kktAdapter = $kktAdapter;
+        $this->config = $config;
+    }
+
+    protected function validateRequest(array $request): array
     {
-        $this->logger = new FileLogger('logs/api.log');
+        if (!isset($request['marking_code'])) {
+            throw new ValidationException('Не указан код маркировки');
+        }
+        return $request;
+    }
+
+    protected function executeUseCase(array $request): array
+    {
+        $markingCode = new MarkingCode($request['marking_code']);
+
+        // Формируем контекст для передачи всех дополнительных параметров
+        $context = [];
         
-        // Загружаем настройки
-        $this->settingsStorage = new JsonFileSettingsStorage(__DIR__ . '/../../config/settings.json');
-        $this->config = $this->settingsStorage->load();
         
-        // Инициализируем ККТ адаптер для получения fiscalDriveNumber
-        $this->kktAdapter = new SerialKktAdapter(
-            $this->config['printer']['com_class'] ?? 'AddIn.Fptr10',
-            $this->config['printer']['com_port'] ?? 'COM1',
-            $this->config['printer']['emulation'] ?? true
-        );
-        
-        // Инициализируем зависимости
-        $gateway = new HttpPermitMarkCheckGateway(
-            $this->config['honest_sign']['api_url'] ?? 'https://api.markirovka.ru',
-            $this->config['honest_sign']['x-api-token'] ?? ''
-        );
-        
-        $this->useCase = new PermitMarkCheckUseCase($gateway);
+        // Проверяем, нужно ли включать fiscalDriveNumber
+        if ($this->config['honest_sign']['includeFiscalDriveNumberInMarkCheck'] ?? false) {
+            $fiscalDriveNumber = $this->getFiscalDriveNumber();
+            if ($fiscalDriveNumber !== null) {
+                $context['fiscalDriveNumber'] = $fiscalDriveNumber;
+                $this->logger->info("FiscalDriveNumber добавлен в контекст проверки марки: {$fiscalDriveNumber}");
+            }
+        }
+
+        $result = $this->useCase->execute($markingCode, $context);
+
+        if (!$result->success && $result->error) {
+            throw new BusinessLogicException($result->error);
+        }
+
+        return $result->getData();
     }
 
     /**
@@ -48,48 +70,8 @@ class PermitMarkCheckController
      */
     public function checkPermit(): void
     {
-        try {
-            $request = $this->getJsonInput();
-            
-            if (!isset($request['marking_code'])) {
-                $this->sendError('Не указан код маркировки', 400);
-                return;
-            }
-
-            $markingCode = new MarkingCode($request['marking_code']);
-
-            // Формируем контекст для передачи всех дополнительных параметров
-            $context = [];
-            
-            // Добавляем ИНН и GTIN в контекст (согласно ТЗ не храним в доменной модели)
-            if (!empty($request['inn'])) {
-                $context['inn'] = $request['inn'];
-            }
-            if (!empty($request['gtin'])) {
-                $context['gtin'] = $request['gtin'];
-            }
-            
-            // Проверяем, нужно ли включать fiscalDriveNumber
-            if ($this->config['honest_sign']['includeFiscalDriveNumberInMarkCheck'] ?? false) {
-                $fiscalDriveNumber = $this->getFiscalDriveNumber();
-                if ($fiscalDriveNumber !== null) {
-                    $context['fiscalDriveNumber'] = $fiscalDriveNumber;
-                    $this->logger->info("FiscalDriveNumber добавлен в контекст проверки марки: {$fiscalDriveNumber}");
-                }
-            }
-
-            $result = $this->useCase->execute($markingCode, $context);
-
-            if ($result->success) {
-                $this->sendSuccess($result->getData(), $result->message);
-            } else {
-                $this->sendError($result->error, 400, $result->getData());
-            }
-
-        } catch (Exception $e) {
-            $this->logger->error("Ошибка проверки марки в разрешительном режиме: " . $e->getMessage());
-            $this->sendError('Внутренняя ошибка сервера', 500);
-        }
+        $request = $this->getJsonInput();
+        $this->handle($request);
     }
 
     /**
@@ -102,48 +84,7 @@ class PermitMarkCheckController
         return $data ?? [];
     }
 
-    /**
-     * Отправляет успешный ответ
-     */
-    private function sendSuccess(array $data, ?string $message = null): void
-    {
-        $response = [
-            'success' => true,
-            'data' => $data,
-            'message' => $message,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-        
-        $this->sendJsonResponse($response, 200);
-    }
 
-    /**
-     * Отправляет ответ с ошибкой
-     */
-    private function sendError(string $error, int $statusCode = 500, ?array $data = null): void
-    {
-        $response = [
-            'success' => false,
-            'error' => $error,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-        
-        if ($data !== null) {
-            $response['data'] = $data;
-        }
-        
-        $this->sendJsonResponse($response, $statusCode);
-    }
-
-    /**
-     * Отправляет JSON ответ
-     */
-    private function sendJsonResponse(array $data, int $statusCode): void
-    {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    }
 
     /**
      * Получает номер фискального накопителя из кэша или ККТ

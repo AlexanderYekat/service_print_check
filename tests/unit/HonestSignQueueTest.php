@@ -1,20 +1,14 @@
 <?php
 
-require_once __DIR__ . '/../../src/infrastructure/queue/HonestSignQueue.php';
-require_once __DIR__ . '/../../src/domain/model/MarkingCode.php';
+require_once __DIR__ . '/../infrastructure/queue/HonestSignQueue.php';
+require_once __DIR__ . '/../domain/model/MarkingCode.php';
 
 class HonestSignQueueTest
 {
-    private string $testQueuePath = 'tests/temp/test_queue.json';
+    private string $testQueuePath = '/tmp/test_queue.json';
 
     public function setUp()
     {
-        // Создание папки для тестов
-        $dir = dirname($this->testQueuePath);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-        
         // Очистка тестового файла
         if (file_exists($this->testQueuePath)) {
             unlink($this->testQueuePath);
@@ -64,6 +58,20 @@ class HonestSignQueueTest
         echo "✅ testQueueStatus passed\n";
     }
 
+    public function testClearCompleted()
+    {
+        $queue = new HonestSignQueue($this->testQueuePath);
+        $code = new MarkingCode("test_code");
+        
+        $queue->addToQueue($code);
+        
+        // Изначально нет завершенных
+        $cleared = $queue->clearCompleted();
+        assert($cleared === 0, "Should clear 0 completed items");
+        
+        echo "✅ testClearCompleted passed\n";
+    }
+
     public function runAllTests()
     {
         echo "Running HonestSignQueue tests...\n";
@@ -74,6 +82,10 @@ class HonestSignQueueTest
         $this->setUp();
         
         $this->testQueueStatus();
+        $this->tearDown();
+        $this->setUp();
+        
+        $this->testClearCompleted();
         $this->tearDown();
         
         echo "All HonestSignQueue tests passed! ✅\n\n";

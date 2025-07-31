@@ -54,10 +54,15 @@ require_once __DIR__ . '/api/response/ResponseFormatter.php';
 require_once __DIR__ . '/api/PrintCheckController.php';
 require_once __DIR__ . '/api/BankPaymentController.php';
 require_once __DIR__ . '/api/GetWeightController.php';
-require_once __DIR__ . '/api/CloseShiftController.php';
 require_once __DIR__ . '/api/VersionController.php';
 require_once __DIR__ . '/api/HealthController.php';
 require_once __DIR__ . '/api/QueueController.php';
+require_once __DIR__ . '/api/PermitMarkCheckController.php';
+require_once __DIR__ . '/api/EcrMarkCheckController.php';
+
+// Use Cases
+require_once __DIR__ . '/domain/service/PermitMarkCheckUseCase.php';
+require_once __DIR__ . '/domain/service/EcrMarkCheckUseCase.php';
 
 // Инициализация настроек
 $settingsStorage = new JsonFileSettingsStorage(__DIR__ . '/../config/settings.json');
@@ -98,7 +103,7 @@ $logger = new FileLogger(
     $config['logging']['level'] ?? 'info'
 );
 
-// Создание адаптеров
+// Создание адаптеров с передачей конфигурации
 $printerAdapter = new SerialKktAdapter(
     $config['printer']['com_class'], 
     $config['printer']['com_port'], 
@@ -106,9 +111,8 @@ $printerAdapter = new SerialKktAdapter(
 );
 
 $bankAdapter = new GoBankTerminalAdapter(
-    $config['bank']['binary_path'],
-    $config['bank']['emulation'],
-    $config['bank']['timeout']
+    $settingsStorage,
+    $logger
 );
 
 $scaleAdapter = new SerialScaleAdapter(__DIR__ . '/../config/settings.json');
@@ -131,21 +135,38 @@ $ecrMarkCheckWorker = new EcrMarkCheckWorker(
     $config['api_key'] ?? ''
 );
 
-// Настройка HealthChecker
+// Настройка HealthChecker с новым интерфейсом
 $healthChecker = new HealthChecker();
-$healthChecker->addService('printer', $printerAdapter, 'printer');
-$healthChecker->addService('bank', $bankAdapter, 'bank');
-$healthChecker->addService('scale', $scaleAdapter, 'scale');
-// honest_sign удален из мониторинга - новая архитектура не требует глобального gateway
+$healthChecker->addComponent($printerAdapter);
+$healthChecker->addComponent($bankAdapter);
+$healthChecker->addComponent($scaleAdapter);
 
-// Создание контроллеров
+// Создание контроллеров с унифицированными параметрами
 $printCheckController = new PrintCheckController($printCheckUseCase, $logger);
 $bankPaymentController = new BankPaymentController($bankPaymentUseCase, $logger);
-$getWeightController = new GetWeightController($getWeightUseCase);
-$closeShiftController = new CloseShiftController($bankPaymentUseCase);
-$versionController = new VersionController();
+$getWeightController = new GetWeightController($getWeightUseCase, $logger);
+$versionController = new VersionController($logger);
 $healthController = new HealthController($healthChecker, $logger);
-$queueController = new QueueController($ecrMarkCheckWorker, $ecrMarkCheckQueue);
+$queueController = new QueueController($ecrMarkCheckWorker, $ecrMarkCheckQueue, $logger);
+
+// Создание новых контроллеров
+$permitMarkCheckUseCase = new PermitMarkCheckUseCase(
+    new HttpPermitMarkCheckGateway(
+        $config['honest_sign']['api_url'] ?? 'https://api.markirovka.ru',
+        $config['honest_sign']['x-api-token'] ?? ''
+    )
+);
+
+$permitMarkCheckController = new PermitMarkCheckController(
+    $permitMarkCheckUseCase,
+    $settingsStorage,
+    $printerAdapter,
+    $config,
+    $logger
+);
+
+$ecrMarkCheckUseCase = new EcrMarkCheckUseCase(new QueueEcrMarkCheckGateway());
+$ecrMarkCheckController = new EcrMarkCheckController($ecrMarkCheckUseCase, $logger);
 
 // Глобальный DI контейнер
 $GLOBALS['di'] = [
@@ -174,8 +195,41 @@ $GLOBALS['di'] = [
     'print_check_controller' => $printCheckController,
     'bank_payment_controller' => $bankPaymentController,
     'get_weight_controller' => $getWeightController,
-    'close_shift_controller' => $closeShiftController,
     'version_controller' => $versionController,
     'health_controller' => $healthController,
     'queue_controller' => $queueController,
+    'permit_mark_check_controller' => $permitMarkCheckController,
+    'ecr_mark_check_controller' => $ecrMarkCheckController,
 ];
+
+/**
+ * Получить компонент из DI контейнера
+ * 
+ * @param string $key Ключ компонента
+ * @return mixed Компонент из контейнера
+ */
+function container(string $key)
+{
+    if (!isset($GLOBALS['di'][$key])) {
+        throw new Exception("Компонент '{$key}' не найден в DI контейнере");
+    }
+    return $GLOBALS['di'][$key];
+}
+
+/**
+ * Получить конфигурацию
+ * 
+ * @param string|null $key Ключ конфигурации (если null - возвращает всю конфигурацию)
+ * @param mixed $default Значение по умолчанию
+ * @return mixed Значение конфигурации
+ */
+function config(?string $key = null, $default = null)
+{
+    $config = container('config');
+    
+    if ($key === null) {
+        return $config;
+    }
+    
+    return $config[$key] ?? $default;
+}

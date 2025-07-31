@@ -1,29 +1,34 @@
 <?php
-class GetWeightController
+
+require_once __DIR__ . '/BaseController.php';
+
+class GetWeightController extends BaseController
 {
     private GetWeightUseCase $useCase;
 
-    public function __construct(GetWeightUseCase $useCase)
+    public function __construct(GetWeightUseCase $useCase, LoggerInterface $logger)
     {
+        parent::__construct($logger);
         $this->useCase = $useCase;
     }
 
-    public function handle(): void
+    protected function validateRequest(array $request): array
     {
-        try {
-            $result = $this->useCase->execute();
-            ErrorResponseHelper::json([
-                'success' => $result->success,
-                'message' => $result->message,
-                'data'    => [
-                    'weight' => $result->weight ?? null,
-                ]
-            ]);
-        } catch (\Throwable $e) {
-            ErrorResponseHelper::json([
-                'success' => false,
-                'message' => 'Ошибка сервиса: ' . $e->getMessage()
-            ], 500);
+        // Для получения веса валидация не требуется
+        return $request;
+    }
+
+    protected function executeUseCase(array $request): array
+    {
+        $result = $this->useCase->execute();
+        
+        if (!$result->success && $result->message) {
+            throw new InfrastructureException($result->message);
         }
+
+        return [
+            'weight' => $result->weight ?? null,
+            'message' => $result->message
+        ];
     }
 }

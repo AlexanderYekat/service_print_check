@@ -8,6 +8,8 @@ use App\Infrastructure\Logger\LoggerInterface;
 use App\Domain\Model\OperationResult;
 use Exception;
 
+require_once __DIR__ . '/../../interface/HealthCheckable.php';
+
 /**
  * Адаптер для работы с банковским терминалом через Go-программу
  * 
@@ -17,7 +19,7 @@ use Exception;
  * - ожидание и чтение результата
  * - обработка ошибок и таймаутов
  */
-class GoBankTerminalAdapter implements BankTerminalInterface
+class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
 {
     private SettingsStorageInterface $settingsStorage;
     private LoggerInterface $logger;
@@ -355,5 +357,63 @@ class GoBankTerminalAdapter implements BankTerminalInterface
         ];
 
         return $errorCodes[$resultCode] ?? "неизвестная ошибка (код: {$resultCode})";
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function checkHealth(): array
+    {
+        $startTime = microtime(true);
+        
+        try {
+            if ($this->emulation) {
+                return [
+                    'status' => 'ok',
+                    'message' => 'Банковский терминал работает в режиме эмуляции',
+                    'details' => ['emulation' => true],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Проверяем доступность go-бинаря
+            if (!file_exists($this->binaryPath)) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Go-бинарь банковского терминала не найден',
+                    'details' => ['binary_path' => $this->binaryPath],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Делаем тестовый запрос с минимальной суммой
+            $result = $this->pay(0.01);
+            
+            return [
+                'status' => $result->success ? 'ok' : 'warning',
+                'message' => $result->success ? 'Банковский терминал доступен' : 'Тестовая операция завершилась ошибкой',
+                'details' => [
+                    'test_operation' => $result->success,
+                    'error_message' => $result->success ? null : $result->message
+                ],
+                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Ошибка при проверке банковского терминала: ' . $e->getMessage(),
+                'details' => ['exception' => get_class($e)],
+                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getComponentName(): string
+    {
+        return 'bank_terminal';
     }
 }

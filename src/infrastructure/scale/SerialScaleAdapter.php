@@ -1,8 +1,9 @@
 <?php
 
 require_once __DIR__ . '/../../interface/ScaleInterface.php';
+require_once __DIR__ . '/../../interface/HealthCheckable.php';
 
-class SerialScaleAdapter implements ScaleInterface
+class SerialScaleAdapter implements ScaleInterface, HealthCheckable
 {
     private $settingsPath;
 
@@ -34,5 +35,83 @@ class SerialScaleAdapter implements ScaleInterface
         }
         $scaleDriver->Close();
         return OperationResult::success(['weight' => $weight], 'Вес получен успешно');
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function checkHealth(): array
+    {
+        $startTime = microtime(true);
+        
+        try {
+            $settings = json_decode(file_get_contents($this->settingsPath), true);
+            $scaleSettings = $settings['scale'] ?? [];
+            $emulation = $scaleSettings['emulation'] ?? false;
+
+            if ($emulation) {
+                return [
+                    'status' => 'ok',
+                    'message' => 'Весы работают в режиме эмуляции',
+                    'details' => ['emulation' => true],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Пытаемся подключиться к весам
+            $scaleDriver = new TScale8Driver(
+                $scaleSettings['com_port'] ?? 1001,
+                $scaleSettings['baud_rate'] ?? 18,
+                $scaleSettings['model'] ?? 38,
+                $scaleSettings['com_class'] ?? 'AddIn.Scale8',
+                $emulation
+            );
+            
+            list($isOpened, $connectErrorDesc) = $scaleDriver->Open();
+            if (!$isOpened) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'Не удается подключиться к весам: ' . $connectErrorDesc,
+                    'details' => ['connection_error' => $connectErrorDesc],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Проверяем чтение веса
+            list($success, $readErrorDesc, $weight) = $scaleDriver->ReadWeight();
+            $scaleDriver->Close();
+
+            if (!$success) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'Ошибка чтения веса с весов: ' . $readErrorDesc,
+                    'details' => ['read_error' => $readErrorDesc],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            return [
+                'status' => 'ok',
+                'message' => 'Весы доступны и готовы к работе',
+                'details' => ['test_weight' => $weight],
+                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Ошибка при проверке весов: ' . $e->getMessage(),
+                'details' => ['exception' => get_class($e)],
+                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getComponentName(): string
+    {
+        return 'scales';
     }
 }

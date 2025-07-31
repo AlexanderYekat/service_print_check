@@ -1,65 +1,74 @@
 <?php
 
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../infrastructure/queue/EcrMarkCheckWorker.php';
 require_once __DIR__ . '/../infrastructure/queue/EcrMarkCheckQueue.php';
 
-class QueueController
+class QueueController extends BaseController
 {
     private EcrMarkCheckWorker $worker;
     private EcrMarkCheckQueue $queue;
+    private string $action;
 
-    public function __construct(EcrMarkCheckWorker $worker, EcrMarkCheckQueue $queue)
+    public function __construct(EcrMarkCheckWorker $worker, EcrMarkCheckQueue $queue, LoggerInterface $logger)
     {
+        parent::__construct($logger);
         $this->worker = $worker;
         $this->queue = $queue;
     }
 
+    public function setAction(string $action): void
+    {
+        $this->action = $action;
+    }
+
+    protected function validateRequest(array $request): array
+    {
+        // Для операций с очередью валидация не требуется
+        return $request;
+    }
+
+    protected function executeUseCase(array $request): array
+    {
+        if ($this->action === 'status') {
+            return $this->getQueueStatus();
+        }
+
+        if ($this->action === 'process') {
+            return $this->processQueue();
+        }
+
+        throw new ValidationException('Неизвестное действие');
+    }
+
+    private function getQueueStatus(): array
+    {
+        $status = $this->queue->getQueueStatus();
+        return [
+            'queue_status' => $status,
+            'message' => 'Статус очереди получен'
+        ];
+    }
+
+    private function processQueue(): array
+    {
+        $results = $this->worker->processQueue();
+        return [
+            'processed_items' => count($results),
+            'results' => $results,
+            'message' => 'Обработка очереди завершена'
+        ];
+    }
+
     public function handleStatus(): void
     {
-        try {
-            $status = $this->queue->getQueueStatus();
-            
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'success' => true,
-                'data' => $status,
-                'message' => 'Статус очереди получен',
-                'timestamp' => date('Y-m-d H:i:s')
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        } catch (Exception $e) {
-            http_response_code(500);
-            header('Content-Type: application/json; charset=utf-8');
-            
-            echo json_encode([
-                'success' => false,
-                'message' => 'Ошибка получения статуса очереди: ' . $e->getMessage()
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        }
+        $this->setAction('status');
+        $this->handle([]);
     }
 
     public function handleProcess(): void
     {
-        try {
-            $results = $this->worker->processQueue();
-            
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'success' => true,
-                'message' => 'Обработка очереди завершена',
-                'data' => [
-                    'processed_items' => count($results),
-                    'results' => $results
-                ],
-                'timestamp' => date('Y-m-d H:i:s')
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        } catch (Exception $e) {
-            http_response_code(500);
-            header('Content-Type: application/json; charset=utf-8');
-            
-            echo json_encode([
-                'success' => false,
-                'message' => 'Ошибка обработки очереди: ' . $e->getMessage()
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        }
+        $this->setAction('process');
+        $this->handle([]);
     }
 }

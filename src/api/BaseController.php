@@ -39,6 +39,8 @@ abstract class BaseController
             $this->sendErrorResponse($e->getMessage(), 400, $startTime);
         } catch (BusinessLogicException $e) {
             $this->sendErrorResponse($e->getMessage(), 422, $startTime);
+        } catch (InfrastructureException $e) {
+            $this->sendErrorResponse($e->getMessage(), 503, $startTime);
         } catch (Exception $e) {
             $this->logger->error('Unexpected error in controller', [
                 'controller' => get_class($this),
@@ -157,3 +159,8 @@ class ValidationException extends Exception {}
  * Исключение для ошибок бизнес-логики
  */
 class BusinessLogicException extends Exception {}
+
+/**
+ * Исключение для ошибок инфраструктуры (интеграции, аппаратуры)
+ */
+class InfrastructureException extends Exception {}

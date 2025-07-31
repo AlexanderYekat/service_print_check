@@ -1,190 +1,113 @@
 <?php
 
-require_once __DIR__ . '/../../interface/PrinterInterface.php';
-require_once __DIR__ . '/../../interface/BankTerminalInterface.php';
-// ValidateMarkGateway удален - мониторинг Честного Знака временно отключен
-require_once __DIR__ . '/../../interface/ScaleInterface.php';
+require_once __DIR__ . '/../../interface/HealthCheckable.php';
 
+/**
+ * Проверка состояния всех инфраструктурных компонентов системы
+ * 
+ * Использует HealthCheckable интерфейс для унифицированной проверки
+ * состояния банка, ККТ, весов, Честного Знака и других сервисов
+ */
 class HealthChecker
 {
-    private array $services = [];
-    private array $results = [];
+    private array $components = [];
 
-    public function addService(string $name, $service, string $type): void
+    /**
+     * Добавить компонент для мониторинга
+     * 
+     * @param HealthCheckable $component Компонент, реализующий HealthCheckable
+     */
+    public function addComponent(HealthCheckable $component): void
     {
-        $this->services[$name] = [
-            'service' => $service,
-            'type' => $type
-        ];
+        $this->components[$component->getComponentName()] = $component;
     }
 
+    /**
+     * Проверить состояние всех зарегистрированных компонентов
+     * 
+     * @return array Общий отчёт о состоянии системы
+     */
     public function checkAll(): array
     {
-        $this->results = [];
+        $results = [];
         
-        foreach ($this->services as $name => $config) {
-            $this->results[$name] = $this->checkService($name, $config['service'], $config['type']);
+        foreach ($this->components as $name => $component) {
+            $results[$name] = $this->checkComponent($component);
         }
 
         return [
-            'overall_status' => $this->getOverallStatus(),
+            'overall_status' => $this->getOverallStatus($results),
             'timestamp' => date('Y-m-d H:i:s'),
-            'services' => $this->results
+            'components_count' => count($this->components),
+            'components' => $results
         ];
     }
 
-    public function checkService(string $name, $service, string $type): array
+    /**
+     * Проверить состояние одного компонента
+     * 
+     * @param HealthCheckable $component Компонент для проверки
+     * @return array Результат проверки
+     */
+    private function checkComponent(HealthCheckable $component): array
     {
-        $startTime = microtime(true);
-        
         try {
-            $result = $this->performHealthCheck($service, $type);
-            $responseTime = (microtime(true) - $startTime) * 1000; // в мс
+            $result = $component->checkHealth();
             
             return [
-                'status' => $result['success'] ? 'healthy' : 'unhealthy',
-                'message' => $result['message'] ?? 'OK',
-                'response_time_ms' => round($responseTime, 2),
+                'status' => $result['status'],
+                'message' => $result['message'],
+                'response_time_ms' => $result['response_time_ms'] ?? null,
                 'last_check' => date('Y-m-d H:i:s'),
                 'details' => $result['details'] ?? null
             ];
         } catch (Exception $e) {
-            $responseTime = (microtime(true) - $startTime) * 1000;
-            
             return [
                 'status' => 'error',
-                'message' => $e->getMessage(),
-                'response_time_ms' => round($responseTime, 2),
+                'message' => 'Исключение при проверке: ' . $e->getMessage(),
+                'response_time_ms' => null,
                 'last_check' => date('Y-m-d H:i:s'),
-                'details' => null
+                'details' => ['exception' => get_class($e)]
             ];
         }
     }
 
-    private function performHealthCheck($service, string $type): array
+    /**
+     * Определить общий статус системы на основе статусов компонентов
+     * 
+     * @param array $results Результаты проверки всех компонентов
+     * @return string Общий статус: 'ok', 'degraded', 'critical'
+     */
+    private function getOverallStatus(array $results): string
     {
-        switch ($type) {
-            case 'printer':
-                return $this->checkPrinter($service);
-            
-            case 'bank':
-                return $this->checkBank($service);
-            
-            case 'honest_sign':
-                return $this->checkHonestSign($service);
-            
-            case 'scale':
-                return $this->checkScale($service);
-            
-            default:
-                throw new Exception("Неизвестный тип сервиса: {$type}");
-        }
-    }
-
-    private function checkPrinter(PrinterInterface $printer): array
-    {
-        if ($printer instanceof SerialKktAdapter) {
-            // Для Serial принтера проверим эмуляцию
-            $testCheck = new Check(
-                [['name' => 'TEST', 'price' => 1.0, 'quantity' => 1]],
-                'TEST_CASHIER',
-                [['type' => 'cash', 'amount' => 1.0]],
-                'sell',
-                'osn'
-            );
-            
-            $result = $printer->printCheck($testCheck);
-            return [
-                'success' => $result->success,
-                'message' => $result->message ?? 'Принтер работает'
-            ];
-        }
-        
-        return ['success' => true, 'message' => 'Принтер доступен'];
-    }
-
-    private function checkBank(BankTerminalInterface $bank): array
-    {
-        if ($bank instanceof GoBankTerminalAdapter) {
-            // Для банка сделаем тестовую операцию с минимальной суммой
-            try {
-                $result = $bank->pay(0.01);
-                return [
-                    'success' => true,
-                    'message' => 'Банковский терминал доступен',
-                    'details' => ['test_operation_result' => $result->success]
-                ];
-            } catch (Exception $e) {
-                return [
-                    'success' => false,
-                    'message' => 'Банковский терминал недоступен: ' . $e->getMessage()
-                ];
-            }
-        }
-        
-        return ['success' => true, 'message' => 'Банковский терминал доступен'];
-    }
-
-    private function checkHonestSign($gateway): array
-    {
-        // Честный Знак теперь работает через новую архитектуру (permit/ecr контроллеры)
-        // Мониторинг временно отключен
-        return [
-            'success' => true, 
-            'message' => 'Мониторинг Честного Знака отключен (новая архитектура)'
-        ];
-    }
-
-    private function checkScale(ScaleInterface $scale): array
-    {
-        if ($scale instanceof SerialScaleAdapter) {
-            $result = $scale->getWeight();
-            return [
-                'success' => $result->success,
-                'message' => $result->message ?? 'Весы работают',
-                'details' => $result->success ? ['current_weight' => $result->weight] : null
-            ];
-        }
-        
-        return ['success' => true, 'message' => 'Весы доступны'];
-    }
-
-    private function getOverallStatus(): string
-    {
-        if (empty($this->results)) {
-            return 'unknown';
-        }
-
         $hasError = false;
-        $hasUnhealthy = false;
+        $hasWarning = false;
 
-        foreach ($this->results as $result) {
+        foreach ($results as $result) {
             if ($result['status'] === 'error') {
                 $hasError = true;
-            } elseif ($result['status'] === 'unhealthy') {
-                $hasUnhealthy = true;
+            } elseif ($result['status'] === 'warning') {
+                $hasWarning = true;
             }
         }
 
         if ($hasError) {
             return 'critical';
-        } elseif ($hasUnhealthy) {
+        } elseif ($hasWarning) {
             return 'degraded';
         }
 
-        return 'healthy';
+        return 'ok';
     }
 
+    /**
+     * Сохранить отчёт о состоянии в файл
+     * 
+     * @param string $filePath Путь к файлу для сохранения
+     */
     public function saveHealthReport(string $filePath): void
     {
         $report = $this->checkAll();
-        
-        $dir = dirname($filePath);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
-        $json = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        file_put_contents($filePath, $json);
+        file_put_contents($filePath, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 }

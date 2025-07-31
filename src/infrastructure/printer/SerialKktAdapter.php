@@ -1,9 +1,10 @@
 <?php
 require_once __DIR__ . '/../../interface/PrinterInterface.php';
+require_once __DIR__ . '/../../interface/HealthCheckable.php';
 require_once __DIR__ . '/../../domain/model/Check.php';
 require_once __DIR__ . '/../../domain/model/OperationResult.php';
 
-class SerialKktAdapter implements PrinterInterface
+class SerialKktAdapter implements PrinterInterface, HealthCheckable
 {
     private $fptr = null;
     private $comPort;
@@ -884,5 +885,72 @@ class SerialKktAdapter implements PrinterInterface
         } catch (Exception $e) {
             throw new Exception("Не удалось получить номер фискального накопителя: " . $e->getMessage());
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function checkHealth(): array
+    {
+        $startTime = microtime(true);
+        
+        try {
+            if ($this->emulation) {
+                return [
+                    'status' => 'ok',
+                    'message' => 'ККТ принтер работает в режиме эмуляции',
+                    'details' => ['emulation' => true],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Инициализируем драйвер
+            $initError = $this->ensureDriverInitialized();
+            if ($initError !== null) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Ошибка инициализации драйвера ККТ: ' . $initError,
+                    'details' => ['init_error' => $initError],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Пытаемся открыть соединение
+            list($isOpened, $connectErrorDesc) = $this->openConnection();
+            if (!$isOpened) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'Не удается подключиться к ККТ: ' . $connectErrorDesc,
+                    'details' => ['connection_error' => $connectErrorDesc],
+                    'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+                ];
+            }
+
+            // Закрываем соединение после успешного подключения
+            $this->closeConnection();
+
+            return [
+                'status' => 'ok',
+                'message' => 'ККТ принтер доступен и готов к работе',
+                'details' => ['connection_test' => 'success'],
+                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Ошибка при проверке ККТ принтера: ' . $e->getMessage(),
+                'details' => ['exception' => get_class($e)],
+                'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
+            ];
+        }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getComponentName(): string
+    {
+        return 'kkt_printer';
     }
 }

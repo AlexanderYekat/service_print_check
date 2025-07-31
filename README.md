@@ -1,113 +1,226 @@
-# ServicePrintCheckPHP - Документация проекта
+# CloudPosBridge
 
-Этот проект представляет собой PHP-сервис для взаимодействия с кассовыми аппаратами (ККТ) и другими внешними устройствами (банковские терминалы, весы) через COM-объекты на операционной системе Windows. Ниже вы найдете инструкции по установке, использованию API и подробное описание архитектуры.
+🏪 **Система интеграции POS-терминала с различными устройствами и сервисами**
 
-## Для пользователей
+CloudPosBridge обеспечивает единообразное API для работы с ККТ, банковскими терминалами, весами и системой маркировки "Честный Знак".
 
-Если вы являетесь конечным пользователем и вам нужно установить и настроить сервис печати чеков, пожалуйста, следуйте нашей пошаговой инструкции:
+## 🚀 Возможности
 
-[Инструкция по установке](docs/installation_instructions.md)
+- ✅ **Печать чеков** через ККТ различных моделей
+- 💳 **Банковские операции** (оплата, возврат, отмена)
+- ⚖️ **Работа с весами** для товаров на развес
+- 🏷️ **Проверка марок** "Честный Знак" (синхронно и асинхронно)
+- 📊 **Мониторинг состояния** всех подключенных устройств
+- 🔄 **Очереди задач** для асинхронной обработки
+- 🧪 **Комплексное тестирование** unit и integration тестов
 
-## Для разработчиков
+## 📋 Требования
 
-Если вы являетесь разработчиком и хотите интегрировать свой проект с этим сервисом, ознакомьтесь с подробным описанием API и примерами использования:
+- **PHP 7.4+** с модулями: json, curl, com_dotnet (для Windows)
+- **Composer** для управления зависимостями
+- **Git** для управления версиями
+- **Веб-сервер** (Apache/Nginx/IIS)
 
-[Документация API сервиса печати чеков](docs/receipt_service_api_docs.md)
+## ⚡ Быстрый старт
 
-## Обзор Архитектуры
+### 1. Клонирование и установка
 
-Приложение разделено на несколько ключевых слоев, каждый из которых имеет четко определенные обязанности:
+```bash
+# Клонируем репозиторий
+git clone <repository-url> CloudPosBridge
+cd CloudPosBridge
 
-*   **Слой Приложения / Корень Композиции (`atolservice.php`):** Точка входа в приложение, отвечает за инициализацию всех зависимостей (драйверов, сервисов) и маршрутизацию входящих HTTP-запросов.
-*   **Слой Представителя (Presenter) (`handlers.php`):** Обрабатывает входящие запросы, делегирует валидацию и бизнес-логику соответствующим слоям, а затем формирует HTTP-ответы. Не содержит бизнес-логики.
-*   **Слой Модели (Model) (`CheckService.php`, `kktutils.php`, `models.php`, `validators.php`, `settings.php`, `scaleutils.php`, `bankutils.php`):** Содержит основную бизнес-логику, взаимодействие с драйверами и внешними устройствами, структуры данных, логику валидации и управления настройками.
+# Быстрая установка (Linux/macOS)
+./scripts/quick_deploy.sh
 
-## Детальное Описание Компонентов
+# Быстрая установка (Windows)
+.\scripts\quick_deploy.ps1
+```
 
-### `atolservice.php` (Слой Приложения / Корень Композиции)
+### 2. Настройка
 
-Это главный файл, который запускает серверное приложение. Его основные функции:
-*   Загрузка конфигурационных настроек приложения (`settings.php`).
-*   Инициализация низкоуровневых драйверов/COM-объектов (`TFptr10Driver`, `SBRFSRV.Server`, `AddIn.Scale8`). Важно отметить, что создание COM-объектов обернуто в `try-catch` блоки, что позволяет приложению продолжать работу, даже если некоторые внешние драйверы (например, для банка или весов) не могут быть инициализированы.
-*   Создание экземпляров сервисов (`CheckService`) и презентеров (`Handler`), инжектируя в них необходимые зависимости.
-*   Маршрутизация входящих HTTP-запросов к соответствующим методам в `Handler`.
+Отредактируйте файл `config/settings.json`:
 
-### `handlers.php` (Слой Представителя - Presenter)
+```json
+{
+  "printer": {
+    "com_class": "AddIn.Fptr10",
+    "com_port": "COM1", 
+    "emulation": true
+  },
+  "bank": {
+    "binary_path": "./bank/mainbeznal.exe",
+    "emulation": true,
+    "timeout": 30
+  },
+  "scale": {
+    "com_port": "COM2",
+    "emulation": true
+  },
+  "honest_sign": {
+    "api_url": "https://api.markirovka.ru",
+    "x-api-token": "your-token-here",
+    "timeout": 30
+  }
+}
+```
 
-Класс `Handler` является Presenter-слоем. Его обязанности:
-*   Прием HTTP-запросов от `atolservice.php`.
-*   Декодирование входных данных (JSON).
-*   Делегирование валидации входных данных классу `Validator`.
-*   Вызов соответствующих методов бизнес-логики в `CheckService`.
-*   Формирование HTTP-ответов (успех/ошибка) и их отправка клиенту.
-*   **Важно:** `Handler` не содержит никакой бизнес-логики и не имеет прямой зависимости от низкоуровневых драйверов (ККТ, банк, весы). Он работает только с `CheckService`.
+### 3. Проверка работы
 
-### `CheckService.php` (Слой Модели - Service)
+```bash
+# Проверка состояния всех компонентов
+curl http://localhost/api/health
 
-Класс `CheckService` инкапсулирует всю бизнес-логику, связанную с операциями ККТ, банковскими операциями и весами.
-*   Принимает через конструктор инжектированные зависимости: `TFptr10Driver` (для ККТ), а также COM-объекты для банковских операций и весов.
-*   Содержит методы для выполнения конкретных операций, таких как `printCheck`, `closeShift`, `cashIn`, `cashOut`, `bankOperation`, `getWeight` и другие.
-*   Использует `TFptr10Driver` и другие COM-объекты для взаимодействия с аппаратным обеспечением.
+# Запуск тестов
+php tests/run_all_tests.php
+```
 
-### `kktutils.php` (Слой Модели - Driver Abstraction / Utilities)
+## 🏗️ Архитектура
 
-Этот файл содержит вспомогательные функции и класс `TFptr10Driver`.
-*   **`TFptr10Driver`:** Абстрагирует низкоуровневое взаимодействие с COM-объектом `ATOL.Fptr10`. Он инкапсулирует параметры подключения к ККТ и методы для открытия/закрытия соединения и выполнения базовых операций драйвера.
-*   Вспомогательные функции, такие как `kktutils_formatCheckJSON` и `kktutils_connectWithKassa`, поддерживают взаимодействие с ККТ.
+CloudPosBridge построен по принципам **Clean Architecture**:
 
-### `models.php` (Слой Модели - Data Structures)
+```
+src/
+├── api/              # Контроллеры HTTP API
+├── domain/           # Бизнес-логика и модели
+│   ├── model/        # Доменные модели
+│   └── service/      # Use Cases (сценарии использования)
+├── infrastructure/   # Адаптеры для внешних систем
+│   ├── bank/         # Банковские терминалы
+│   ├── printer/      # ККТ принтеры
+│   ├── scale/        # Весы
+│   ├── honest_sign/  # API Честного Знака
+│   └── monitoring/   # Мониторинг системы
+└── interface/        # Интерфейсы (contracts)
+```
 
-Определяет структуры данных (классы `WSMessage`, `WSResponse`, `CheckItem`, `Payment`, `CheckData`, `Settings`), используемые в приложении для обмена информацией.
+## 🌐 API Endpoints
 
-### `settings.php` (Слой Модели - Configuration)
+### Основные операции
 
-Содержит класс `Settings`, который отвечает за загрузку и сохранение конфигурационных параметров приложения (например, COM-порты, IP-адреса ККТ).
+- `POST /api/print-check` - Печать чека
+- `POST /api/bank-payment` - Банковские операции
+- `GET /api/weight` - Получение веса с весов
+- `GET /api/health` - Состояние системы
+- `GET /api/version` - Версия приложения
 
-### `validators.php` (Слой Модели - Validation)
+### Проверка марок
 
-Содержит класс `Validator` с методами для валидации входных данных (например, `validateCheckData`), обеспечивая целостность и корректность получаемых данных.
+- `POST /api/permit-mark-check` - Синхронная проверка марки
+- `POST /api/ecr-mark-check/enqueue` - Асинхронная проверка (постановка в очередь)
+- `GET /api/ecr-mark-check/result/{taskId}` - Получение результата проверки
 
-## Диаграмма Архитектуры
+### Очереди
 
-```mermaid
-graph TD;
-    subgraph "Слой Представления (View)"
-        HTTP[HTTP-Запросы] --> atolservice.php;
-    end
+- `GET /api/queue/status` - Статус очереди задач
+- `POST /api/queue/process` - Обработка очереди
 
-    subgraph "Слой Приложения / Корень Композиции"
-        atolservice.php -->|1. Загружает| Settings[Settings];
-        atolservice.php -->|2. Создает с Settings| TFptr10Driver[TFptr10Driver];
-        atolservice.php -->|3. Пытается создать| BankCOM[SBRFSRV.Server];
-        atolservice.php -->|3. Пытается создать| ScaleCOM[AddIn.Scale8];
-        atolservice.php -->|4. Создает с TFptr10Driver,<br/>BankCOM, ScaleCOM| CheckService[CheckService];
-        atolservice.php -->|5. Создает с CheckService| Handler[Handler];
-        atolservice.php -->|6. Маршрутизирует| Handler;
-    end
+## 🧪 Тестирование
 
-    subgraph "Слой Представителя (Presenter)"
-        Handler -->|7. Валидирует ввод| Validator[Validator];
-        Handler -->|8. Вызывает бизнес-логику| CheckService;
-    end
+```bash
+# Запуск всех тестов
+php tests/run_all_tests.php
 
-    subgraph "Слой Модели (Model)"
-        CheckService -->|9. Использует| TFptr10Driver;
-        CheckService -->|10. Использует| BankCOM;
-        CheckService -->|11. Использует| ScaleCOM;
-        CheckService -->|12. Оперирует данными| Models[Models (CheckData, WSResponse etc.)];
-    end
+# Запуск только unit тестов
+php tests/unit/VersionControllerTest.php
 
-    TFptr10Driver -->|Взаимодействует с| Fptr10COM[ATOL.Fptr10 (COM Object)];
+# Запуск интеграционных тестов
+php tests/integration/test_ideal_architecture.php
+```
 
-    style atolservice.php fill:#f9f,stroke:#333,stroke-width:2px;
-    style Handler fill:#bbf,stroke:#333,stroke-width:2px;
-    style CheckService fill:#fbb,stroke:#333,stroke-width:2px;
-    style TFptr10Driver fill:#ffb,stroke:#333,stroke-width:2px;
-    style BankCOM fill:#eef,stroke:#333,stroke-width:2px;
-    style ScaleCOM fill:#efe,stroke:#333,stroke-width:2px;
-    style Settings fill:#ccc,stroke:#333,stroke-width:2px;
-    style Validator fill:#ccc,stroke:#333,stroke-width:2px;
-    style Models fill:#ccc,stroke:#333,stroke-width:2px;
-    style HTTP fill:#eee,stroke:#333,stroke-width:2px;
-    style Fptr10COM fill:#ddd,stroke:#333,stroke-width:2px;
-``` 
+## 🚀 Деплой
+
+### Автоматический деплой
+
+```bash
+# Полный автоматический деплой с проверками
+php scripts/deploy.php
+```
+
+### Быстрый деплой
+
+```bash
+# Linux/macOS
+./scripts/quick_deploy.sh
+
+# Windows
+.\scripts\quick_deploy.ps1
+```
+
+Подробнее о деплое: [scripts/README.md](scripts/README.md)
+
+## 📁 Структура проекта
+
+```
+CloudPosBridge/
+├── 📁 config/          # Конфигурационные файлы
+├── 📁 docs/            # Документация
+├── 📁 logs/            # Логи приложения
+├── 📁 public/          # Веб-доступная папка
+├── 📁 scripts/         # Скрипты деплоя и утилиты
+├── 📁 src/             # Исходный код
+├── 📁 tests/           # Тесты (unit, integration)
+├── 📁 vendor/          # Зависимости Composer
+├── 📄 composer.json    # Конфигурация Composer
+└── 📄 README.md        # Этот файл
+```
+
+## 🔧 Разработка
+
+### Принципы архитектуры
+
+1. **Clean Architecture** - четкое разделение слоев
+2. **SOLID** - следование принципам ООП
+3. **DRY** - отсутствие дублирования кода
+4. **KISS** - простота и понятность
+5. **Fail Fast** - раннее обнаружение ошибок
+
+### Добавление нового функционала
+
+1. Создайте доменную модель в `src/domain/model/`
+2. Реализуйте Use Case в `src/domain/service/`
+3. Создайте адаптер в `src/infrastructure/`
+4. Добавьте контроллер в `src/api/`
+5. Напишите тесты в `tests/`
+
+## 📊 Мониторинг
+
+### Health Check
+
+Эндпоинт `/api/health` возвращает детальную информацию о состоянии всех компонентов:
+
+```json
+{
+  "overall_status": "ok",
+  "timestamp": "2024-01-20 15:30:45",
+  "components_count": 3,
+  "components": {
+    "bank_terminal": {
+      "status": "ok",
+      "message": "Банковский терминал доступен",
+      "response_time_ms": 125.5
+    },
+    "kkt_printer": {
+      "status": "ok", 
+      "message": "ККТ принтер готов к работе",
+      "response_time_ms": 89.2
+    },
+    "scales": {
+      "status": "warning",
+      "message": "Весы работают в режиме эмуляции",
+      "response_time_ms": 12.1
+    }
+  }
+}
+```
+
+## 📚 Документация
+
+- [API Reference](docs/api/API_REFERENCE.md) - подробное описание API
+- [Installation Guide](docs/installation_instructions.md) - руководство по установке
+- [Architecture Guide](docs/clean_architecture_guide.md) - описание архитектуры
+- [Deployment Scripts](scripts/README.md) - автоматизация деплоя
+
+---
+
+⭐ **CloudPosBridge** - надежное решение для интеграции POS-систем!

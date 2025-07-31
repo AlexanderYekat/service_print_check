@@ -1,25 +1,111 @@
 <?php
 
+require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../domain/service/EcrMarkCheckUseCase.php';
 require_once __DIR__ . '/../infrastructure/honest_sign/QueueEcrMarkCheckGateway.php';
 require_once __DIR__ . '/../domain/model/MarkingCode.php';
-require_once __DIR__ . '/../infrastructure/logger/FileLogger.php';
 
 /**
  * Контроллер для асинхронной проверки марки на ККТ
  */
-class EcrMarkCheckController
+class EcrMarkCheckController extends BaseController
 {
     private EcrMarkCheckUseCase $useCase;
-    private FileLogger $logger;
+    private string $action;
 
-    public function __construct()
+    public function __construct(EcrMarkCheckUseCase $useCase, LoggerInterface $logger)
     {
-        $this->logger = new FileLogger('logs/api.log');
-        
-        // Инициализируем зависимости
-        $gateway = new QueueEcrMarkCheckGateway();
-        $this->useCase = new EcrMarkCheckUseCase($gateway);
+        parent::__construct($logger);
+        $this->useCase = $useCase;
+    }
+
+    public function setAction(string $action): void
+    {
+        $this->action = $action;
+    }
+
+    protected function validateRequest(array $request): array
+    {
+        if ($this->action === 'enqueue') {
+            if (!isset($request['marking_code'])) {
+                throw new ValidationException('Не указан код маркировки');
+            }
+            return $request;
+        }
+
+        if ($this->action === 'get_result') {
+            if (!isset($request['task_id']) || empty($request['task_id'])) {
+                throw new ValidationException('Не указан ID задачи');
+            }
+            return $request;
+        }
+
+        throw new ValidationException('Неизвестное действие');
+    }
+
+    protected function executeUseCase(array $request): array
+    {
+        if ($this->action === 'enqueue') {
+            return $this->executeEnqueue($request);
+        }
+
+        if ($this->action === 'get_result') {
+            return $this->executeGetResult($request);
+        }
+
+        throw new ValidationException('Неизвестное действие');
+    }
+
+    private function executeEnqueue(array $request): array
+    {
+        $markingCode = new MarkingCode($request['marking_code']);
+
+        // Формируем контекст с дополнительными параметрами для ECR проверки
+        $context = [];
+        if (!empty($request['inn'])) {
+            $context['inn'] = $request['inn'];
+        }
+        if (!empty($request['gtin'])) {
+            $context['gtin'] = $request['gtin'];
+        }
+
+        $taskId = $this->useCase->enqueue($markingCode, $context);
+
+        return [
+            'task_id' => $taskId,
+            'status' => [
+                'ok' => true,
+                'text' => 'Задача проверки марки поставлена в очередь'
+            ],
+            'machine_data' => [
+                'taskId' => $taskId,
+                'taskStatus' => 'enqueued'
+            ]
+        ];
+    }
+
+    private function executeGetResult(array $request): array
+    {
+        $result = $this->useCase->getResult($request['task_id']);
+
+        if (!$result->success) {
+            // Для асинхронных операций проверяем статус задачи
+            $data = $result->getData();
+            $taskStatus = $data['machine_data']['taskStatus'] ?? 'unknown';
+            
+            if (in_array($taskStatus, ['pending', 'processing'])) {
+                // Задача ещё выполняется - это не ошибка, а нормальное состояние
+                return [
+                    'task_status' => $taskStatus,
+                    'message' => 'Задача ещё выполняется',
+                    'data' => $result->getData()
+                ];
+            } else {
+                throw new BusinessLogicException($result->error ?: 'Ошибка выполнения задачи');
+            }
+        }
+
+        return $result->getData();
     }
 
     /**
@@ -28,43 +114,9 @@ class EcrMarkCheckController
      */
     public function enqueueMarkCheck(): void
     {
-        try {
-            $request = $this->getJsonInput();
-            
-            if (!isset($request['marking_code'])) {
-                $this->sendError('Не указан код маркировки', 400);
-                return;
-            }
-
-            $markingCode = new MarkingCode($request['marking_code']);
-
-            // Формируем контекст с дополнительными параметрами для ECR проверки
-            $context = [];
-            if (!empty($request['inn'])) {
-                $context['inn'] = $request['inn'];
-            }
-            if (!empty($request['gtin'])) {
-                $context['gtin'] = $request['gtin'];
-            }
-
-            $taskId = $this->useCase->enqueue($markingCode, $context);
-
-            $this->sendSuccess([
-                'task_id' => $taskId,
-                'user_status' => [
-                    'ok' => true,
-                    'text' => 'Задача проверки марки поставлена в очередь'
-                ],
-                'machine_data' => [
-                    'taskId' => $taskId,
-                    'taskStatus' => 'enqueued'
-                ]
-            ], 'Задача поставлена в очередь');
-
-        } catch (Exception $e) {
-            $this->logger->error("Ошибка постановки задачи проверки марки в очередь: " . $e->getMessage());
-            $this->sendError('Внутренняя ошибка сервера', 500);
-        }
+        $this->setAction('enqueue');
+        $request = $this->getJsonInput();
+        $this->handle($request);
     }
 
     /**
@@ -73,34 +125,9 @@ class EcrMarkCheckController
      */
     public function getMarkCheckResult(string $taskId): void
     {
-        try {
-            if (empty($taskId)) {
-                $this->sendError('Не указан ID задачи', 400);
-                return;
-            }
-
-            $result = $this->useCase->getResult($taskId);
-
-            if ($result->success) {
-                $this->sendSuccess($result->getData(), $result->message);
-            } else {
-                // Для асинхронных операций, ошибка может означать что задача ещё не готова
-                // Возвращаем код 202 (Accepted) для pending статусов
-                $data = $result->getData();
-                $taskStatus = $data['machine_data']['taskStatus'] ?? 'unknown';
-                
-                if (in_array($taskStatus, ['pending', 'processing'])) {
-                    http_response_code(202); // Accepted - задача ещё выполняется
-                    $this->sendSuccess($result->getData(), 'Задача ещё выполняется');
-                } else {
-                    $this->sendError($result->error, 400, $result->getData());
-                }
-            }
-
-        } catch (Exception $e) {
-            $this->logger->error("Ошибка получения результата проверки марки: " . $e->getMessage());
-            $this->sendError('Внутренняя ошибка сервера', 500);
-        }
+        $this->setAction('get_result');
+        $request = ['task_id' => $taskId];
+        $this->handle($request);
     }
 
     /**
@@ -113,46 +140,5 @@ class EcrMarkCheckController
         return $data ?? [];
     }
 
-    /**
-     * Отправляет успешный ответ
-     */
-    private function sendSuccess(array $data, ?string $message = null): void
-    {
-        $response = [
-            'success' => true,
-            'data' => $data,
-            'message' => $message,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-        
-        $this->sendJsonResponse($response, 200);
-    }
 
-    /**
-     * Отправляет ответ с ошибкой
-     */
-    private function sendError(string $error, int $statusCode = 500, ?array $data = null): void
-    {
-        $response = [
-            'success' => false,
-            'error' => $error,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-        
-        if ($data !== null) {
-            $response['data'] = $data;
-        }
-        
-        $this->sendJsonResponse($response, $statusCode);
-    }
-
-    /**
-     * Отправляет JSON ответ
-     */
-    private function sendJsonResponse(array $data, int $statusCode): void
-    {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    }
 }

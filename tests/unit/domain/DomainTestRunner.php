@@ -8,13 +8,23 @@
 require_once __DIR__ . '/CheckModelTest.php';
 require_once __DIR__ . '/PaymentModelTest.php';
 require_once __DIR__ . '/BankTransactionModelTest.php';
+require_once __DIR__ . '/GetWeightUseCaseTest.php';
+require_once __DIR__ . '/MarkingCodeModelTest.php';
+require_once __DIR__ . '/PermitMarkCheckUseCaseTest.php';
+require_once __DIR__ . '/EcrMarkCheckUseCaseTest.php';
+require_once __DIR__ . '/MarkCheckRegistryTest.php';
 
 class DomainTestRunner
 {
     private array $testClasses = [
         'CheckModelTest',
         'PaymentModelTest', 
-        'BankTransactionModelTest'
+        'BankTransactionModelTest',
+        'GetWeightUseCaseTest',
+        'MarkingCodeModelTest',
+        'PermitMarkCheckUseCaseTest',
+        'EcrMarkCheckUseCaseTest',
+        'MarkCheckRegistryTest'
     ];
     
     public function runAll(): bool

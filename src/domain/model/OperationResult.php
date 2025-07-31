@@ -57,4 +57,20 @@ class OperationResult
         
         return isset($this->data[$key]);
     }
+
+    /**
+     * Проверяет успешность операции
+     */
+    public function isSuccess(): bool
+    {
+        return $this->success;
+    }
+
+    /**
+     * Получает сообщение об ошибке
+     */
+    public function getErrorMessage(): ?string
+    {
+        return $this->error;
+    }
 }

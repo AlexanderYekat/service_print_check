@@ -107,7 +107,7 @@ class BankTransactionModelTest
     {
         try {
             // Пытаемся создать транзакцию с недопустимым типом
-            new BankTransaction('invalid_type', 100.00);
+            new BankTransaction('invalid_type', 100.00, true);
             
             echo "❌ Валидация типа транзакции: FAILED - Исключение не было выброшено\n";
             return false;

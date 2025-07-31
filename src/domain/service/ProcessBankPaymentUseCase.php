@@ -194,15 +194,22 @@ class ProcessBankPaymentUseCase
         string $operationType, 
         float $amount
     ): OperationResult {
+        $slip = $terminalResult->getData()['slip'] ?? null;
+        $errorCode = $terminalResult->getData()['error_code'] ?? null;
+        $errorMessage = $terminalResult->getData()['error_message'] ?? null;
+        
         $transaction = new BankTransaction(
             $operationType,
             $amount,
-            $terminalResult->getData()
+            $terminalResult->isSuccess(),  // ✅ Используем правильный метод
+            $errorCode,
+            $errorMessage,
+            $slip
         );
         
         return OperationResult::success([
             'transaction' => $transaction,
-            'slip' => $terminalResult->getData()
+            'slip' => $slip
         ]);
     }
     

@@ -21,7 +21,7 @@ class OperationResult
     /**
      * Создает успешный результат
      */
-    public static function success(?string $message = null, ?array $data = null): self
+    public static function success(?array $data = null, ?string $message = null): self
     {
         return new self(true, $message, $data);
     }

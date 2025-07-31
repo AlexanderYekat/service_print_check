@@ -1,0 +1,43 @@
+<?php
+
+require_once __DIR__ . '/../../interface/EcrMarkCheckGateway.php';
+require_once __DIR__ . '/../../domain/model/OperationResult.php';
+require_once __DIR__ . '/../../domain/model/MarkingCode.php';
+require_once __DIR__ . '/../queue/EcrMarkCheckQueue.php';
+
+/**
+ * Реализация асинхронной проверки марки на ККТ через очередь
+ */
+class QueueEcrMarkCheckGateway implements EcrMarkCheckGateway
+{
+    private EcrMarkCheckQueue $queue;
+
+    public function __construct(?EcrMarkCheckQueue $queue = null)
+    {
+        $this->queue = $queue ?? new EcrMarkCheckQueue();
+    }
+
+    /**
+     * Ставит задачу проверки марки на ККТ в очередь
+     */
+    public function enqueueMarkCheck(MarkingCode $code): string
+    {
+        return $this->queue->enqueueTask($code);
+    }
+
+    /**
+     * Получает результат проверки по taskId
+     */
+    public function getMarkCheckResult(string $taskId): OperationResult
+    {
+        return $this->queue->getTaskResult($taskId);
+    }
+
+    /**
+     * Получает очередь для доступа к дополнительным методам
+     */
+    public function getQueue(): EcrMarkCheckQueue
+    {
+        return $this->queue;
+    }
+}

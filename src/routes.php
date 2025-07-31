@@ -70,12 +70,35 @@ function handleCleanArchitectureRequest()
             }
             break;
 
-        // API для Честного Знака
+        // API для Честного Знака (старая архитектура)
         case '/api/honest-sign/validate':
             if ($method === 'POST') {
                 require_once __DIR__ . '/api/ValidateMarkController.php';
                 $controller = new ValidateMarkController($GLOBALS['di']['validate_mark_use_case']);
                 $controller->handle($input);
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+
+        // API для проверки марки - новая архитектура
+        case '/api/permit-mark-check':
+            if ($method === 'POST') {
+                require_once __DIR__ . '/api/PermitMarkCheckController.php';
+                $controller = new PermitMarkCheckController();
+                $controller->checkPermit();
+            } else {
+                http_response_code(405);
+                echo json_encode(['error' => 'Method not allowed']);
+            }
+            break;
+
+        case '/api/ecr-mark-check/enqueue':
+            if ($method === 'POST') {
+                require_once __DIR__ . '/api/EcrMarkCheckController.php';
+                $controller = new EcrMarkCheckController();
+                $controller->enqueueMarkCheck();
             } else {
                 http_response_code(405);
                 echo json_encode(['error' => 'Method not allowed']);
@@ -128,6 +151,20 @@ function handleCleanArchitectureRequest()
             break;
 
         default:
+            // Обработка динамических маршрутов типа /api/ecr-mark-check/result/{taskId}
+            if (preg_match('#^/api/ecr-mark-check/result/([^/]+)$#', $path, $matches)) {
+                if ($method === 'GET') {
+                    require_once __DIR__ . '/api/EcrMarkCheckController.php';
+                    $controller = new EcrMarkCheckController();
+                    $controller->getMarkCheckResult($matches[1]);
+                } else {
+                    http_response_code(405);
+                    echo json_encode(['error' => 'Method not allowed']);
+                }
+                return;
+            }
+
+            // Если не найден ни один маршрут
             http_response_code(404);
             echo json_encode([
                 'error' => 'Endpoint not found',
@@ -139,6 +176,9 @@ function handleCleanArchitectureRequest()
                     'POST /api/bank/close-shift',
                     'GET /api/get-weight',
                     'POST /api/honest-sign/validate',
+                    'POST /api/permit-mark-check',
+                    'POST /api/ecr-mark-check/enqueue',
+                    'GET /api/ecr-mark-check/result/{taskId}',
                     'GET /api/queue/status',
                     'POST /api/queue/process',
                     'GET /api/health',
@@ -173,7 +213,10 @@ function handleApiDocumentation()
                 'description' => 'Получение веса с весов'
             ],
             'honest_sign' => [
-                'validate' => ['method' => 'POST', 'url' => '/api/honest-sign/validate']
+                'validate' => ['method' => 'POST', 'url' => '/api/honest-sign/validate', 'description' => 'Старая архитектура'],
+                'permit_check' => ['method' => 'POST', 'url' => '/api/permit-mark-check', 'description' => 'Синхронная проверка в разрешительном режиме'],
+                'ecr_enqueue' => ['method' => 'POST', 'url' => '/api/ecr-mark-check/enqueue', 'description' => 'Постановка проверки ККТ в очередь'],
+                'ecr_result' => ['method' => 'GET', 'url' => '/api/ecr-mark-check/result/{taskId}', 'description' => 'Получение результата проверки ККТ']
             ],
             'queue' => [
                 'status' => ['method' => 'GET', 'url' => '/api/queue/status'],

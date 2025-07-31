@@ -8,7 +8,7 @@ require_once __DIR__ . '/constants.php';
 require_once __DIR__ . '/domain/model/Check.php';
 require_once __DIR__ . '/domain/model/BankResult.php';
 require_once __DIR__ . '/domain/model/BankTransaction.php';
-require_once __DIR__ . '/domain/model/CheckPrintResult.php';
+require_once __DIR__ . '/domain/model/OperationResult.php';
 require_once __DIR__ . '/domain/model/WeightResult.php';
 require_once __DIR__ . '/domain/model/MarkingCode.php';
 require_once __DIR__ . '/domain/model/HonestSignResult.php';
@@ -37,6 +37,16 @@ require_once __DIR__ . '/domain/service/ProcessBankPaymentUseCase.php';
 require_once __DIR__ . '/domain/service/GetWeightUseCase.php';
 require_once __DIR__ . '/domain/service/ValidateMark.php';
 require_once __DIR__ . '/domain/service/SendToHonestSignUseCase.php';
+
+// Infrastructure
+require_once __DIR__ . '/infrastructure/logger/LoggerInterface.php';
+require_once __DIR__ . '/infrastructure/logger/FileLogger.php';
+require_once __DIR__ . '/infrastructure/logger/ConsoleLogger.php';
+
+// API Layer
+require_once __DIR__ . '/api/BaseController.php';
+require_once __DIR__ . '/api/request/RequestValidator.php';
+require_once __DIR__ . '/api/response/ResponseFormatter.php';
 
 // Controllers
 require_once __DIR__ . '/api/PrintCheckController.php';
@@ -80,6 +90,12 @@ $defaultConfig = [
 
 $config = array_merge_recursive($defaultConfig, $config);
 
+// Создание логгера
+$logger = new FileLogger(
+    __DIR__ . '/../logs/app.log',
+    $config['logging']['level'] ?? 'info'
+);
+
 // Создание адаптеров
 $printerAdapter = new SerialKktAdapter(
     $config['printer']['com_class'], 
@@ -119,12 +135,12 @@ $healthChecker->addService('scale', $scaleAdapter, 'scale');
 $healthChecker->addService('honest_sign', $honestSignGateway, 'honest_sign');
 
 // Создание контроллеров
-$printCheckController = new PrintCheckController($printCheckUseCase);
-$bankPaymentController = new BankPaymentController($bankPaymentUseCase);
+$printCheckController = new PrintCheckController($printCheckUseCase, $logger);
+$bankPaymentController = new BankPaymentController($bankPaymentUseCase, $logger);
 $getWeightController = new GetWeightController($getWeightUseCase);
 $closeShiftController = new CloseShiftController($bankPaymentUseCase);
 $versionController = new VersionController();
-$healthController = new HealthController($healthChecker);
+$healthController = new HealthController($healthChecker, $logger);
 $queueController = new QueueController($sendToHonestSignUseCase);
 
 // Глобальный DI контейнер

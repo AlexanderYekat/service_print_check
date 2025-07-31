@@ -1,60 +1,799 @@
 <?php
 require_once __DIR__ . '/../../interface/PrinterInterface.php';
-require_once __DIR__ . '/../../domain/model/PrintResult.php';
+require_once __DIR__ . '/../../domain/model/Check.php';
+require_once __DIR__ . '/../../domain/model/OperationResult.php';
 
 class SerialKktAdapter implements PrinterInterface
 {
-    private $driverClass;
+    private $fptr = null;
     private $comPort;
+    private $ipKkt;
+    private $portIpKkt;
+    private $ipServKkt;
     private $emulation;
 
-    public function __construct($driverClass, $comPort, $emulation = false)
+    public function __construct($comPort = 0, $ipKkt = "", $portIpKkt = 0, $ipServKkt = "", $emulation = false)
     {
-        $this->driverClass = $driverClass;
         $this->comPort = $comPort;
+        $this->ipKkt = $ipKkt;
+        $this->portIpKkt = $portIpKkt;
+        $this->ipServKkt = $ipServKkt;
         $this->emulation = $emulation;
     }
 
-    public function printCheck(Check $check): PrintResult
+    public function printCheck(Check $check): OperationResult
     {
         try {
-            // 1. Создаём COM-объект (или эмулятор, если нужно)
-            if ($this->emulation) {
-                // Тестовая печать — имитируем успешный чек
-                return new PrintResult(true, "Эмуляция печати чека", ["ТЕСТОВЫЙ ЧЕК", "ОК"]);
-            }
-            $com = new COM($this->driverClass); // например, "ShtrihM.FPrnM45" или другое
-            $com->OpenPort($this->comPort);
-
-            // 2. Формируем чек (пример, псевдокод!)
-            foreach ($check->tableData as $item) {
-                $com->AddItem($item['name'], $item['price'], $item['quantity']);
+            // 1. Инициализируем драйвер
+            $initError = $this->ensureDriverInitialized();
+            if ($initError !== null) {
+                return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
             }
 
-            foreach ($check->payments as $payment) {
-                $com->AddPayment($payment['type'], $payment['amount']);
+            // 2. Открываем соединение с ККТ
+            list($isOpened, $connectErrorDesc) = $this->openConnection();
+            if (!$isOpened && !$this->emulation) {
+                return OperationResult::failure("Ошибка подключения к ККТ: " . $connectErrorDesc);
             }
 
-            // 3. Устанавливаем тип операции (продажа/возврат)
-            if ($check->type === 'return') {
-                $com->SetCheckType('return');
-            } else {
-                $com->SetCheckType('sell');
+            try {
+                // 3. Форматируем чек в JSON
+                $checkJson = $this->formatCheckToJson($check);
+
+                // 4. Отправляем команду на печать
+                list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($checkJson);
+
+                if (!$success) {
+                    return OperationResult::failure("Ошибка печати чека: " . $commandErrorDesc);
+                }
+
+                // 5. Проверяем успешность команды
+                if (!$this->isCommandSuccessful($responseJson)) {
+                    return OperationResult::failure("ККТ вернула ошибку: " . $responseJson);
+                }
+
+                // 6. Формируем успешный ответ
+                $printedLines = $this->formatSuccessResponse($responseJson);
+                $responseData = json_decode($responseJson, true);
+                
+                return OperationResult::success("Чек успешно напечатан", [
+                    'printed_lines' => $printedLines,
+                    'fiscal_data' => $responseData
+                ]);
+
+            } finally {
+                // 7. Всегда закрываем соединение
+                $this->closeConnection();
             }
 
-            $com->SetCashier($check->cashier);
-
-            // 4. Печать чека
-            $com->PrintCheck();
-
-            // 5. Получаем строки для ответа (например, содержимое чека или статус)
-            $lines = [$com->GetLastCheckText() ?? "Чек успешно напечатан"];
-
-            $com->ClosePort();
-
-            return new PrintResult(true, null, $lines);
         } catch (Throwable $e) {
-            return new PrintResult(false, "Ошибка печати чека: " . $e->getMessage());
+            return OperationResult::failure("Ошибка печати чека: " . $e->getMessage());
         }
     }
+
+    /**
+     * Гарантирует что COM драйвер ККТ инициализирован
+     */
+    private function ensureDriverInitialized(): ?string
+    {
+        try {
+            if ($this->fptr === null) {
+                // @phpstan-ignore-next-line COM class доступен только в Windows PHP
+                $this->fptr = new COM("AddIn.Fptr10") or die("Не удалось создать объект драйвера ККТ");
+            }
+            return null;
+        } catch (Exception $e) {
+            return $e->getMessage();
+        }
+    }
+
+    /**
+     * Открывает соединение с ККТ
+     */
+    private function openConnection(): array
+    {
+        if ($this->fptr === null) {
+            return [false, "Драйвер не инициализирован"];
+        }
+        
+        if ($this->isConnectionOpened()) {
+            return [true, ""];
+        }
+        
+        try {
+            // Применяем настройки перед открытием
+            $this->applyConnectionSettings();
+            $result = $this->fptr->Open();
+            if ($result !== 0) {
+                $errorDescription = $this->fptr->errorDescription();
+                $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription ?? '');
+                return [false, "Ошибка открытия соединения с ККТ: " . $errorDescription];
+            }
+            return [$this->isConnectionOpened(), ""];
+        } catch (Exception $e) {
+            return [false, $e->getMessage()];
+        }
+    }
+
+    /**
+     * Проверяет, открыто ли соединение с ККТ
+     */
+    private function isConnectionOpened(): bool
+    {
+        if ($this->fptr === null) {
+            return false;
+        }
+        try {
+            return $this->fptr->IsOpened();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Применяет настройки подключения к драйверу
+     */
+    private function applyConnectionSettings(): void
+    {
+        $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_MODEL, $this->fptr->LIBFPTR_MODEL_ATOL_AUTO);
+
+        if (!empty($this->ipServKkt)) {
+            $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_REMOTE_SERVER_ADDR, $this->ipServKkt);
+        }
+
+        if ($this->comPort == 0) {
+            if (!empty($this->ipKkt)) {
+                $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_PORT, $this->fptr->LIBFPTR_PORT_TCPIP);
+                $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_IPADDRESS, $this->ipKkt);
+                if ($this->portIpKkt != 0) {
+                    $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_IPPORT, $this->portIpKkt);
+                }
+            } else {
+                $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_PORT, $this->fptr->LIBFPTR_PORT_USB);
+            }
+        } else {
+            $sComPorta = "COM" . $this->comPort;
+            $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_PORT, $this->fptr->LIBFPTR_PORT_COM);
+            $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_COM_FILE, $sComPorta);
+            $this->fptr->SetSingleSetting($this->fptr->LIBFPTR_SETTING_BAUDRATE, $this->fptr->LIBFPTR_PORT_BR_115200);
+        }
+
+        $this->fptr->ApplySingleSettings();
+    }
+
+    /**
+     * Закрывает соединение с ККТ
+     */
+    private function closeConnection(): void
+    {
+        if ($this->fptr === null) {
+            return;
+        }
+        try {
+            $this->fptr->Close();
+        } catch (Exception $e) {
+            // Игнорируем ошибки при закрытии
+        }
+    }
+
+    /**
+     * Форматирует чек в JSON для отправки на ККТ
+     */
+    private function formatCheckToJson(Check $check): string
+    {
+        // Формируем позиции чека
+        $checkItems = [];
+        foreach ($check->tableData as $item) {
+            $taxType = "none";
+            if (!empty($item['taxNDS'])) {
+                if (strpos($item['taxNDS'], "vat") === 0) {
+                    $taxType = $item['taxNDS'];
+                } else {
+                    $taxType = "vat" . $item['taxNDS'];
+                }
+            }
+            
+            $quantity = floatval($item['quantity']);
+            $price = floatval($item['price']);
+            $checkItems[] = [
+                "type" => "position",
+                "name" => $item['name'],
+                "price" => $price,
+                "quantity" => $quantity,
+                "amount" => $price * $quantity,
+                "tax" => [
+                    "type" => $taxType
+                ],
+                // Поля для маркированных товаров
+                "mark_code" => $item['mark_code'] ?? null,
+                "position_id" => $item['position_id'] ?? null,
+                "mark_status" => $item['mark_status'] ?? null,
+                "mark_check_result" => $item['mark_check_result'] ?? null
+            ];
+        }
+
+        // Считаем общую сумму
+        $totalAmount = 0.0;
+        foreach ($checkItems as $item) {
+            $totalAmount += $item['amount'];
+        }
+
+        // Формируем оплаты
+        $payments = [];
+        if (empty($check->payments)) {
+            $payments[] = [
+                "type" => "cash",
+                "sum" => $totalAmount
+            ];
+        } else {
+            foreach ($check->payments as $payment) {
+                $payments[] = [
+                    "type" => $payment['type'],
+                    "sum" => floatval($payment['amount'])
+                ];
+            }
+        }
+
+        $checkType = !empty($check->type) ? $check->type : "sell";
+
+        $checkJSON = [
+            "type" => $checkType,
+            "operator" => [
+                "name" => $check->cashier
+            ],
+            "items" => $checkItems,
+            "payments" => $payments
+        ];
+
+        if (!empty($check->taxationSystem)) {
+            $checkJSON['taxationType'] = $check->taxationSystem;
+        }
+
+        return json_encode($checkJSON, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Отправляет команду на ККТ и получает ответ
+     */
+    private function sendCommandToKKT(string $commandJson): array
+    {
+        if ($this->fptr === null) {
+            return [false, "", "не инициализирован драйвер ккт"];
+        }
+
+        // Если эмуляция, возвращаем мок-ответ в зависимости от типа команды
+        if ($this->emulation) {
+            $decodedCommand = json_decode($commandJson, true);
+            $commandType = $decodedCommand['type'] ?? '';
+            $mockResponse = '';
+
+            switch ($commandType) {
+                case 'cashIn':
+                    $mockResponse = '{ "counters" : { "cashSum" : 1345.0 } }';
+                    break;
+                case 'closeShift':
+                    $mockResponse = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2017-07-25T13:12:00+03:00", "fiscalDocumentNumber" : 69, "fiscalDocumentSign" : "1138986989", "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 11, "receiptsCount" : 3, "fnsUrl": "www.nalog.gov.ru" }, "warnings": { "notPrinted": false } }';
+                    break;
+                case 'reportX':
+                    $mockResponse = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
+                    break;
+                case 'nonFiscal':
+                    $mockResponse = '{ "success": true, "message": "Банковский слип успешно напечатан (мок)" }';
+                    break;
+                default: // По умолчанию для других команд, включая printCheck
+                    $mockResponse = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
+                    break;
+            }
+            return [true, $mockResponse, ""];
+        }
+
+        // Устанавливаем JSON-команду (конвертируем в Windows-1251 для реального ККТ)
+        $commandJsonEncoded = iconv('UTF-8', 'Windows-1251', $commandJson ?? '');
+        if ($commandJsonEncoded === false) {
+            return [false, "", "Ошибка конвертации кодировки"];
+        }
+        $this->fptr->setParam($this->fptr->LIBFPTR_PARAM_JSON_DATA, $commandJsonEncoded);
+
+        // отправка команды на реальный ККТ
+        $result = $this->fptr->processJson();
+        if ($result !== 0) {
+            $errorDescription = $this->fptr->errorDescription();
+            $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription ?? '');
+            return [false, "", "Ошибка отправки команды на ККТ: {$errorDescription}"];
+        }
+    
+        // Получаем ответ от ККТ
+        $jsonAnswer = $this->fptr->GetParamString($this->fptr->LIBFPTR_PARAM_JSON_DATA);
+        $jsonAnswer = json_decode($jsonAnswer, true);
+
+        if ($jsonAnswer === null) {
+            return [true, "", ""];
+        }
+        
+        return [true, json_encode($jsonAnswer), ""];
+    }
+
+    /**
+     * Проверяет успешность выполнения команды
+     */
+    private function isCommandSuccessful(string $resultJson): bool
+    {
+        // Проверяем наличие слов "ошибка" или "error" в ответе
+        $hasError = (mb_stripos($resultJson, 'ошибка') !== false) || (mb_stripos($resultJson, 'error') !== false);
+        return !$hasError;
+    }
+
+    /**
+     * Форматирует успешный ответ для возврата
+     */
+    private function formatSuccessResponse(string $responseJson): array
+    {
+        $responseData = json_decode($responseJson, true);
+        $printedLines = [];
+        
+        if ($this->emulation) {
+            $printedLines = ["ТЕСТОВЫЙ ЧЕК", "Эмуляция печати", "ОК"];
+        } else {
+            $printedLines = ["Чек успешно напечатан"];
+            
+            // Добавляем фискальные данные, если есть
+            if (isset($responseData['fiscalParams'])) {
+                $fiscalParams = $responseData['fiscalParams'];
+                if (isset($fiscalParams['fiscalDocumentNumber'])) {
+                    $printedLines[] = "Фискальный документ: " . $fiscalParams['fiscalDocumentNumber'];
+                }
+                if (isset($fiscalParams['total'])) {
+                    $printedLines[] = "Сумма: " . $fiscalParams['total'] . " руб.";
+                }
+            }
+        }
+
+        return $printedLines;
+    }
+
+    // ===============================================
+    // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ККТ
+    // ===============================================
+
+    /**
+     * Печать X-отчета
+     */
+    public function printXReport(string $cashier): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $XReportJson = json_encode([
+            "type" => "reportX",
+            "operator" => [
+                "name" => $cashier
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($XReportJson);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("X-отчет успешно напечатан", $responseData);
+    }
+
+    /**
+     * Печать нефискального слипа
+     */
+    public function printSlip(array $listOfLines): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $nonFiscalJson = [
+            "type" => "nonFiscal",
+            "items" => []
+        ];
+
+        foreach ($listOfLines as $line) {
+            // Проверяем на пустую строку, включая строки только с пробелами
+            if (empty(trim($line))) {
+                continue;
+            }
+            $nonFiscalJson["items"][] = [
+                "type" => "text",
+                "text" => $line,
+                "alignment" => "left" //center
+            ];
+        }
+
+        $jsonCommand = json_encode($nonFiscalJson, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Слип успешно напечатан", $responseData);
+    }
+
+    /**
+     * Внесение денег в кассу
+     */
+    public function cashIn(float $amount, string $operatorName, string $operatorVatin = ""): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $cashInJson = [
+            "type" => "cashIn",
+            "operator" => [
+                "name" => $operatorName,
+            ],
+            "cashSum" => $amount
+        ];
+
+        // Добавляем Vatin, если он предоставлен
+        if (!empty($operatorVatin)) {
+            $cashInJson["operator"]["vatin"] = $operatorVatin;
+        }
+
+        $jsonCommand = json_encode($cashInJson, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Внесение денег выполнено", $responseData);
+    }
+
+    /**
+     * Изъятие денег из кассы
+     */
+    public function cashOut(float $amount, string $operatorName, string $operatorVatin = ""): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $cashOutJson = [
+            "type" => "cashOut",
+            "operator" => [
+                "name" => $operatorName,
+            ],
+            "cashSum" => $amount
+        ];
+
+        // Добавляем Vatin, если он предоставлен
+        if (!empty($operatorVatin)) {
+            $cashOutJson["operator"]["vatin"] = $operatorVatin;
+        }
+
+        $jsonCommand = json_encode($cashOutJson, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Изъятие денег выполнено", $responseData);
+    }
+
+    /**
+     * Закрытие смены
+     */
+    public function closeShift(string $cashier): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $closeShiftJson = json_encode([
+            "type" => "closeShift",
+            "operator" => [
+                "name" => $cashier
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($closeShiftJson);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Смена закрыта", $responseData);
+    }
+
+    /**
+     * Проверяет открыта ли смена
+     */
+    public function isShiftOpened(): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        // Если эмуляция - возвращаем true (смена всегда "открыта")
+        if ($this->emulation) {
+            return OperationResult::success("Смена открыта (эмуляция)", [
+                'shift_opened' => true,
+                'shift_state' => 1, // 1 = LIBFPTR_SS_OPENED
+                'connection_type' => $this->getTypeConnection()
+            ]);
+        }
+
+        list($isOpened, $connectErrorDesc) = $this->openConnection();
+        if (!$isOpened) {
+            return OperationResult::failure("Ошибка подключения к ККТ: {$this->getTypeConnection()} (Код: {$connectErrorDesc})");
+        }
+
+        $result = -1;
+        $shiftOpened = false;
+        $commandErrorDesc = "";
+        
+        try {
+            $this->fptr->SetParam($this->fptr->LIBFPTR_PARAM_DATA_TYPE, $this->fptr->LIBFPTR_DT_SHIFT_STATE);
+            $result = $this->fptr->QueryData();            
+            if ($result !== 0) {
+                $errorDescription = $this->fptr->errorDescription();
+                $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription ?? '');
+            }
+            $result = $this->fptr->GetParamInt($this->fptr->LIBFPTR_PARAM_SHIFT_STATE);
+            
+            $shiftOpened = ($result === 1 || $result === 2); //LIBFPTR_SS_OPENED = 1, LIBFPTR_SS_EXCHANGE = 2
+        } catch (Exception $e) {
+            $commandErrorDesc = $e->getMessage();
+        } finally {
+            $this->closeConnection();
+        }
+        
+        if (!empty($commandErrorDesc)) {
+            return OperationResult::failure($commandErrorDesc, [
+                'shift_opened' => $shiftOpened,
+                'shift_state' => $result
+            ]);
+        }
+
+        $message = $shiftOpened ? "Смена открыта" : "Смена закрыта";
+        return OperationResult::success($message, [
+            'shift_opened' => $shiftOpened,
+            'shift_state' => $result,
+            'connection_type' => $this->getTypeConnection()
+        ]);
+    }
+
+    /**
+     * Получение статуса смены
+     */
+    public function getShiftStatus(): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $command = [
+            "type" => "getShiftStatus"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Статус смены получен", $responseData);
+    }
+
+    /**
+     * Начинает проверку кода маркировки
+     */
+    public function beginMarkingCodeValidation(string $imc): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $command = [
+            "type" => "beginMarkingCodeValidation",
+            "params" => [
+                "imcType" => "auto",
+                "imc" => $imc,
+                "itemEstimatedStatus" => "itemPieceSold",
+                "imcModeProcessing" => 0
+            ]
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Проверка кода маркировки начата", $responseData);
+    }
+
+    /**
+     * Проверяет статус проверки кода маркировки
+     */
+    public function checkMarkingCodeValidation(): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $command = [
+            "type" => "getMarkingCodeValidationStatus"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Статус проверки маркировки", $responseData);
+    }
+
+    /**
+     * Принимает код маркировки
+     */
+    public function acceptMarkingCode(): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $command = [
+            "type" => "acceptMarkingCode"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Код маркировки принят", $responseData);
+    }
+
+    /**
+     * Очищает результат валидации кода маркировки
+     */
+    public function clearMarkingCodeValidationResult(): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        $command = [
+            "type" => "clearMarkingCodeValidationResult"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandToKKT($jsonCommand);
+
+        if (!$success) {
+            return OperationResult::failure($commandErrorDesc);
+        }
+
+        $responseData = json_decode($responseJson, true);
+        return OperationResult::success("Результат валидации очищен", $responseData);
+    }
+
+    /**
+     * Отменяет текущий чек
+     */
+    public function cancelReceipt(): OperationResult
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return OperationResult::failure("Ошибка инициализации драйвера: " . $initError);
+        }
+
+        // Если эмуляция - возвращаем успех
+        if ($this->emulation) {
+            return OperationResult::success("Чек отменен (эмуляция)");
+        }
+
+        $result = $this->fptr->CancelReceipt();
+        
+        if ($result !== 0) {
+            $errorDescription = $this->fptr->errorDescription();
+            $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription ?? '');
+            return OperationResult::failure("Ошибка отмены чека: " . $commandErrorDesc);
+        }
+        
+        return OperationResult::success("Чек успешно отменен");
+    }
+
+    /**
+     * Получает версию драйвера
+     */
+    public function getVersion(): string
+    {
+        $initError = $this->ensureDriverInitialized();
+        if ($initError !== null) {
+            return "";
+        }
+
+        // Если эмуляция - возвращаем версию эмулятора
+        if ($this->emulation) {
+            return "Эмулятор v1.0";
+        }
+
+        try {
+            return $this->fptr->Version();
+        } catch (Exception $e) {
+            return "";
+        }
+    }
+
+    /**
+     * Получает информацию о типе подключения
+     */
+    public function getTypeConnection(): string
+    {
+        $typeConnect = "";
+
+        if (!empty($this->ipServKkt)) {
+            $typeConnect = "через сервер ККТ по IP {$this->ipServKkt}";
+        }
+
+        if ($this->comPort == 0) {
+            if (!empty($this->ipKkt)) {
+                $typeConnect .= " по IP {$this->ipKkt} ККТ на порт {$this->portIpKkt}";
+            } else {
+                $typeConnect .= " по USB";
+            }
+        } else {
+            $sComPorta = "COM" . $this->comPort;
+            $typeConnect .= " по COM порту {$sComPorta}";
+        }
+
+        return $typeConnect;
+    }
+
+    /**
+     * Получает объект драйвера (для расширенного использования)
+     */
+    public function getFptrObject()
+    {
+        $this->ensureDriverInitialized();
+        return $this->fptr;
+    }
+
+    // ===============================================
+    // ГЕТТЕРЫ ДЛЯ ПАРАМЕТРОВ
+    // ===============================================
+
+    public function getComPort() { return $this->comPort; }
+    public function getIpKkt() { return $this->ipKkt; }
+    public function getPortIpKkt() { return $this->portIpKkt; }
+    public function getIpServKkt() { return $this->ipServKkt; }
+    public function getEmulation() { return $this->emulation; }
 }

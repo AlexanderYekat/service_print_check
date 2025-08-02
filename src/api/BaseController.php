@@ -144,9 +144,12 @@ abstract class BaseController
      */
     private function sendJsonResponse(array $data, int $statusCode): void
     {
-        http_response_code($statusCode);
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-cache, must-revalidate');
+        // В тестовом режиме не отправляем HTTP заголовки
+        if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+            http_response_code($statusCode);
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-cache, must-revalidate');
+        }
         
         echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }

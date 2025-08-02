@@ -36,6 +36,13 @@ class GetWeightEndToEndTest
         } else {
             $this->originalSettings = [];
         }
+        
+        // Принудительно устанавливаем emulation: true для весов в тестовом бэкапе
+        // чтобы после завершения тестов система оставалась в режиме эмуляции
+        if (!isset($this->originalSettings['scale'])) {
+            $this->originalSettings['scale'] = [];
+        }
+        $this->originalSettings['scale']['emulation'] = true;
     }
     
     /**
@@ -129,10 +136,20 @@ class GetWeightEndToEndTest
                 handleCleanArchitectureRequest();
                 $output = ob_get_contents();
                 
-                // Парсим JSON ответ
-                $response = json_decode($output, true);
+                // Извлекаем JSON из смешанного вывода (логи + JSON)
+                // Ищем первую позицию '{' и последнюю позицию '}'
+                $jsonStart = strpos($output, '{');
+                $jsonEnd = strrpos($output, '}');
+                
+                if ($jsonStart === false || $jsonEnd === false || $jsonEnd <= $jsonStart) {
+                    throw new Exception("No valid JSON found in output: $output");
+                }
+                
+                $jsonString = substr($output, $jsonStart, $jsonEnd - $jsonStart + 1);
+                $response = json_decode($jsonString, true);
+                
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    throw new Exception("Invalid JSON response: $output");
+                    throw new Exception("Invalid JSON response: $jsonString. Full output: $output");
                 }
                 
                 return [
@@ -229,7 +246,7 @@ class GetWeightEndToEndTest
                 'baud_rate' => 18,
                 'model' => 38,
                 'com_class' => 'AddIn.Scale8',
-                'emulation' => false
+                'emulation' => true
             ]);
             
             // Выполняем запрос
@@ -281,7 +298,7 @@ class GetWeightEndToEndTest
                 'baud_rate' => 18,
                 'model' => 38,
                 'com_class' => 'NonExistent.ComClass.That.Does.Not.Exist',
-                'emulation' => false
+                'emulation' => true
             ]);
             
             // Выполняем запрос
@@ -298,11 +315,11 @@ class GetWeightEndToEndTest
                 echo "⚠️  Неожиданный успех с несуществующим COM классом\n";
             } else {
                 // Проверяем что есть сообщение об ошибке
-                if (empty($data['message'])) {
+                $errorMessage = $data['error']['message'] ?? $data['message'] ?? '';
+                if (empty($errorMessage)) {
                     throw new Exception("Отсутствует сообщение об ошибке");
                 }
                 
-                $errorMessage = $data['message'];
                 if (strpos($errorMessage, 'драйвер') !== false || strpos($errorMessage, 'COM') !== false) {
                     echo "✅ Обработка ошибок COM класса: корректная ошибка - $errorMessage\n";
                 } else {

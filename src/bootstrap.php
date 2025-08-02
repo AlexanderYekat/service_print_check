@@ -78,11 +78,11 @@ $defaultConfig = [
 $config = array_merge_recursive($defaultConfig, $config);
 
 // Создание логгера
-// В тестовом режиме используем NullLogger для избежания проблем с HTTP заголовками
+// В тестовом режиме используем NullLogger для избежания проблем с JSON парсингом
 $isTestMode = defined('TESTING_MODE') && TESTING_MODE === true;
 $logger = $isTestMode 
-    ? new \App\Infrastructure\Logger\ConsoleLogger()
-    : new FileLogger(
+    ? new \App\Infrastructure\Logger\NullLogger()
+    : new \App\Infrastructure\Logger\FileLogger(
         __DIR__ . '/../logs/app.log',
         $config['logging']['level'] ?? 'info'
     );

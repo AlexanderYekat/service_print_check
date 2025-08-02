@@ -5,6 +5,17 @@ require_once __DIR__ . '/bootstrap.php';
 
 function handleCleanArchitectureRequest()
 {
+    // Проверяем инициализацию DI контейнера
+    if (!isset($GLOBALS['di'])) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'DI контейнер не инициализирован',
+            'meta' => ['timestamp' => date('Y-m-d H:i:s')]
+        ]);
+        return;
+    }
+    
     $method = $_SERVER['REQUEST_METHOD'];
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $query = $_GET;
@@ -25,7 +36,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'POST') {
                 $GLOBALS['di']['print_check_controller']->handle($input);
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -36,7 +49,9 @@ function handleCleanArchitectureRequest()
                 $input['operation'] = 'pay';
                 $GLOBALS['di']['bank_payment_controller']->handle($input);
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -46,7 +61,9 @@ function handleCleanArchitectureRequest()
                 $input['operation'] = 'refund';
                 $GLOBALS['di']['bank_payment_controller']->handle($input);
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -55,7 +72,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'POST') {
                 $GLOBALS['di']['close_shift_controller']->handle($input);
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -65,7 +84,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'GET' || $method === 'POST') {
                 $GLOBALS['di']['get_weight_controller']->handle($input);
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -82,7 +103,9 @@ function handleCleanArchitectureRequest()
                 $controller = new PermitMarkCheckController();
                 $controller->checkPermit();
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -93,7 +116,9 @@ function handleCleanArchitectureRequest()
                 $controller = new EcrMarkCheckController();
                 $controller->enqueueMarkCheck();
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -103,7 +128,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'GET') {
                 $GLOBALS['di']['queue_controller']->handleStatus();
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -112,7 +139,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'POST') {
                 $GLOBALS['di']['queue_controller']->handleProcess();
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -122,7 +151,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'GET') {
                 $GLOBALS['di']['health_controller']->handle();
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -132,7 +163,9 @@ function handleCleanArchitectureRequest()
             if ($method === 'GET') {
                 $GLOBALS['di']['version_controller']->handle($input);
             } else {
-                http_response_code(405);
+                if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                    http_response_code(405);
+                }
                 echo json_encode(['error' => 'Method not allowed']);
             }
             break;
@@ -151,14 +184,18 @@ function handleCleanArchitectureRequest()
                     $controller = new EcrMarkCheckController();
                     $controller->getMarkCheckResult($matches[1]);
                 } else {
-                    http_response_code(405);
+                    if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                        http_response_code(405);
+                    }
                     echo json_encode(['error' => 'Method not allowed']);
                 }
                 return;
             }
 
             // Если не найден ни один маршрут
-            http_response_code(404);
+            if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+                http_response_code(404);
+            }
             echo json_encode([
                 'error' => 'Endpoint not found',
                 'path' => $path,
@@ -179,11 +216,17 @@ function handleCleanArchitectureRequest()
             ]);
             break;
     }
+    
+    // Функция должна завершиться явно
+    return;
 }
 
 function handleApiDocumentation()
 {
-    header('Content-Type: application/json; charset=utf-8');
+    // В тестовом режиме не отправляем HTTP заголовки
+    if (!defined('TESTING_MODE') || TESTING_MODE !== true) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
     echo json_encode([
         'service' => 'CloudPosBridge Clean Architecture',
         'version' => '2.0.0',

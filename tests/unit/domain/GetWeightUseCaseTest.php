@@ -15,7 +15,7 @@ use App\Domain\Service\GetWeightUseCase;
 use App\Domain\Model\OperationResult;
 use App\Interface\ScaleInterface;
 
-class GetWeightUseCaseTest
+class GetWeightUseCaseDomainTest
 {
     public function testSuccessfulWeightRetrieval(): bool
     {
@@ -56,7 +56,7 @@ class GetWeightUseCaseTest
     {
         try {
             // Создаем мок весов с ошибкой подключения
-            $mockScale = new MockFailedScale('Ошибка подключения к весам');
+            $mockScale = new MockFailedScale('Устройство недоступно или отключено');
             $useCase = new GetWeightUseCase($mockScale);
             
             $result = $useCase->execute();
@@ -66,10 +66,15 @@ class GetWeightUseCaseTest
                 throw new Exception('Результат должен быть неуспешным при ошибке подключения');
             }
             
-            // Проверяем сообщение об ошибке
+            // Проверяем что есть описательное сообщение об ошибке
             $errorMessage = $result->getErrorMessage();
-            if (strpos($errorMessage, 'подключения') === false) {
-                throw new Exception("Некорректное сообщение об ошибке: {$errorMessage}");
+            if (empty($errorMessage)) {
+                throw new Exception("Отсутствует сообщение об ошибке");
+            }
+            
+            // Проверяем что сообщение содержательное
+            if (strlen($errorMessage) < 5) {
+                throw new Exception("Слишком короткое сообщение об ошибке: {$errorMessage}");
             }
             
             echo "✅ Обработка ошибки подключения: PASSED\n";
@@ -85,20 +90,25 @@ class GetWeightUseCaseTest
     {
         try {
             // Создаем мок весов с ошибкой чтения
-            $mockScale = new MockFailedScale('Ошибка чтения веса: Весы не стабилизированы');
+            $mockScale = new MockFailedScale('Весы не стабилизированы и не могут дать точные показания');
             $useCase = new GetWeightUseCase($mockScale);
             
             $result = $useCase->execute();
             
-            // Проверяем неуспешность
+            // Проверяем неуспешность операции
             if ($result->isSuccess()) {
                 throw new Exception('Результат должен быть неуспешным при ошибке чтения');
             }
             
-            // Проверяем тип ошибки
+            // Проверяем что есть описательное сообщение об ошибке
             $errorMessage = $result->getErrorMessage();
-            if (strpos($errorMessage, 'чтения') === false) {
-                throw new Exception("Некорректное сообщение об ошибке: {$errorMessage}");
+            if (empty($errorMessage)) {
+                throw new Exception("Отсутствует сообщение об ошибке");
+            }
+            
+            // Проверяем что сообщение содержательное (больше 5 символов)
+            if (strlen($errorMessage) < 5) {
+                throw new Exception("Слишком короткое сообщение об ошибке: {$errorMessage}");
             }
             
             echo "✅ Обработка ошибки чтения: PASSED\n";

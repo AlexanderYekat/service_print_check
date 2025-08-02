@@ -21,7 +21,7 @@ echo "📋 Запуск Unit тестов GetWeightUseCase...\n";
 require_once __DIR__ . '/../unit/domain/GetWeightUseCaseTest.php';
 
 try {
-    $unitTest = new GetWeightUseCaseTest();
+    $unitTest = new GetWeightUseCaseDomainTest();
     if ($unitTest->run()) {
         echo "✅ Unit тесты GetWeightUseCase: PASSED\n\n";
         $passed++;

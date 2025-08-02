@@ -8,6 +8,8 @@
 // Используем bootstrap для подключения всех зависимостей
 require_once __DIR__ . '/../../../src/bootstrap.php';
 
+use App\Infrastructure\Logger\LoggerInterface;
+
 /**
  * Mock принтера для тестирования
  */

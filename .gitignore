@@ -5,6 +5,7 @@ samples/screenshots/
 .gigaide/
 _temp_update/
 src/legacy/worker.zip
+src/legacy/
 
 !myapp_dist/
 !myapp_dist/*.exe

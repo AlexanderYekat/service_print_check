@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/LoggerInterface.php';
+namespace App\Infrastructure\Logger;
 
 /**
  * Файловый логгер с ротацией и форматированием

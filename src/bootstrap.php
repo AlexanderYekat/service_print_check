@@ -26,6 +26,7 @@ require_once __DIR__ . '/../JsonFileSettingsStorage.php';
 require_once __DIR__ . '/infrastructure/logger/LoggerInterface.php';
 require_once __DIR__ . '/infrastructure/logger/FileLogger.php';
 require_once __DIR__ . '/infrastructure/logger/ConsoleLogger.php';
+require_once __DIR__ . '/infrastructure/logger/NullLogger.php';
 require_once __DIR__ . '/infrastructure/scale/ScaleDriver.php';
 
 // API Layer
@@ -77,10 +78,14 @@ $defaultConfig = [
 $config = array_merge_recursive($defaultConfig, $config);
 
 // Создание логгера
-$logger = new FileLogger(
-    __DIR__ . '/../logs/app.log',
-    $config['logging']['level'] ?? 'info'
-);
+// В тестовом режиме используем NullLogger для избежания проблем с HTTP заголовками
+$isTestMode = defined('TESTING_MODE') && TESTING_MODE === true;
+$logger = $isTestMode 
+    ? new \App\Infrastructure\Logger\ConsoleLogger()
+    : new FileLogger(
+        __DIR__ . '/../logs/app.log',
+        $config['logging']['level'] ?? 'info'
+    );
 
 // Создание адаптеров с передачей конфигурации
 $printerAdapter = new SerialKktAdapter(
@@ -94,7 +99,7 @@ $bankAdapter = new \App\Infrastructure\Bank\GoBankTerminalAdapter(
     $logger
 );
 
-$scaleAdapter = new SerialScaleAdapter(__DIR__ . '/../config/settings.json');
+$scaleAdapter = new SerialScaleAdapter(__DIR__ . '/../config/settings.json', $logger);
 
 // Старые компоненты Честного Знака удалены
 // Новая архитектура использует отдельные gateway'и для permit и ecr режимов

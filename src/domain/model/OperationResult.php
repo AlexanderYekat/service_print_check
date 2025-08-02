@@ -39,7 +39,7 @@ class OperationResult
     /**
      * Получает данные определенного типа или null
      */
-    public function getData(string $key = null)
+    public function getData(?string $key = null)
     {
         if ($key === null) {
             return $this->data;
@@ -51,7 +51,7 @@ class OperationResult
     /**
      * Проверяет наличие данных
      */
-    public function hasData(string $key = null): bool
+    public function hasData(?string $key = null): bool
     {
         if ($key === null) {
             return !empty($this->data);

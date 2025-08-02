@@ -21,7 +21,7 @@ class RequestValidator
     /**
      * Валидация числовых значений
      */
-    public static function validateNumeric(array $data, string $field, float $min = null, float $max = null): float
+    public static function validateNumeric(array $data, string $field, ?float $min = null, ?float $max = null): float
     {
         if (!isset($data[$field])) {
             throw new ValidationException("Поле {$field} отсутствует");
@@ -46,7 +46,7 @@ class RequestValidator
     /**
      * Валидация строковых значений
      */
-    public static function validateString(array $data, string $field, int $minLength = 0, int $maxLength = null): string
+    public static function validateString(array $data, string $field, int $minLength = 0, ?int $maxLength = null): string
     {
         if (!isset($data[$field])) {
             throw new ValidationException("Поле {$field} отсутствует");

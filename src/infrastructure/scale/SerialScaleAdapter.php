@@ -6,14 +6,17 @@ use App\Interface\ScaleInterface;
 use App\Interface\HealthCheckable;
 use App\Domain\Model\OperationResult;
 use App\Infrastructure\Scale\TScale8Driver;
+use App\Infrastructure\Logger\LoggerInterface;
 
 class SerialScaleAdapter implements ScaleInterface, HealthCheckable
 {
-    private $settingsPath;
+    private string $settingsPath;
+    private ?LoggerInterface $logger;
 
-    public function __construct($settingsPath)
+    public function __construct(string $settingsPath, ?LoggerInterface $logger = null)
     {
         $this->settingsPath = $settingsPath;
+        $this->logger = $logger;
     }
 
 
@@ -27,7 +30,7 @@ class SerialScaleAdapter implements ScaleInterface, HealthCheckable
         $comClass = $scaleSettings['com_class'];
         $emulation = $scaleSettings['emulation'];
 
-        $scaleDriver = new TScale8Driver($comPort, $baudRate, $model, $comClass, $emulation);
+        $scaleDriver = new TScale8Driver($comPort, $baudRate, $model, $comClass, $emulation, $this->logger);
         list($isOpened, $connectErrorDesc) = $scaleDriver->Open();
         if (!$isOpened) {
             return OperationResult::failure("Ошибка подключения к весам: {$connectErrorDesc}");

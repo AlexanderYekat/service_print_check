@@ -6,21 +6,10 @@
  * HTTP Request -> Router -> Controller -> UseCase -> Scale Adapter
  */
 
-// Простой Logger для TScale8Driver
-class Logger {
-    private static $instance;
-    
-    public static function getInstance() {
-        if (self::$instance === null) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-    
-    public function info($message) { echo "[INFO] $message\n"; }
-    public function error($message) { echo "[ERROR] $message\n"; }
-    public function warning($message) { echo "[WARNING] $message\n"; }
-}
+// Старый Logger удален - теперь используется архитектура проекта
+
+// Устанавливаем тестовый режим перед загрузкой bootstrap
+define('TESTING_MODE', true);
 
 require_once __DIR__ . '/../../src/bootstrap.php';
 require_once __DIR__ . '/../../src/routes.php';
@@ -394,12 +383,17 @@ class GetWeightEndToEndTest
             
             $data = $response['data'];
             
-            // Проверяем обязательные поля
-            $requiredFields = ['success', 'data', 'timestamp'];
+            // Проверяем обязательные поля (новая архитектура)
+            $requiredFields = ['success'];
             foreach ($requiredFields as $field) {
                 if (!isset($data[$field])) {
                     throw new Exception("Отсутствует обязательное поле: $field");
                 }
+            }
+            
+            // Проверяем meta информацию
+            if (!isset($data['meta']) || !isset($data['meta']['timestamp'])) {
+                throw new Exception("Отсутствует meta информация или timestamp");
             }
             
             // Проверяем структуру данных при успехе
@@ -412,8 +406,8 @@ class GetWeightEndToEndTest
                 }
             }
             
-            // Проверяем формат timestamp
-            $timestamp = $data['timestamp'];
+            // Проверяем формат timestamp в meta
+            $timestamp = $data['meta']['timestamp'];
             if (!is_string($timestamp) || strtotime($timestamp) === false) {
                 throw new Exception("Некорректный формат timestamp: $timestamp");
             }

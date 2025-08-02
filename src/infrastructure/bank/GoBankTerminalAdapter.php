@@ -6,6 +6,7 @@ use App\Interface\BankTerminalInterface;
 use App\Interface\HealthCheckable;
 use App\Interface\SettingsStorageInterface;
 use App\Domain\Model\OperationResult;
+use App\Infrastructure\Logger\LoggerInterface;
 use Exception;
 
 /**
@@ -20,14 +21,14 @@ use Exception;
 class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
 {
     private SettingsStorageInterface $settingsStorage;
-    private \LoggerInterface $logger;
+    private LoggerInterface $logger;
     private string $binaryPath;
     private int $timeout;
     private bool $emulation;
 
     public function __construct(
         SettingsStorageInterface $settingsStorage, 
-        \LoggerInterface $logger
+        LoggerInterface $logger
     ) {
         $this->settingsStorage = $settingsStorage;
         $this->logger = $logger;

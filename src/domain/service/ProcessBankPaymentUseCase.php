@@ -5,6 +5,7 @@ namespace App\Domain\Service;
 use App\Interface\BankTerminalInterface;
 use App\Domain\Model\BankTransaction;
 use App\Domain\Model\OperationResult;
+use App\Infrastructure\Logger\LoggerInterface;
 use InvalidArgumentException;
 
 /**
@@ -19,11 +20,11 @@ use InvalidArgumentException;
 class ProcessBankPaymentUseCase
 {
     private BankTerminalInterface $bankTerminal;
-    private \LoggerInterface $logger;
+    private LoggerInterface $logger;
     
     public function __construct(
         BankTerminalInterface $bankTerminal,
-        \LoggerInterface $logger
+        LoggerInterface $logger
     ) {
         $this->bankTerminal = $bankTerminal;
         $this->logger = $logger;

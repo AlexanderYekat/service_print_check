@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/LoggerInterface.php';
+namespace App\Infrastructure\Logger;
 
 /**
  * Консольный логгер для разработки и отладки

@@ -11,6 +11,7 @@ require_once __DIR__ . '/../../JsonFileSettingsStorage.php';
 use App\Api\BaseController;
 use App\Domain\Service\PermitMarkCheckUseCase;
 use App\Infrastructure\Printer\SerialKktAdapter;
+use App\Infrastructure\Logger\LoggerInterface;
 // Остальные классы пока в глобальном namespace
 
 /**
@@ -28,7 +29,7 @@ class PermitMarkCheckController extends BaseController
         \JsonFileSettingsStorage $settingsStorage,
         SerialKktAdapter $kktAdapter,
         array $config,
-        \LoggerInterface $logger
+        LoggerInterface $logger
     ) {
         parent::__construct($logger);
         $this->useCase = $useCase;

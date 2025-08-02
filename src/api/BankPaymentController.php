@@ -6,7 +6,7 @@ use App\Api\BaseController;
 use App\Api\Request\RequestValidator;
 use App\Api\Response\ResponseFormatter;
 use App\Domain\Service\ProcessBankPaymentUseCase;
-// LoggerInterface в глобальном namespace
+use App\Infrastructure\Logger\LoggerInterface;
 use Exception;
 
 /**
@@ -24,7 +24,7 @@ class BankPaymentController extends BaseController
 
     public function __construct(
         ProcessBankPaymentUseCase $bankPaymentUseCase,
-        \LoggerInterface $logger
+        LoggerInterface $logger
     ) {
         parent::__construct($logger);
         $this->bankPaymentUseCase = $bankPaymentUseCase;

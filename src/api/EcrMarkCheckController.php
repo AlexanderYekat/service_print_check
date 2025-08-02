@@ -9,7 +9,7 @@ require_once __DIR__ . '/../domain/model/MarkingCode.php';
 
 use App\Api\BaseController;
 use App\Domain\Service\EcrMarkCheckUseCase;
-// LoggerInterface в глобальном namespace
+use App\Infrastructure\Logger\LoggerInterface;
 
 /**
  * Контроллер для асинхронной проверки марки на ККТ
@@ -19,7 +19,7 @@ class EcrMarkCheckController extends BaseController
     private EcrMarkCheckUseCase $useCase;
     private string $action;
 
-    public function __construct(EcrMarkCheckUseCase $useCase, \LoggerInterface $logger)
+    public function __construct(EcrMarkCheckUseCase $useCase, LoggerInterface $logger)
     {
         parent::__construct($logger);
         $this->useCase = $useCase;

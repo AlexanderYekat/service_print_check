@@ -2,31 +2,7 @@
 
 namespace App\Infrastructure\Scale;
 
-// scaleutils.php
-
-// Простой Logger для совместимости
-class Logger {
-    private static $instance;
-    
-    public static function getInstance() {
-        if (self::$instance === null) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-    
-    public function info($message) { 
-        error_log("[INFO] " . date('Y-m-d H:i:s') . " $message");
-    }
-    
-    public function error($message) { 
-        error_log("[ERROR] " . date('Y-m-d H:i:s') . " $message");
-    }
-    
-    public function warning($message) { 
-        error_log("[WARNING] " . date('Y-m-d H:i:s') . " $message");
-    }
-}
+use App\Infrastructure\Logger\LoggerInterface;
 
 class TScale8Driver {
     private $comClass;
@@ -35,50 +11,55 @@ class TScale8Driver {
     private $baudRate; // Скорость передачи данных (BaudRate)
     private $model;    // Модель весов
     private $emulation; // Флаг эмуляции
-    private $logger; // Добавляем свойство для логгера
+    private ?LoggerInterface $logger; // Добавляем свойство для логгера
 
-    public function __construct(int $comPort = 1001, int $baudRate = 18, int $model = 38, string $comClass = "AddIn.Scale8", bool $emulation = false, ?Logger $logger = null) {
+    public function __construct(int $comPort = 1001, int $baudRate = 18, int $model = 38, string $comClass = "AddIn.Scale8", bool $emulation = false, ?LoggerInterface $logger = null) {
         $this->comPort = $comPort;
         $this->baudRate = $baudRate;
         $this->model = $model;
         $this->emulation = $emulation;
         $this->comClass = $comClass;
-        $this->logger = $logger ?? Logger::getInstance(); // Инициализируем логгер или получаем существующий экземпляр
+        $this->logger = $logger;
     }
 
     public function Open(): array {
-        $this->logger->info("Попытка открытия соединения с весами. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
+        $this->logger?->info("Попытка открытия соединения с весами. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
 
         try {
             if ($this->scale === null) {
                 // Создание COM-объекта AddIn.Scale8
-                $this->logger->info("Попытка создание экземпляра com объекта весов");
-                $this->scale = new \COM($this->comClass);
-                $this->logger->info("COM-объект создан успешно.");
+                $this->logger?->info("Попытка создание экземпляра com объекта весов");
+                try {
+                    $this->scale = new \COM($this->comClass);
+                    $this->logger?->info("COM-объект создан успешно.");
+                } catch (\Exception $comError) {
+                    $this->logger?->error("Ошибка создания COM объекта: " . $comError->getMessage());
+                        return [false, "Ошибка создания COM объекта: " . $comError->getMessage()];
+                }
             }
 
             // Проверяем количество устройств и добавляем, если нет ни одного
             try {
-                $this->logger->info("Попытка проверки/добавления устройства...");
+                $this->logger?->info("Попытка проверки/добавления устройства...");
                 $deviceCount = $this->scale->DeviceCount;
-                $this->logger->info("Обнаружено устройств: {$deviceCount}");
-                if ($deviceCount == 0) {
-                    $this->logger->info("Устройств не найдено, попытка добавления устройства...");
+                $this->logger?->info("Обнаружено устройств: {$deviceCount}");
+                if ($deviceCount == 0 && !$this->emulation) {
+                    $this->logger?->info("Устройств не найдено, попытка добавления устройства...");
                     $addResult = $this->scale->AddDevice();
-                    $this->logger->info("Попытка добавления устройства: {$addResult}");
+                    $this->logger?->info("Попытка добавления устройства: {$addResult}");
                     if ($addResult === 0) { // Обычно 0 означает успех
-                        $this->logger->info("Устройство успешно добавлено.");
+                        $this->logger?->info("Устройство успешно добавлено.");
                     } else {
                         $addResultDescription = $this->scale->ResultDescription;
                         $addResultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $addResultDescription  ?? '');
-                        $this->logger->error("Ошибка при добавлении устройства: {$addResultDescription} (Код: {$addResult})");
+                        $this->logger?->error("Ошибка при добавлении устройства: {$addResultDescription} (Код: {$addResult})");
                         if (!$this->emulation) {
                             return [false, "Ошибка при добавлении устройства: {$addResultDescription}"];
                         }
                     }
                 }
             } catch (Exception $e) {
-                $this->logger->error("Ошибка при проверке/добавлении устройства: " . $e->getMessage());
+                $this->logger?->error("Ошибка при проверке/добавлении устройства: " . $e->getMessage());
                 if (!$this->emulation) {
                     return [false, "Ошибка при проверке/добавлении устройства: " . $e->getMessage()];
                 }
@@ -90,50 +71,54 @@ class TScale8Driver {
             $this->scale->Model = $this->model; // Атол Марта
 
             // Включение устройства
-            $this->logger->info("Попытка включения устройства...");
+            $this->logger?->info("Попытка включения устройства...");
             $this->scale->DeviceEnabled = true;
 
             $resultDescription = $this->scale->ResultDescription;
             $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription  ?? '');
 
             if (!$this->scale->DeviceEnabled) {
-                $this->logger->error("Весы не подключены: {$resultDescription}");
+                $this->logger?->error("Весы не подключены: {$resultDescription}");
                 if (!$this->emulation) {
                     return [false, "Весы не подключены: {$resultDescription}"];
                 }
                 
             }
-            $this->logger->info("Соединение с весами успешно открыто.");
+            $this->logger?->info("Соединение с весами успешно открыто.");
             return [true, ""];
         } catch (Exception $e) {
-            $this->logger->error("Ошибка создания COM объекта весов: " . $e->getMessage());
+            $this->logger?->error("Ошибка создания COM объекта весов: " . $e->getMessage());
             return [false, "Драйвер весов не установлен: " . $e->getMessage()];
         }
     }
 
     public function ReadWeight(): array {
-        $this->logger->info("Попытка чтения веса. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
+        $this->logger?->info("Попытка чтения веса. Эмуляция: " . ($this->emulation ? 'Да' : 'Нет'));
+
+        // В режиме эмуляции возвращаем имитированный вес
+        //if ($this->emulation) {
+        //    $this->logger?->info("Режим эмуляции: возвращаем тестовый вес 5.0 кг");
+        //    return [true, "", 5.0];
+        //}
 
         if ($this->scale === null) {
-            $this->logger->error("Драйвер весов не инициализирован для чтения веса.");
-            if (!$this->emulation) {
-                return [false, "Драйвер весов не инициализирован", 0.0];
-            }
+            $this->logger?->error("Драйвер весов не инициализирован для чтения веса.");
+            return [false, "Драйвер весов не инициализирован", 0.0];
         }
 
         try {
-            $this->logger->info("Вызов метода ReadWeight COM-объекта.");
+            $this->logger?->info("Вызов метода ReadWeight COM-объекта.");
             // Вызов метода ReadWeight
             $result = $this->scale->ReadWeight();
 
             if ($result === 0) { // Если успешно
                 $weight = $this->scale->Weight; // Получение веса
-                $this->logger->info("Вес успешно прочитан: {$weight}.");
+                $this->logger?->info("Вес успешно прочитан: {$weight}.");
                 return [true, "", $weight];
             } else {
                 $resultDescription = $this->scale->ResultDescription;
                 $resultDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $resultDescription  ?? '');
-                $this->logger->error("Ошибка получения веса: {$resultDescription}.");
+                $this->logger?->error("Ошибка получения веса: {$resultDescription}.");
                 if (!$this->emulation) {
                     return [false, "Ошибка получения веса: {$resultDescription}", 0.0];
                 } else {
@@ -141,7 +126,7 @@ class TScale8Driver {
                 }
             }
         } catch (Exception $e) {
-            $this->logger->error("Ошибка при чтении веса: " . $e->getMessage());
+            $this->logger?->error("Ошибка при чтении веса: " . $e->getMessage());
             if (!$this->emulation) {
                 return [false, "Ошибка при чтении веса: " . $e->getMessage(), 0.0];
             } else {
@@ -152,15 +137,15 @@ class TScale8Driver {
 
     public function Close(): void {
         if ($this->scale === null) {
-            $this->logger->warning("Попытка закрыть неинициализированный драйвер весов.");
+            $this->logger?->warning("Попытка закрыть неинициализированный драйвер весов.");
             return;
         }
         try {
-            $this->logger->info("Попытка закрытия соединения с весами.");
+            $this->logger?->info("Попытка закрытия соединения с весами.");
             $this->scale->DeviceEnabled = false; // Отключаем устройство
-            $this->logger->info("Соединение с весами успешно закрыто.");
+            $this->logger?->info("Соединение с весами успешно закрыто.");
         } catch (Exception $e) {
-            $this->logger->error("Ошибка при закрытии соединения с весами: " . $e->getMessage());
+            $this->logger?->error("Ошибка при закрытии соединения с весами: " . $e->getMessage());
             // Игнорируем ошибки при закрытии
         }
     }

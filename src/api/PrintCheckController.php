@@ -6,13 +6,13 @@ require_once __DIR__ . '/BaseController.php';
 
 use App\Api\BaseController;
 use App\Domain\Service\PrintCheckUseCase;
-// LoggerInterface в глобальном namespace
+use App\Infrastructure\Logger\LoggerInterface;
 
 class PrintCheckController extends BaseController
 {
     private PrintCheckUseCase $useCase;
 
-    public function __construct(PrintCheckUseCase $useCase, \LoggerInterface $logger)
+    public function __construct(PrintCheckUseCase $useCase, LoggerInterface $logger)
     {
         parent::__construct($logger);
         $this->useCase = $useCase;

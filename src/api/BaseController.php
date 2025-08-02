@@ -2,7 +2,7 @@
 
 namespace App\Api;
 
-// LoggerInterface в глобальном namespace
+use App\Infrastructure\Logger\LoggerInterface;
 
 /**
  * Базовый контроллер для всех API контроллеров
@@ -10,9 +10,9 @@ namespace App\Api;
  */
 abstract class BaseController
 {
-    protected \LoggerInterface $logger;
+    protected LoggerInterface $logger;
     
-    public function __construct(\LoggerInterface $logger)
+    public function __construct(LoggerInterface $logger)
     {
         $this->logger = $logger;
     }

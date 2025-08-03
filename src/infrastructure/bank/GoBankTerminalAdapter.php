@@ -22,7 +22,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
 {
     private SettingsStorageInterface $settingsStorage;
     private LoggerInterface $logger;
-    private string $binaryPath;
+    private string $taskName;
     private int $timeout;
     private bool $emulation;
 
@@ -42,11 +42,11 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     {
         $bankConfig = $this->settingsStorage->get('bank', []);
         
-        $this->binaryPath = $bankConfig['binary_path'] ?? './bank/mainbeznal.exe';
+        $this->taskName = $bankConfig['task_name'] ?? 'BankOperationTask';
         $this->timeout = $bankConfig['timeout'] ?? 30;
         $this->emulation = $bankConfig['emulation'] ?? false;
         
-        $this->logger->info("Банковский адаптер загружен с настройками: binary_path={$this->binaryPath}, timeout={$this->timeout}, emulation=" . ($this->emulation ? 'true' : 'false'));
+        $this->logger->info("Банковский адаптер загружен с настройками: task_name={$this->taskName}, timeout={$this->timeout}, emulation=" . ($this->emulation ? 'true' : 'false'));
     }
 
     /**
@@ -94,16 +94,7 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
      */
     private function executeOperation(string $operation, ?float $amount = null): \OperationResult
     {
-        if ($this->emulation) {
-            return $this->createEmulationResult($operation, $amount);
-        }
-
         try {
-            // Проверяем существование бинаря
-            if (!file_exists($this->binaryPath)) {
-                throw new Exception("Go-бинарь не найден по пути: {$this->binaryPath}");
-            }
-
             // Создаем временную папку
             $tempDir = $this->createTempDirectory();
             
@@ -119,6 +110,11 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
             // Очищаем временные файлы
             $this->cleanupTempFiles($tempDir);
             
+            // В режиме эмуляции возвращаем эмулированный результат
+            if ($this->emulation) {
+                return $this->createEmulationResult($operation, $amount);
+            }
+            
             return $this->parseResult($result);
             
         } catch (Exception $e) {
@@ -132,7 +128,8 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
      */
     private function createTempDirectory(): string
     {
-        $baseDir = dirname($this->binaryPath);
+        // Используем папку temp в папке bank в корне приложения
+        $baseDir = __DIR__ . '/../../../bank';
         $tempDir = $baseDir . DIRECTORY_SEPARATOR . 'temp';
         
         if (!is_dir($tempDir)) {
@@ -187,19 +184,16 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
     }
 
     /**
-     * Запустить Go-бинарь
+     * Запустить задание планировщика задач Windows
      */
     private function executeBinary(): void
     {
-        $command = '"' . $this->binaryPath . '"';
-        $this->logger->info("Запуск Go-программы: {$command}");
+        $runCmd = "schtasks /run /tn \"{$this->taskName}\"";
         
-        // Запускаем в фоновом режиме для Windows
-        $output = shell_exec($command . " 2>&1");
-        
-        if ($output !== null) {
-            $this->logger->info("Вывод Go-программы: " . trim($output));
-        }
+        $this->logger->info("Запускаю задание планировщика: $runCmd");
+        $output = shell_exec($runCmd . " 2>&1");
+        $output = iconv('CP866', 'UTF-8', $output);
+        $this->logger->info("Ответ от schtasks: $output");
     }
 
     /**
@@ -375,12 +369,14 @@ class GoBankTerminalAdapter implements BankTerminalInterface, HealthCheckable
                 ];
             }
 
-            // Проверяем доступность go-бинаря
-            if (!file_exists($this->binaryPath)) {
+            // Проверяем доступность задания планировщика
+            $checkCmd = "schtasks /query /tn \"{$this->taskName}\" 2>&1";
+            $checkOutput = shell_exec($checkCmd);
+            if (strpos($checkOutput, 'SUCCESS') === false) {
                 return [
                     'status' => 'error',
-                    'message' => 'Go-бинарь банковского терминала не найден',
-                    'details' => ['binary_path' => $this->binaryPath],
+                    'message' => 'Задание планировщика банковского терминала не найдено',
+                    'details' => ['task_name' => $this->taskName],
                     'response_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
                 ];
             }

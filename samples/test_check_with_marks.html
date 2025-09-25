@@ -580,7 +580,23 @@
                     name: item.name,
                     quantity: item.quantity.toString(),
                     price: item.price.toFixed(2),
-                    markingCode: item.hasMarking ? item.markingCode : undefined
+                    ...(item.hasMarking ? {
+                        markingCode: item.markingCode,
+                        ...(item.kktCheck.status && (item.kktCheck.status === 'success' || item.kktCheck.status === 'error') ? {
+                            kktCheckResult: {
+                                status: item.kktCheck.status,
+                                userResult: item.kktCheck.userResult,
+                                machineData: item.kktCheck.machineData
+                            }
+                        } : {}),
+                        ...(item.permitCheck.status && (item.permitCheck.status === 'success' || item.permitCheck.status === 'error') ? {
+                            permitCheckResult: {
+                                status: item.permitCheck.status,
+                                userResult: item.permitCheck.userResult,
+                                machineData: item.permitCheck.machineData
+                            }
+                        } : {})
+                    } : {})
                 })),
                 cashier: cashierName,
                 payments: [

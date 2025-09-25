@@ -45,6 +45,13 @@
     <button class="button" onclick="bankOperationPayment()">Оплата по терминалу</button>
     <button class="button" onclick="bankOperationReturn()">Возврат по терминалу</button>
     <button class="button" onclick="getProgramVersion()">Получить версию программы</button>
+    
+    <div style="margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+        <h3>Проверка марки</h3>
+        <input type="text" id="markInput" placeholder="Введите код марки" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;" value="0104607008480429215KpOL.jHnx6Xm\u001d93kl/E">
+        <button class="button" onclick="checkMark()">Проверить марку</button>
+        <button class="button" onclick="checkPermitMark()">Проверить разрешение маркировки</button>
+    </div>
 
     <div id="status_display" class="result" style="background-color: #f0f0f0; border-color: #ccc;"></div>
     <div id="saved_slip_display" class="result" style="background-color: #e0ffe0; border-color: #ccffcc;"><h3>Сохраненный банковский слип:</h3><pre id="slip_content"></pre></div>
@@ -372,6 +379,56 @@
                 }
             } catch (error) {
                 document.getElementById('status_display').textContent = new Date().toLocaleString() + `: Ошибка: Не удалось установить связь со службой печати чеков (${error.message})`;
+            }
+        }
+
+        async function checkMark() {
+            try {
+                const markCode = document.getElementById('markInput').value.trim();
+                if (!markCode) {
+                    document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: Введите код марки для проверки.';
+                    return;
+                }
+
+                console.log('checkMark:', markCode);
+                const response = await fetch(`${API_URL}/api/check-mark`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        markingCode: markCode
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
+            }
+        }
+
+        async function checkPermitMark() {
+            try {
+                const markCode = document.getElementById('markInput').value.trim();
+                if (!markCode) {
+                    document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: Введите код марки для проверки разрешения маркировки.';
+                    return;
+                }
+
+                console.log('checkPermitMark:', markCode);
+                const response = await fetch(`${API_URL}/api/check-permit-mark`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        permitMark: markCode
+                    })
+                });
+                const data = await response.json();
+                handleJsonResponse(data, 'result');
+            } catch (error) {
+                document.getElementById('result').textContent = new Date().toLocaleString() + ': Ошибка: ' + error.message;
             }
         }
 

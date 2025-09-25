@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_07_05_1216');
+define('VERSION_OF_PROGRAM', '2025_09_25_1416');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -488,7 +488,7 @@ function runServer() {
         } else {
             $logger->warning("Статический файл не найден: $filePath");
             http_response_code(404);
-            echo json_encode(['error' => 'Static file not found']);
+            echo json_encode(['error' => 'Static file not found: ' . $filePath]);
         }
     } elseif ($method === 'OPTIONS') {
         // Для CORS preflight
@@ -496,7 +496,7 @@ function runServer() {
     } else {
         $logger->warning("Эндпоинт не найден: $uri");
         http_response_code(404);
-        echo json_encode(['error' => 'Not found']);
+        echo json_encode(['error' => 'Not found: ' . $uri]);
     }
 }
 

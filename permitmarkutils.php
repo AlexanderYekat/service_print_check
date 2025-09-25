@@ -35,7 +35,7 @@ class PermitMarkCheckGateway
             'machine_data' => [
                 'code' => 0,
                 'uuid' => uniqid(),
-                'time' => date('Y-m-d H:i:s'),
+                'timeStamp' => 3223434343454,
                 'ver' => null,
                 'inst' => null
             ], 

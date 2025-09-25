@@ -330,6 +330,7 @@ class PermitMarkCheckGateway
             
             return [
                 'success' => true,
+                'code' => $result['data']['code'],
                 'message' => $message,
                 'reqId' => $result['data']['reqId'] ?? '',
                 'reqTimestamp' => $result['data']['reqTimestamp'] ?? '',
@@ -472,7 +473,7 @@ class PermitMarkCheckGateway
         $url = rtrim($this->config['lmHost'], '/') . '/api/v1/status';
         $headers = [
             'Authorization: Basic ' . $this->config['lmAuth'],
-            'Content-Type: application/json'
+            'Content-Type: application\\json'
         ];
         
         $this->logger->info("Проверяем готовность ЛМ ЧЗ: " . $url);

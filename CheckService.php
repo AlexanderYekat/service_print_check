@@ -164,23 +164,61 @@ class CheckService {
 
     public function checkPermitMark($permitMark) {
         $this->logger->info("Попытка проверки Разрешительный режим маркировки: " . $permitMark);
-        //return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['permitMark' => ["ok" => true, "text" => "Марка разрешена к продаже, срок годности не истёк"]]];    
+        
         $result = $this->permitMarkCheckGateway->checkPermit($permitMark);
         $this->logger->info("Результат проверки Разрешительный режим маркировки: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+        
         if (!$result['success']) {
             $this->logger->error("Ошибка проверки Разрешительный режим маркировки: " . $result['message']);
-            return ['success' => false, 'message' => $result['message']];
+            return [
+                'success' => false, 
+                'message' => $result['message'],
+                'data' => [
+                    'success' => false,
+                    'response' => [
+                        'user_status' => [
+                            'ok' => false,
+                            'text' => $result['message']
+                        ]
+                    ]
+                ]
+            ];
         }
+        
         $this->logger->info("Разрешительный режим маркировки проверено.");
-        $this->logger->info("Результат проверки Разрешительный режим маркировки: " . json_encode($result, JSON_UNESCAPED_UNICODE));
         
-        // Обрабатываем response - может быть строкой или уже массивом
-        $response = $result;
-        if (is_string($response)) {
-            $response = json_decode($response, true);
+        // Проверяем, есть ли ошибка в результате (например, марка заблокирована)
+        $isBlocked = false;
+        $errorMessage = '';
+        
+        if (isset($result['errorCode']) && $result['errorCode'] !== 0) {
+            $isBlocked = true;
+            $errorMessage = $result['message'] ?? 'Марка заблокирована';
         }
         
-        return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['success' => $result['success'], 'response' => $response]];
+        // Формируем ответ в формате, ожидаемом клиентом
+        $response = [
+            'user_status' => [
+                'ok' => !$isBlocked,
+                'text' => $isBlocked ? $errorMessage : ($result['message'] ?? 'Марка разрешена к продаже')
+            ],
+            'machine_data' => [
+                'code' => $result['code'],
+                'uuid' => $result['reqId'] ?? '',
+                'timeStamp' => $result['reqTimestamp'] ?? '',
+                'ver' => $result['ver'] ?? '',
+                'inst' => $result['inst'] ?? ''
+            ]
+        ];
+        
+        return [
+            'success' => true, 
+            'message' => 'Разрешительный режим маркировки проверено', 
+            'data' => [
+                'success' => true, 
+                'response' => $response
+            ]
+        ];
     }
 
     public function permitCheckCdn() {

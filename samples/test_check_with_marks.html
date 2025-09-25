@@ -283,26 +283,12 @@
                 container.appendChild(itemDiv);
             }
 
-            const kktStatusHtml = item.kktCheck.status ? 
-                `<span class="marking-status status-${item.kktCheck.status}">
-                    ККТ: ${item.kktCheck.status === 'not_checked' ? 'Не проверена' : 
-                      item.kktCheck.status === 'pending' ? 'Проверяется' : 
-                      item.kktCheck.status === 'success' ? 'Проверена ✓' : 'Ошибка ✗'}
-                </span>` : '';
-            
-            const permitStatusHtml = item.permitCheck.status ? 
-                `<span class="marking-status status-${item.permitCheck.status}">
-                    Разрешение: ${item.permitCheck.status === 'not_checked' ? 'Не проверено' : 
-                      item.permitCheck.status === 'pending' ? 'Проверяется' : 
-                      item.permitCheck.status === 'success' ? 'Проверено ✓' : 'Ошибка ✗'}
-                </span>` : '';
+            // Убираем статусы из заголовка - они будут в табло марки
 
             const itemHtml = `
                 <div class="item-header">
                     <div class="item-title">Позиция ${items.indexOf(item) + 1}</div>
                     <div class="item-controls">
-                        ${kktStatusHtml}
-                        ${permitStatusHtml}
                         <button class="button danger small" onclick="removeItem('${item.id}')">Удалить</button>
                     </div>
                 </div>
@@ -332,7 +318,15 @@
                         </div>
                         
                         <div class="marking-type">
-                            <div class="marking-type-title">Проверка на ККТ</div>
+                            <div class="marking-type-title">
+                                Проверка на ККТ
+                                ${item.kktCheck.status ? 
+                                    `<span class="marking-status status-${item.kktCheck.status}" style="margin-left: 10px;">
+                                        ${item.kktCheck.status === 'not_checked' ? 'Не проверена' : 
+                                          item.kktCheck.status === 'pending' ? 'Проверяется' : 
+                                          item.kktCheck.status === 'success' ? 'Проверена ✓' : 'Ошибка ✗'}
+                                    </span>` : ''}
+                            </div>
                             <div class="marking-type-controls">
                                 <button class="button small" onclick="checkMarkingKKT('${item.id}')" ${item.kktCheck.status === 'pending' ? 'disabled' : ''}>
                                     ${item.kktCheck.status === 'pending' ? 'Проверяется...' : 'Проверить на ККТ'}
@@ -350,7 +344,15 @@
                         </div>
                         
                         <div class="marking-type">
-                            <div class="marking-type-title">Проверка разрешительного режима</div>
+                            <div class="marking-type-title">
+                                Проверка разрешительного режима
+                                ${item.permitCheck.status ? 
+                                    `<span class="marking-status status-${item.permitCheck.status}" style="margin-left: 10px;">
+                                        ${item.permitCheck.status === 'not_checked' ? 'Не проверено' : 
+                                          item.permitCheck.status === 'pending' ? 'Проверяется' : 
+                                          item.permitCheck.status === 'success' ? 'Проверено ✓' : 'Ошибка ✗'}
+                                    </span>` : ''}
+                            </div>
                             <div class="marking-type-controls">
                                 <button class="button small" onclick="checkMarkingPermit('${item.id}')" ${item.permitCheck.status === 'pending' ? 'disabled' : ''}>
                                     ${item.permitCheck.status === 'pending' ? 'Проверяется...' : 'Проверить разрешение'}

@@ -46,6 +46,63 @@ class Handler {
         $this->sendHandlerResponse("success", "Чек успешно напечатан", $result['data']);
     }
 
+    public function HandleCheckMarkingCode() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->logger->warning("HandleCheckMarkingCode: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $markingCode = $data['markingCode'] ?? '';
+
+        if (empty($markingCode)) {
+            $this->logger->error("HandleCheckMarkingCode: Отсутствует или пустое значение markingCode.");
+            http_response_code(400);
+            $this->sendHandlerResponse("error", 'Код маркировки не может быть пустым.');
+            return;
+        }
+        $result = $this->checkService->checkMarkingCode($markingCode);
+        if (!$result['success']) {
+            $this->logger->error("HandleCheckMarkingCode: Ошибка проверки кода маркировки: " . $result['message']);
+            http_response_code(500);
+            $this->sendHandlerResponse("error", $result['message']);
+            return;
+        }
+        $this->logger->info("HandleCheckMarkingCode: Код маркировки проверен.");
+        $this->sendHandlerResponse("success", "Код маркировки проверен", $result['data']);
+    }
+
+    public function HandleCheckPermitMark() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->logger->warning("HandleCheckPermitMark: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $permitMark = $data['permitMark'] ?? '';
+
+        if (empty($permitMark)) {
+            $this->logger->error("HandleCheckPermitMark: Отсутствует или пустое значение permitMark.");
+            http_response_code(400);
+            $this->sendHandlerResponse("error", 'Разрешение маркировки не может быть пустым.');
+            return;
+        }
+        $result = $this->checkService->checkPermitMark($permitMark);
+        if (!$result['success']) {
+            $this->logger->error("HandleCheckPermitMark: Ошибка проверки разрешения маркировки: " . $result['message']);
+            http_response_code(500);
+            $this->sendHandlerResponse("error", $result['message']);
+            return;
+        }
+        $this->logger->info("HandleCheckPermitMark: Разрешение маркировки проверено.");
+        $this->sendHandlerResponse("success", "Разрешение маркировки проверено", $result['data']);
+    }
+
     public function HandleCloseShift() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCloseShift: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);

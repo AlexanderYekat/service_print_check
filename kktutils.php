@@ -281,6 +281,132 @@ class TFptr10Driver {
         return [$success, $responseJson, $commandErrorDesc];
     }
 
+    public function checkMarkingCode(string $markingCode) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+        
+        $beginMarkingCodeValidation = $this->beginMarkingCodeValidation($markingCode);
+        if (!$beginMarkingCodeValidation[0]) {
+            return [false, "", $beginMarkingCodeValidation[2]];
+        }
+        $checkMarkingCodeValidation = $this->checkMarkingCodeValidation();
+        if (!$checkMarkingCodeValidation[0]) {
+            return [false, "", $checkMarkingCodeValidation[2]];
+        }
+        $acceptMarkingCode = $this->acceptMarkingCode();
+        if (!$acceptMarkingCode[0]) {
+            return [false, "", $acceptMarkingCode[2]];
+        }
+        $jsonAnswer = $acceptMarkingCode[1];
+
+        return [true, $jsonAnswer, ""]; //true, json_encode($jsonAnswer, JSON_UNESCAPED_UNICODE), ""
+    }
+
+    public function beginMarkingCodeValidation(string $imc) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $beginMarkingCodeValidationJson = json_encode([
+            "type" => "beginMarkingCodeValidation",
+            "params" => [
+                "imcType" => "auto",
+                "imc" => $imc,
+                "itemEstimatedStatus" => "itemPieceSold",
+                "imcModeProcessing" => 0
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) =  $this->sendCommandAndGetAnswerFromKKT($beginMarkingCodeValidationJson);
+        if (!$success) {
+            return [false, "", $commandErrorDesc];
+        }
+
+        return [true, $responseJson, ""];
+    }
+
+    public function checkMarkingCodeValidation()
+    {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $checkMarkingCodeValidationJson = json_encode([
+            "type" => "getMarkingCodeValidationStatus"
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($checkMarkingCodeValidationJson);
+
+        if (!$success) {
+            return [false, "", $commandErrorDesc];
+        }
+
+        return [true, $responseJson, ""];
+    }
+
+    /**
+     * Принимает код маркировки
+     */
+        public function acceptMarkingCode()
+    {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $acceptMarkingCodeJson = json_encode([
+            "type" => "acceptMarkingCode"
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($acceptMarkingCodeJson);
+
+        if (!$success) {
+            return [false, "", $commandErrorDesc];
+        }
+
+        return [true, $responseJson, ""];
+    }
+
+    public function CancelMarkingCodeValidation()
+    {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+        
+        $cancelMarkingCodeValidationJson = json_encode([
+            "type" => "cancelMarkingCodeValidation"
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($cancelMarkingCodeValidationJson);
+        
+        if (!$success) {
+            return [false, "", $commandErrorDesc];
+        }
+
+        return [true, $responseJson, ""];
+    }
+
+    /**
+     * Очищает результат валидации кода маркировки
+     */
+    public function clearMarkingCodeValidationResult()
+    {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $clearMarkingCodeValidationResultJson = json_encode([
+            "type" => "clearMarkingCodeValidationResult"
+        ], JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($clearMarkingCodeValidationResultJson);
+        if (!$success) {
+            return [false, "", $commandErrorDesc];
+        }
+
+        return [true, $responseJson, ""];
+    }
+
     public function sendCommandAndGetAnswerFromKKT($comJson) {
         $err = null;
 
@@ -473,11 +599,11 @@ class TFptr10Driver {
     }
 
     // Геттеры для параметров (если нужны)
-    public function getComport() { return $this->comport; }
-    public function getIpKkt() { return $this->ipKkt; }
-    public function getPortIpKkt() { return $this->portIpKkt; }
-    public function getIpServKkt() { return $this->ipServKkt; }
-    public function getEmulation() { return $this->emulation; }
+    public function getComport():int { return $this->comport; }
+    public function getIpKkt():string { return $this->ipKkt; }
+    public function getPortIpKkt():int { return $this->portIpKkt; }
+    public function getIpServKkt():string { return $this->ipServKkt; }
+    public function getEmulation():bool { return $this->emulation; }
 
     public function CancelReceipt() {
         if ($this->fptr === null) {

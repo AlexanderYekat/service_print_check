@@ -460,6 +460,10 @@ function runServer() {
         ], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/print-check' && $method === 'POST') {
         $fetchHandler->HandlePrintCheck();
+    } elseif ($uri === '/api/check-marking-code' && $method === 'POST') {
+        $fetchHandler->HandleCheckMarkingCode();
+    } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {
+        $fetchHandler->HandleCheckPermitMark();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {
         $fetchHandler->HandleCloseShift();
     } elseif ($uri === '/api/x-report' && $method === 'POST') {

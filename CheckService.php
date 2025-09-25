@@ -4,6 +4,7 @@
 require_once 'kktutils.php';
 require_once 'logger.php'; // Подключаем логгер
 require_once 'scaleutils.php'; // Подключаем утилиты для работы с весами
+require_once 'permitmarkutils.php'; // Подключаем утилиты для работы резрешительным режимом
 
 class CheckService {
     private $FptrDriver;
@@ -11,11 +12,14 @@ class CheckService {
     private $scaleObject;
     private $logger;
 
-    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, ?TBankDriver $bankDriver = null, ?TScale8Driver $scaleObject = null) {
+    private $permitMarkCheckGateway;
+
+    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, ?TBankDriver $bankDriver = null, ?TScale8Driver $scaleObject = null, ?PermitMarkCheckGateway $permitMarkCheckGateway = null) {
         $this->FptrDriver = $FptrDriver;
         $this->logger = $logger;
         $this->bankDriver = $bankDriver;
         $this->scaleObject = $scaleObject;
+        $this->permitMarkCheckGateway = $permitMarkCheckGateway;
     }
 
     /**
@@ -152,6 +156,21 @@ class CheckService {
         $this->logger->info("Попытка 3 печати чека. Результат: " . json_encode($result, JSON_UNESCAPED_UNICODE));
 
         return $result;
+    }
+
+    public function checkMarkingCode($markingCode) {
+        return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode], 'checkMarkingCode');
+    }
+
+    public function checkPermitMark($permitMark) {
+        $result = $this->permitMarkCheckGateway->checkPermit($permitMark);
+        $this->logger->info("Результат проверки разрешения маркировки: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+        if (!$result['success']) {
+            $this->logger->error("Ошибка проверки разрешения маркировки: " . $result['message']);
+            return ['success' => false, 'message' => $result['message']];
+        }
+        $this->logger->info("Разрешение маркировки проверено.");
+        return ['success' => true, 'message' => 'Разрешение маркировки проверено', 'data' => ['permitMark' => $result['data']]];    
     }
 
     /**

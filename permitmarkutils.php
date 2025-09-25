@@ -23,18 +23,26 @@ class PermitMarkCheckGateway
 
     public function checkPermit(string $code, array $context = [])
     {
-        return ['success' => true, 'data' => [
+        return [
+            'success' => true, 
+            'data' => [
+            'success' => true,
+            'response' => [ 
             'user_status' => [
                 'ok' => true,
                 'text' => 'Марка разрешена к продаже, срок годности не истёк'
             ],
             'machine_data' => [
+                'code' => 0,
                 'uuid' => uniqid(),
                 'time' => date('Y-m-d H:i:s'),
-                'permitInfo' => null,
-                'validUntil' => null
+                'ver' => null,
+                'inst' => null
+            ], 
+            'message' => 'Марка разрешена к продаже'
             ]
-        ], 'message' => 'Марка разрешена к продаже'];
+        ]
+    ];
         /*try {
             $response = $this->performApiRequest($code, $context);
             

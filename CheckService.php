@@ -164,7 +164,6 @@ class CheckService {
 
     public function checkPermitMark($permitMark) {
         $this->logger->info("Попытка проверки Разрешительный режим маркировки: " . $permitMark);
-        $result = $this->permitMarkCheckGateway->checkPermit($permitMark);
         //return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['permitMark' => ["ok" => true, "text" => "Марка разрешена к продаже, срок годности не истёк"]]];    
         $result = $this->permitMarkCheckGateway->checkPermit($permitMark);
         $this->logger->info("Результат проверки Разрешительный режим маркировки: " . json_encode($result, JSON_UNESCAPED_UNICODE));
@@ -173,7 +172,14 @@ class CheckService {
             return ['success' => false, 'message' => $result['message']];
         }
         $this->logger->info("Разрешительный режим маркировки проверено.");
-        return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['permitMark' => $result['data']]];   
+        
+        // Обрабатываем response - может быть строкой или уже массивом
+        $response = $result['data']['response'];
+        if (is_string($response)) {
+            $response = json_decode($response, true);
+        }
+        
+        return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['success' => $result['data']['success'], 'response' => $response]];
     }
 
     /**

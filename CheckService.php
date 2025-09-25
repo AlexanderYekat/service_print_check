@@ -172,14 +172,19 @@ class CheckService {
             return ['success' => false, 'message' => $result['message']];
         }
         $this->logger->info("Разрешительный режим маркировки проверено.");
+        $this->logger->info("Результат проверки Разрешительный режим маркировки: " . json_encode($result, JSON_UNESCAPED_UNICODE));
         
         // Обрабатываем response - может быть строкой или уже массивом
-        $response = $result['data']['response'];
+        $response = $result;
         if (is_string($response)) {
             $response = json_decode($response, true);
         }
         
-        return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['success' => $result['data']['success'], 'response' => $response]];
+        return ['success' => true, 'message' => 'Разрешительный режим маркировки проверено', 'data' => ['success' => $result['success'], 'response' => $response]];
+    }
+
+    public function permitCheckCdn() {
+        return $this->permitMarkCheckGateway->checkCdn();
     }
 
     /**

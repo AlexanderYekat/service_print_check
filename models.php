@@ -92,6 +92,9 @@ class Settings {
     public $permitMarkTimeout;
     public $permitMarkCdnUnavailableTime;
     public $permitMarkCdnInfoUrl;
+    public $permitMarkProductionMode;
+    public $permitMarkLmHost;
+    public $permitMarkLmAuth;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -125,6 +128,9 @@ class Settings {
         $this->permitMarkTimeout = 30;
         $this->permitMarkCdnUnavailableTime = 900; // 15 minutes in seconds
         $this->permitMarkCdnInfoUrl = "/api/v4/true-api/cdn/info";
+        $this->permitMarkProductionMode = true;
+        $this->permitMarkLmHost = "http://127.0.0.1:5995";
+        $this->permitMarkLmAuth = "YWRtaW46YWRtaW4="; // admin:admin в base64
     }
 
     public function load(): void {
@@ -164,6 +170,9 @@ class Settings {
         $this->permitMarkTimeout = $data['permitMarkTimeout'] ?? $this->permitMarkTimeout;
         $this->permitMarkCdnUnavailableTime = $data['permitMarkCdnUnavailableTime'] ?? $this->permitMarkCdnUnavailableTime;
         $this->permitMarkCdnInfoUrl = $data['permitMarkCdnInfoUrl'] ?? $this->permitMarkCdnInfoUrl;
+        $this->permitMarkProductionMode = $data['permitMarkProductionMode'] ?? $this->permitMarkProductionMode;
+        $this->permitMarkLmHost = $data['permitMarkLmHost'] ?? $this->permitMarkLmHost;
+        $this->permitMarkLmAuth = $data['permitMarkLmAuth'] ?? $this->permitMarkLmAuth;
     }
 
     public function toArray(): array {
@@ -194,6 +203,9 @@ class Settings {
             'permitMarkTimeout' => $this->permitMarkTimeout,
             'permitMarkCdnUnavailableTime' => $this->permitMarkCdnUnavailableTime,
             'permitMarkCdnInfoUrl' => $this->permitMarkCdnInfoUrl,
+            'permitMarkProductionMode' => $this->permitMarkProductionMode,
+            'permitMarkLmHost' => $this->permitMarkLmHost,
+            'permitMarkLmAuth' => $this->permitMarkLmAuth,
         ];
     }
 

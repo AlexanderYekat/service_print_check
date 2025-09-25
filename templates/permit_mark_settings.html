@@ -422,7 +422,7 @@
                 showLoadingStatus('Проверка CDN-ов...');
                 
                 fetch('/api/permit-mark-check-cdn', {
-                    method: 'POST',
+                    method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     }

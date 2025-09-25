@@ -92,7 +92,17 @@ function runServer() {
         $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
     }
 
-    $permitMark = new PermitMarkCheckGateway($currentSettings->permitMarkBaseUrl, $currentSettings->permitMarkXApiKey, $currentSettings->permitMarkTimeout, $logger);
+    $permitMark = new PermitMarkCheckGateway(
+        $currentSettings->permitMarkXApiKey, 
+        $currentSettings->permitMarkTimeout, 
+        $logger,
+        [
+            'productionMode' => $currentSettings->permitMarkProductionMode ?? false, // По умолчанию sandbox
+            'lmHost' => $currentSettings->permitMarkLmHost ?? 'http://127.0.0.1:5995',
+            'lmAuth' => $currentSettings->permitMarkLmAuth ?? 'YWRtaW46YWRtaW4=',
+            'verifySSL' => true
+        ]
+    );
     
     $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject, $permitMark);
 
@@ -472,11 +482,11 @@ function runServer() {
     } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {
         $fetchHandler->HandleCheckPermitMark();
     } elseif ($uri === '/api/permit-local-module-status' && $method === 'POST') {
-        $fetchHandler->HandlePermitLocalModuleStatus();
+        //$fetchHandler->HandlePermitLocalModuleStatus();
     } elseif ($uri === '/api/permit-local-module-init' && $method === 'POST') {
-        $fetchHandler->HandlePermitLocalModuleInit();
-    } elseif ($uri === '/api/permit-mark-check-cdn' && $method === 'POST') {
-        $fetchHandler->HandlePermitLocalModuleCheckCdn();
+        //$fetchHandler->HandlePermitLocalModuleInit();
+    } elseif ($uri === '/api/permit-mark-check-cdn' && $method === 'GET') {
+        $fetchHandler->HandlePermitCheckCdn();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {
         $fetchHandler->HandleCloseShift();
     } elseif ($uri === '/api/x-report' && $method === 'POST') {

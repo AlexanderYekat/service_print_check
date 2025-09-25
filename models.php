@@ -86,6 +86,8 @@ class Settings {
     public $githubRepoName;
     public $emailForLogs;
 
+    public $permitMarkXApiKey;
+
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
         $this->_setDefaults(); // Вызываем метод установки значений по умолчанию
@@ -112,6 +114,7 @@ class Settings {
         $this->githubRepoOwner = "AlexanderYekat";
         $this->githubRepoName = "service_print_check";
         $this->emailForLogs = "";
+        $this->permitMarkXApiKey = "";
     }
 
     public function load(): void {
@@ -145,6 +148,7 @@ class Settings {
         $this->githubRepoOwner = $data['githubRepoOwner'] ?? $this->githubRepoOwner;
         $this->githubRepoName = $data['githubRepoName'] ?? $this->githubRepoName;
         $this->emailForLogs = $data['emailForLogs'] ?? $this->emailForLogs;
+        $this->permitMarkXApiKey = $data['permitMarkXApiKey'] ?? $this->permitMarkXApiKey;
     }
 
     public function toArray(): array {
@@ -169,6 +173,7 @@ class Settings {
             'githubRepoOwner' => $this->githubRepoOwner,
             'githubRepoName' => $this->githubRepoName,
             'emailForLogs' => $this->emailForLogs,
+            'permitMarkXApiKey' => $this->permitMarkXApiKey,
         ];
     }
 

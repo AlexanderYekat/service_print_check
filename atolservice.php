@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_09_25_1416');
+define('VERSION_OF_PROGRAM', '2025_09_25_1622');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -111,9 +111,14 @@ function runServer() {
         $logger->debug("Запрос на получение полной страницы настроек (для технических специалистов).");
         header('Content-Type: text/html; charset=utf-8');
         readfile(__DIR__ . '/templates/settings.html');
+    } elseif ($uri === '/permit-mark-settings' && $method === 'GET') {
+        $logger->debug("Запрос на получение страницы настроек разрешительного режима маркировки.");
+        header('Content-Type: text/html; charset=utf-8');
+        readfile(__DIR__ . '/templates/permit_mark_settings.html');
     } elseif ($uri === '/api/settings') {
         if ($method === 'GET') {
             $logger->debug("Запрос на получение настроек.");
+            $logger->debug(" $currentSettings->permitMarkXApiKey = " . $currentSettings->permitMarkXApiKey);
             echo json_encode($currentSettings->toArray(), JSON_UNESCAPED_UNICODE);
         } elseif ($method === 'POST') {
             $input = file_get_contents('php://input');
@@ -127,7 +132,7 @@ function runServer() {
                 echo json_encode(['status' => 'success', 'message' => 'Настройки сброшены по умолчанию'], JSON_UNESCAPED_UNICODE);
             } else {
                 // Сохранение обычных настроек
-                $oldClearLogsSetting = $currentSettings->clearLogs; // Сохраняем старое значение
+                //$oldClearLogsSetting = $currentSettings->clearLogs; // Сохраняем старое значение
                 $currentSettings->fillFromArray($data);
                 $currentSettings->save();
                 $currentSettings->load(); // Перечитать настройки после сохранения
@@ -464,6 +469,12 @@ function runServer() {
         $fetchHandler->HandleCheckMarkingCode();
     } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {
         $fetchHandler->HandleCheckPermitMark();
+    } elseif ($uri === '/api/permit-local-module-status' && $method === 'POST') {
+        $fetchHandler->HandlePermitLocalModuleStatus();
+    } elseif ($uri === '/api/permit-local-module-init' && $method === 'POST') {
+        $fetchHandler->HandlePermitLocalModuleInit();
+    } elseif ($uri === '/api/permit-mark-check-cdn' && $method === 'POST') {
+        $fetchHandler->HandlePermitLocalModuleCheckCdn();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {
         $fetchHandler->HandleCloseShift();
     } elseif ($uri === '/api/x-report' && $method === 'POST') {

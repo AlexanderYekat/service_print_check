@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки разрешительного режима маркировки</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --md-sys-color-primary: #6750A4;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #EADDFF;
+            --md-sys-color-on-primary-container: #21005D;
+            --md-sys-color-secondary: #625B71;
+            --md-sys-color-on-secondary: #FFFFFF;
+            --md-sys-color-secondary-container: #E8DEF8;
+            --md-sys-color-on-secondary-container: #1D192B;
+            --md-sys-color-surface: #FFFBFE;
+            --md-sys-color-on-surface: #1C1B1F;
+            --md-sys-color-outline: #79747E;
+            --md-sys-color-error: #B3261E;
+            --md-sys-color-on-error: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        header {
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 400;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 8px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--md-sys-color-primary);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 16px;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #7C6EAE;
+        }
+
+        .back-link .material-icons {
+            font-size: 18px;
+            margin-right: 4px;
+        }
+
+        .form-field {
+            margin-bottom: 32px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--md-sys-color-outline);
+            border-radius: 4px;
+            font-size: 16px;
+            color: var(--md-sys-color-on-surface);
+            background-color: var(--md-sys-color-surface);
+            transition: border-color 0.3s;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--md-sys-color-primary);
+        }
+
+        .password-input {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--md-sys-color-outline);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: color 0.3s;
+        }
+
+        .password-toggle:hover {
+            color: var(--md-sys-color-primary);
+        }
+
+        .helper-text {
+            display: block;
+            font-size: 12px;
+            color: var(--md-sys-color-outline);
+            margin-top: 4px;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 16px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }
+
+        .button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            min-width: 120px;
+        }
+
+        .button.primary {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+
+        .button.primary:hover {
+            background-color: #7C6EAE;
+        }
+
+        .button.secondary {
+            background-color: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+        }
+
+        .button.secondary:hover {
+            background-color: #D8CFF0;
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-section {
+            margin-top: 32px;
+            padding: 16px;
+            border: 1px solid var(--md-sys-color-outline);
+            border-radius: 8px;
+            background-color: var(--md-sys-color-surface);
+        }
+
+        .status-section h3 {
+            margin-top: 0;
+            font-size: 18px;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .status-item {
+            margin-bottom: 12px;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: var(--md-sys-color-secondary-container);
+        }
+
+        .status-item.success {
+            background-color: #E8F5E8;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .status-item.error {
+            background-color: #FFEBEE;
+            border-left: 4px solid var(--md-sys-color-error);
+        }
+
+        .status-item.loading {
+            background-color: #E3F2FD;
+            border-left: 4px solid #2196F3;
+        }
+
+        .status-label {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .status-message {
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--md-sys-color-outline);
+            border-radius: 50%;
+            border-top-color: var(--md-sys-color-primary);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="/settings" class="back-link">
+                <span class="material-icons">arrow_back</span>
+                Вернуться к настройкам
+            </a>
+            <h1>Настройки разрешительного режима маркировки</h1>
+        </header>
+        <main>
+            <form id="permitMarkSettingsForm">
+                <div class="form-field">
+                    <label for="xApiKey">X-API-Key</label>
+                    <div class="password-input">
+                        <input type="password" id="xApiKey" name="xApiKey" class="text-input" placeholder="Введите ваш X-API-Key">
+                        <button type="button" class="password-toggle" onclick="togglePasswordVisibility()">
+                            <span class="material-icons" id="passwordToggleIcon">visibility</span>
+                        </button>
+                    </div>
+                    <span class="helper-text">API ключ для работы с системой разрешительного режима маркировки</span>
+                </div>
+
+                <div class="button-container">
+                    <button type="button" id="getStatusButton" class="button secondary">Получить статус локального модуля</button>
+                    <button type="button" id="initModuleButton" class="button secondary">Инициализировать локальный модуль</button>
+                    <button type="button" id="checkCdnButton" class="button secondary">Проверить CDN-ы</button>
+                    <button type="submit" class="button primary">Сохранить настройки</button>
+                </div>
+
+                <div id="statusSection" class="status-section hidden">
+                    <h3>Результаты проверки</h3>
+                    <div id="statusResults"></div>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('permitMarkSettingsForm');
+            const xApiKeyInput = document.getElementById('xApiKey');
+            const getStatusButton = document.getElementById('getStatusButton');
+            const initModuleButton = document.getElementById('initModuleButton');
+            const checkCdnButton = document.getElementById('checkCdnButton');
+            const statusSection = document.getElementById('statusSection');
+            const statusResults = document.getElementById('statusResults');
+
+            // Загрузка текущих настроек
+            fetch('/api/settings')
+                .then(response => response.json())
+                .then(settings => {
+                    if (settings.permitMarkXApiKey) {
+                        xApiKeyInput.value = settings.permitMarkXApiKey;
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке настроек:', error);
+                });
+
+            // Обработка отправки формы
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const xApiKey = xApiKeyInput.value.trim();
+
+                fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ permitMarkXApiKey: xApiKey }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Ответ сервера на сохранение:', data);
+                    alert('Настройки разрешительного режима маркировки сохранены успешно!');
+                })
+                .catch((error) => {
+                    console.error('Ошибка:', error);
+                    alert('Произошла ошибка при сохранении настроек.');
+                });
+            });
+
+            // Обработка кнопки "Получить статус локального модуля"
+            getStatusButton.addEventListener('click', function() {
+                showLoadingStatus('Получение статуса локального модуля...');
+                
+                fetch('/api/permit-local-module-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showStatusResult('Статус локального модуля', data.success, data.message, data.data);
+                })
+                .catch(error => {
+                    showStatusResult('Статус локального модуля', false, 'Ошибка: ' + error.message);
+                });
+            });
+
+            // Обработка кнопки "Инициализировать локальный модуль"
+            initModuleButton.addEventListener('click', function() {
+                showLoadingStatus('Инициализация локального модуля...');
+                
+                fetch('/api/permit-local-module-init', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showStatusResult('Инициализация локального модуля', data.success, data.message, data.data);
+                })
+                .catch(error => {
+                    showStatusResult('Инициализация локального модуля', false, 'Ошибка: ' + error.message);
+                });
+            });
+
+            // Обработка кнопки "Проверить CDN-ы"
+            checkCdnButton.addEventListener('click', function() {
+                showLoadingStatus('Проверка CDN-ов...');
+                
+                fetch('/api/permit-mark-check-cdn', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showStatusResult('Проверка CDN-ов', data.success, data.message, data.data);
+                })
+                .catch(error => {
+                    showStatusResult('Проверка CDN-ов', false, 'Ошибка: ' + error.message);
+                });
+            });
+
+            function showLoadingStatus(message) {
+                statusSection.classList.remove('hidden');
+                statusResults.innerHTML = `
+                    <div class="status-item loading">
+                        <div class="status-label">
+                            <span class="loading-spinner"></span>
+                            ${message}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function showStatusResult(title, success, message, data = null) {
+                statusSection.classList.remove('hidden');
+                const statusClass = success ? 'success' : 'error';
+                let resultHtml = `
+                    <div class="status-item ${statusClass}">
+                        <div class="status-label">${title}</div>
+                        <div class="status-message">${message}</div>
+                `;
+                
+                if (data) {
+                    resultHtml += `<div class="status-message" style="margin-top: 8px; font-family: monospace; font-size: 12px;">${JSON.stringify(data, null, 2)}</div>`;
+                }
+                
+                resultHtml += '</div>';
+                statusResults.innerHTML = resultHtml;
+            }
+
+            // Функция переключения видимости пароля
+            window.togglePasswordVisibility = function() {
+                const passwordInput = document.getElementById('xApiKey');
+                const toggleIcon = document.getElementById('passwordToggleIcon');
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    toggleIcon.textContent = 'visibility_off';
+                } else {
+                    passwordInput.type = 'password';
+                    toggleIcon.textContent = 'visibility';
+                }
+            };
+        });
+    </script>
+</body>
+</html>

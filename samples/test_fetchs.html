@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Тест сервиса печати чеков 2025.06.17.01</title>
+    <title>Тест сервиса печати чеков 2025.09.25.1430</title>
     <meta charset="UTF-8">
     <style>
         body {
@@ -391,7 +391,7 @@
                 }
 
                 console.log('checkMark:', markCode);
-                const response = await fetch(`${API_URL}/api/check-mark`, {
+                const response = await fetch(`${API_URL}/api/check-marking-code`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

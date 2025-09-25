@@ -10,9 +10,12 @@ class Handler {
     private $checkService;
     private $logger; // Добавляем свойство для логгера
 
-    public function __construct(CheckService $checkService, Logger $logger) {
+    private $permitMark;
+
+    public function __construct(CheckService $checkService, Logger $logger, $permitMark) {
         $this->checkService = $checkService;
         $this->logger = $logger; // Инициализируем логгер
+        $this->permitMark = $permitMark;
     }
 
     public function HandlePrintCheck() {

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест печати чека с маркировкой</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .button.secondary {
+            background-color: #2196F3;
+        }
+        .button.danger {
+            background-color: #f44336;
+        }
+        .button.small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .item-row {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .item-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .item-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .item-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .marking-section {
+            background-color: #e8f4fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .marking-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .marking-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .check-summary {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border: 1px solid #b0d4f1;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .summary-total {
+            font-weight: bold;
+            font-size: 18px;
+            border-top: 2px solid #333;
+            padding-top: 10px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <a href="test_fetchs.html" class="back-link">← Вернуться к основным тестам</a>
+    
+    <h1>Тест печати чека с маркировкой</h1>
+    
+    <div class="check-summary">
+        <h3>Сводка по чеку</h3>
+        <div class="summary-row">
+            <span>Количество позиций:</span>
+            <span id="itemsCount">0</span>
+        </div>
+        <div class="summary-row">
+            <span>Сумма наличными:</span>
+            <span id="cashTotal">0.00 ₽</span>
+        </div>
+        <div class="summary-row">
+            <span>Сумма безналом:</span>
+            <span id="cardTotal">0.00 ₽</span>
+        </div>
+        <div class="summary-total">
+            <span>Итого:</span>
+            <span id="grandTotal">0.00 ₽</span>
+        </div>
+    </div>
+
+    <div id="itemsContainer">
+        <!-- Позиции будут добавляться динамически -->
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button class="button" onclick="addItem()">Добавить позицию</button>
+        <button class="button secondary" onclick="addMarkedItem()">Добавить позицию с маркой</button>
+        <button class="button danger" onclick="clearAllItems()">Очистить все</button>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <h3>Печать чека</h3>
+        <div class="form-group">
+            <label for="cashierName">Имя кассира:</label>
+            <input type="text" id="cashierName" value="Иван Иванов">
+        </div>
+        <button class="button" onclick="printCheck()" style="font-size: 18px; padding: 15px 30px;">Отправить чек на печать</button>
+    </div>
+
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let itemCounter = 0;
+        let items = [];
+
+        // Шаблоны тестовых данных
+        const testItems = [
+            { name: "Хлеб белый", price: 45.50, quantity: 2, markingCode: "" },
+            { name: "Молоко 1л", price: 89.90, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E" },
+            { name: "Сыр российский", price: 320.00, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E" },
+            { name: "Колбаса докторская", price: 450.00, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E" },
+            { name: "Яблоки", price: 120.00, quantity: 3, markingCode: "" }
+        ];
+
+        function addItem() {
+            const testItem = testItems[itemCounter % testItems.length];
+            addItemToContainer(testItem.name, testItem.price, testItem.quantity, "", false);
+        }
+
+        function addMarkedItem() {
+            const testItem = testItems[itemCounter % testItems.length];
+            addItemToContainer(testItem.name, testItem.price, testItem.quantity, testItem.markingCode, true);
+        }
+
+        function addItemToContainer(name, price, quantity, markingCode, hasMarking) {
+            const itemId = `item_${itemCounter++}`;
+            const item = {
+                id: itemId,
+                name: name,
+                price: parseFloat(price),
+                quantity: parseInt(quantity),
+                markingCode: markingCode,
+                hasMarking: hasMarking,
+                markingStatus: hasMarking ? 'pending' : null,
+                markingResult: null
+            };
+            items.push(item);
+            renderItem(item);
+            updateSummary();
+        }
+
+        function renderItem(item) {
+            const container = document.getElementById('itemsContainer');
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'item-row';
+            itemDiv.id = item.id;
+
+            const markingStatusHtml = item.markingStatus ? 
+                `<span class="marking-status status-${item.markingStatus}">
+                    ${item.markingStatus === 'pending' ? 'Ожидает проверки' : 
+                      item.markingStatus === 'success' ? 'Проверена ✓' : 'Ошибка проверки ✗'}
+                </span>` : '';
+
+            itemDiv.innerHTML = `
+                <div class="item-header">
+                    <div class="item-title">Позиция ${items.indexOf(item) + 1}</div>
+                    <div class="item-controls">
+                        ${markingStatusHtml}
+                        <button class="button danger small" onclick="removeItem('${item.id}')">Удалить</button>
+                    </div>
+                </div>
+                <div class="item-fields">
+                    <div class="form-group">
+                        <label>Название</label>
+                        <input type="text" value="${item.name}" onchange="updateItem('${item.id}', 'name', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Цена</label>
+                        <input type="number" step="0.01" value="${item.price}" onchange="updateItem('${item.id}', 'price', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Количество</label>
+                        <input type="number" value="${item.quantity}" onchange="updateItem('${item.id}', 'quantity', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Сумма</label>
+                        <input type="text" value="${(item.price * item.quantity).toFixed(2)} ₽" readonly>
+                    </div>
+                </div>
+                ${item.hasMarking ? `
+                    <div class="marking-section">
+                        <div class="form-group">
+                            <label>Код маркировки</label>
+                            <input type="text" value="${item.markingCode}" onchange="updateItem('${item.id}', 'markingCode', this.value)" placeholder="Введите код маркировки">
+                        </div>
+                        <div class="marking-controls">
+                            <button class="button small" onclick="checkMarking('${item.id}')" ${item.markingStatus === 'pending' ? 'disabled' : ''}>
+                                ${item.markingStatus === 'pending' ? 'Проверяется...' : 'Проверить марку'}
+                            </button>
+                            <button class="button secondary small" onclick="toggleMarking('${item.id}')">
+                                ${item.hasMarking ? 'Убрать маркировку' : 'Добавить маркировку'}
+                            </button>
+                        </div>
+                        ${item.markingResult ? `
+                            <div style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px;">
+                                <strong>Результат проверки:</strong><br>
+                                <pre style="font-size: 12px; margin: 5px 0;">${JSON.stringify(item.markingResult, null, 2)}</pre>
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : `
+                    <div style="text-align: center; margin-top: 10px;">
+                        <button class="button secondary small" onclick="toggleMarking('${item.id}')">Добавить маркировку</button>
+                    </div>
+                `}
+            `;
+            container.appendChild(itemDiv);
+        }
+
+        function updateItem(itemId, field, value) {
+            const item = items.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (field === 'price' || field === 'quantity') {
+                item[field] = parseFloat(value);
+            } else {
+                item[field] = value;
+            }
+
+            // Перерисовываем позицию
+            const itemDiv = document.getElementById(itemId);
+            itemDiv.remove();
+            renderItem(item);
+            updateSummary();
+        }
+
+        function toggleMarking(itemId) {
+            const item = items.find(i => i.id === itemId);
+            if (!item) return;
+
+            item.hasMarking = !item.hasMarking;
+            if (!item.hasMarking) {
+                item.markingCode = '';
+                item.markingStatus = null;
+                item.markingResult = null;
+            } else {
+                item.markingCode = testItems[0].markingCode; // Устанавливаем тестовый код
+                item.markingStatus = 'pending';
+            }
+
+            // Перерисовываем позицию
+            const itemDiv = document.getElementById(itemId);
+            itemDiv.remove();
+            renderItem(item);
+        }
+
+        async function checkMarking(itemId) {
+            const item = items.find(i => i.id === itemId);
+            if (!item || !item.markingCode) return;
+
+            item.markingStatus = 'pending';
+            renderItem(item);
+
+            try {
+                const response = await fetch(`${API_URL}/api/check-marking-code`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        markingCode: item.markingCode
+                    })
+                });
+                const data = await response.json();
+                
+                item.markingStatus = data.success ? 'success' : 'error';
+                item.markingResult = data;
+                renderItem(item);
+            } catch (error) {
+                item.markingStatus = 'error';
+                item.markingResult = { error: error.message };
+                renderItem(item);
+            }
+        }
+
+        function removeItem(itemId) {
+            items = items.filter(i => i.id !== itemId);
+            document.getElementById(itemId).remove();
+            updateSummary();
+        }
+
+        function clearAllItems() {
+            if (confirm('Вы уверены, что хотите удалить все позиции?')) {
+                items = [];
+                document.getElementById('itemsContainer').innerHTML = '';
+                updateSummary();
+            }
+        }
+
+        function updateSummary() {
+            const itemsCount = items.length;
+            const cashTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const cardTotal = 0; // Пока только наличные
+
+            document.getElementById('itemsCount').textContent = itemsCount;
+            document.getElementById('cashTotal').textContent = cashTotal.toFixed(2) + ' ₽';
+            document.getElementById('cardTotal').textContent = cardTotal.toFixed(2) + ' ₽';
+            document.getElementById('grandTotal').textContent = (cashTotal + cardTotal).toFixed(2) + ' ₽';
+        }
+
+        async function printCheck() {
+            if (items.length === 0) {
+                alert('Добавьте хотя бы одну позицию в чек');
+                return;
+            }
+
+            const cashierName = document.getElementById('cashierName').value.trim();
+            if (!cashierName) {
+                alert('Введите имя кассира');
+                return;
+            }
+
+            // Проверяем, что все марки проверены
+            const uncheckedMarks = items.filter(item => item.hasMarking && item.markingStatus !== 'success');
+            if (uncheckedMarks.length > 0) {
+                if (!confirm(`Есть непроверенные марки (${uncheckedMarks.length} шт.). Продолжить печать?`)) {
+                    return;
+                }
+            }
+
+            const checkData = {
+                tableData: items.map(item => ({
+                    name: item.name,
+                    quantity: item.quantity.toString(),
+                    price: item.price.toFixed(2),
+                    markingCode: item.hasMarking ? item.markingCode : undefined
+                })),
+                cashier: cashierName,
+                payments: [
+                    {
+                        type: 'cash',
+                        amount: parseFloat(document.getElementById('grandTotal').textContent.replace(' ₽', ''))
+                    }
+                ],
+                type: 'sell'
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/api/print-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(checkData)
+                });
+                const data = await response.json();
+                
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h3>Результат печати чека:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h3>Ошибка печати чека:</h3>
+                    <p style="color: red;">${error.message}</p>
+                `;
+            }
+        }
+
+        // Инициализация - добавляем одну тестовую позицию
+        window.onload = function() {
+            addItem();
+        };
+    </script>
+</body>
+</html>

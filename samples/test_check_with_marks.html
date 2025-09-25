@@ -201,6 +201,26 @@
     </div>
 
     <div id="itemsContainer">
+        <!-- Глобальная панель проверки марок -->
+        <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <h3 style="margin: 0;">Проверка марок</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="button secondary" onclick="checkAllMarks()" id="checkAllButton">Запустить все проверки</button>
+                    <div id="globalCheckStatus" class="marking-status status-not_checked">Все марки: Не проверено</div>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
+                <div>
+                    <strong>ККТ:</strong> 
+                    <span id="kktGlobalStatus" class="marking-status status-not_checked">Не проверено</span>
+                </div>
+                <div>
+                    <strong>Разрешение:</strong> 
+                    <span id="permitGlobalStatus" class="marking-status status-not_checked">Не проверено</span>
+                </div>
+            </div>
+        </div>
         <!-- Позиции будут добавляться динамически -->
     </div>
 
@@ -418,6 +438,7 @@
 
             // Перерисовываем позицию
             renderItem(item);
+            updateGlobalCheckStatus();
         }
 
         async function checkMarkingKKT(itemId) {
@@ -462,11 +483,13 @@
                 }
                 
                 renderItem(item);
+                updateGlobalCheckStatus();
             } catch (error) {
                 item.kktCheck.status = 'error';
                 item.kktCheck.userResult = '[М-] Ошибка: ' + error.message;
                 item.kktCheck.machineData = { error: error.message };
                 renderItem(item);
+                updateGlobalCheckStatus();
             }
         }
 
@@ -517,11 +540,13 @@
                 }
                 
                 renderItem(item);
+                updateGlobalCheckStatus();
             } catch (error) {
                 item.permitCheck.status = 'error';
                 item.permitCheck.userResult = '✗ Ошибка: ' + error.message;
                 item.permitCheck.machineData = { error: error.message };
                 renderItem(item);
+                updateGlobalCheckStatus();
             }
         }
 
@@ -548,6 +573,119 @@
             document.getElementById('cashTotal').textContent = cashTotal.toFixed(2) + ' ₽';
             document.getElementById('cardTotal').textContent = cardTotal.toFixed(2) + ' ₽';
             document.getElementById('grandTotal').textContent = (cashTotal + cardTotal).toFixed(2) + ' ₽';
+            
+            // Обновляем глобальные статусы проверки
+            updateGlobalCheckStatus();
+        }
+
+        function updateGlobalCheckStatus() {
+            const markedItems = items.filter(item => item.hasMarking);
+            
+            if (markedItems.length === 0) {
+                document.getElementById('globalCheckStatus').textContent = 'Все марки: Нет марок';
+                document.getElementById('globalCheckStatus').className = 'marking-status status-not_checked';
+                document.getElementById('kktGlobalStatus').textContent = 'Нет марок';
+                document.getElementById('kktGlobalStatus').className = 'marking-status status-not_checked';
+                document.getElementById('permitGlobalStatus').textContent = 'Нет марок';
+                document.getElementById('permitGlobalStatus').className = 'marking-status status-not_checked';
+                return;
+            }
+
+            // Статус ККТ проверки
+            const kktStatuses = markedItems.map(item => item.kktCheck.status).filter(status => status);
+            const kktNotChecked = kktStatuses.filter(status => status === 'not_checked').length;
+            const kktPending = kktStatuses.filter(status => status === 'pending').length;
+            const kktSuccess = kktStatuses.filter(status => status === 'success').length;
+            const kktError = kktStatuses.filter(status => status === 'error').length;
+
+            if (kktPending > 0) {
+                document.getElementById('kktGlobalStatus').textContent = `Проверяется (${kktPending})`;
+                document.getElementById('kktGlobalStatus').className = 'marking-status status-pending';
+            } else if (kktError > 0) {
+                document.getElementById('kktGlobalStatus').textContent = `Ошибки (${kktError})`;
+                document.getElementById('kktGlobalStatus').className = 'marking-status status-error';
+            } else if (kktSuccess === kktStatuses.length) {
+                document.getElementById('kktGlobalStatus').textContent = `Проверено (${kktSuccess})`;
+                document.getElementById('kktGlobalStatus').className = 'marking-status status-success';
+            } else {
+                document.getElementById('kktGlobalStatus').textContent = `Не проверено (${kktNotChecked})`;
+                document.getElementById('kktGlobalStatus').className = 'marking-status status-not_checked';
+            }
+
+            // Статус разрешительного режима
+            const permitStatuses = markedItems.map(item => item.permitCheck.status).filter(status => status);
+            const permitNotChecked = permitStatuses.filter(status => status === 'not_checked').length;
+            const permitPending = permitStatuses.filter(status => status === 'pending').length;
+            const permitSuccess = permitStatuses.filter(status => status === 'success').length;
+            const permitError = permitStatuses.filter(status => status === 'error').length;
+
+            if (permitPending > 0) {
+                document.getElementById('permitGlobalStatus').textContent = `Проверяется (${permitPending})`;
+                document.getElementById('permitGlobalStatus').className = 'marking-status status-pending';
+            } else if (permitError > 0) {
+                document.getElementById('permitGlobalStatus').textContent = `Ошибки (${permitError})`;
+                document.getElementById('permitGlobalStatus').className = 'marking-status status-error';
+            } else if (permitSuccess === permitStatuses.length) {
+                document.getElementById('permitGlobalStatus').textContent = `Проверено (${permitSuccess})`;
+                document.getElementById('permitGlobalStatus').className = 'marking-status status-success';
+            } else {
+                document.getElementById('permitGlobalStatus').textContent = `Не проверено (${permitNotChecked})`;
+                document.getElementById('permitGlobalStatus').className = 'marking-status status-not_checked';
+            }
+
+            // Общий статус
+            const totalPending = kktPending + permitPending;
+            const totalError = kktError + permitError;
+            const totalSuccess = kktSuccess + permitSuccess;
+            const totalNotChecked = kktNotChecked + permitNotChecked;
+
+            if (totalPending > 0) {
+                document.getElementById('globalCheckStatus').textContent = `Все марки: Проверяется (${totalPending})`;
+                document.getElementById('globalCheckStatus').className = 'marking-status status-pending';
+            } else if (totalError > 0) {
+                document.getElementById('globalCheckStatus').textContent = `Все марки: Ошибки (${totalError})`;
+                document.getElementById('globalCheckStatus').className = 'marking-status status-error';
+            } else if (totalSuccess === (kktStatuses.length + permitStatuses.length)) {
+                document.getElementById('globalCheckStatus').textContent = `Все марки: Проверено (${totalSuccess})`;
+                document.getElementById('globalCheckStatus').className = 'marking-status status-success';
+            } else {
+                document.getElementById('globalCheckStatus').textContent = `Все марки: Не проверено (${totalNotChecked})`;
+                document.getElementById('globalCheckStatus').className = 'marking-status status-not_checked';
+            }
+        }
+
+        async function checkAllMarks() {
+            const markedItems = items.filter(item => item.hasMarking);
+            
+            if (markedItems.length === 0) {
+                alert('Нет позиций с маркировкой для проверки');
+                return;
+            }
+
+            const checkAllButton = document.getElementById('checkAllButton');
+            checkAllButton.disabled = true;
+            checkAllButton.textContent = 'Проверяется...';
+
+            // Запускаем все проверки параллельно
+            const allChecks = [];
+            
+            for (const item of markedItems) {
+                if (item.kktCheck.status === 'not_checked') {
+                    allChecks.push(checkMarkingKKT(item.id));
+                }
+                if (item.permitCheck.status === 'not_checked') {
+                    allChecks.push(checkMarkingPermit(item.id));
+                }
+            }
+
+            try {
+                await Promise.all(allChecks);
+            } catch (error) {
+                console.error('Ошибка при проверке марок:', error);
+            } finally {
+                checkAllButton.disabled = false;
+                checkAllButton.textContent = 'Запустить все проверки';
+            }
         }
 
         async function printCheck() {

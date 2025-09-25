@@ -13,7 +13,7 @@ class PermitMarkCheckGateway
     private int $timeout;
     private Logger $logger;
 
-    public function __construct(string $apiUrl = "", string $apiKey = "", int $timeout = 30, Logger $logger)
+    public function __construct(string $apiUrl, string $apiKey, int $timeout, Logger $logger)
     {
         $this->apiUrl = $apiUrl;
         $this->apiKey = $apiKey;
@@ -23,8 +23,7 @@ class PermitMarkCheckGateway
 
     public function checkPermit(string $code, array $context = [])
     {
-        return true;
-        /*return ['success' => true, 'data' => [
+        return ['success' => true, 'data' => [
             'user_status' => [
                 'ok' => true,
                 'text' => 'Марка разрешена к продаже, срок годности не истёк'
@@ -35,7 +34,7 @@ class PermitMarkCheckGateway
                 'permitInfo' => null,
                 'validUntil' => null
             ]
-        ], 'message' => 'Марка разрешена к продаже'];*/
+        ], 'message' => 'Марка разрешена к продаже'];
         /*try {
             $response = $this->performApiRequest($code, $context);
             

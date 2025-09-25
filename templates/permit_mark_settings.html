@@ -253,6 +253,36 @@
                     <span class="helper-text">API ключ для работы с системой разрешительного режима маркировки</span>
                 </div>
 
+                <div class="form-field">
+                    <label for="baseUrl">Base URL честного знака</label>
+                    <input type="text" id="baseUrl" name="baseUrl" class="text-input" placeholder="cdn.crpt.ru">
+                    <span class="helper-text">Базовый URL для обращения к сервисам честного знака</span>
+                </div>
+
+                <div class="form-field">
+                    <label for="localHost">Хост локального модуля</label>
+                    <input type="text" id="localHost" name="localHost" class="text-input" placeholder="127.0.0.1:5995">
+                    <span class="helper-text">Адрес и порт локального модуля разрешительного режима</span>
+                </div>
+
+                <div class="form-field">
+                    <label for="timeout">Таймаут проверки (секунды)</label>
+                    <input type="number" id="timeout" name="timeout" class="text-input" placeholder="30" min="1" max="300">
+                    <span class="helper-text">Время ожидания ответа при проверке маркировки (1-300 секунд)</span>
+                </div>
+
+                <div class="form-field">
+                    <label for="cdnUnavailableTime">Время недоступности CDN (минуты)</label>
+                    <input type="number" id="cdnUnavailableTime" name="cdnUnavailableTime" class="text-input" placeholder="15" min="1" max="1440">
+                    <span class="helper-text">Время, на которое CDN считается недоступным после ошибки (1-1440 минут)</span>
+                </div>
+
+                <div class="form-field">
+                    <label for="cdnInfoUrl">URL получения списка CDN</label>
+                    <input type="text" id="cdnInfoUrl" name="cdnInfoUrl" class="text-input" placeholder="/api/v4/true-api/cdn/info">
+                    <span class="helper-text">Путь для получения информации о доступных CDN серверах</span>
+                </div>
+
                 <div class="button-container">
                     <button type="button" id="getStatusButton" class="button secondary">Получить статус локального модуля</button>
                     <button type="button" id="initModuleButton" class="button secondary">Инициализировать локальный модуль</button>
@@ -272,6 +302,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('permitMarkSettingsForm');
             const xApiKeyInput = document.getElementById('xApiKey');
+            const baseUrlInput = document.getElementById('baseUrl');
+            const localHostInput = document.getElementById('localHost');
+            const timeoutInput = document.getElementById('timeout');
+            const cdnUnavailableTimeInput = document.getElementById('cdnUnavailableTime');
+            const cdnInfoUrlInput = document.getElementById('cdnInfoUrl');
             const getStatusButton = document.getElementById('getStatusButton');
             const initModuleButton = document.getElementById('initModuleButton');
             const checkCdnButton = document.getElementById('checkCdnButton');
@@ -285,6 +320,22 @@
                     if (settings.permitMarkXApiKey) {
                         xApiKeyInput.value = settings.permitMarkXApiKey;
                     }
+                    if (settings.permitMarkBaseUrl) {
+                        baseUrlInput.value = settings.permitMarkBaseUrl;
+                    }
+                    if (settings.permitMarkLocalHost) {
+                        localHostInput.value = settings.permitMarkLocalHost;
+                    }
+                    if (settings.permitMarkTimeout) {
+                        timeoutInput.value = settings.permitMarkTimeout;
+                    }
+                    if (settings.permitMarkCdnUnavailableTime) {
+                        // Convert seconds to minutes for display
+                        cdnUnavailableTimeInput.value = Math.round(settings.permitMarkCdnUnavailableTime / 60);
+                    }
+                    if (settings.permitMarkCdnInfoUrl) {
+                        cdnInfoUrlInput.value = settings.permitMarkCdnInfoUrl;
+                    }
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке настроек:', error);
@@ -294,13 +345,28 @@
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const xApiKey = xApiKeyInput.value.trim();
+                const baseUrl = baseUrlInput.value.trim();
+                const localHost = localHostInput.value.trim();
+                const timeout = parseInt(timeoutInput.value) || 30;
+                const cdnUnavailableTimeMinutes = parseInt(cdnUnavailableTimeInput.value) || 15;
+                const cdnInfoUrl = cdnInfoUrlInput.value.trim();
+
+                // Convert minutes to seconds for storage
+                const cdnUnavailableTimeSeconds = cdnUnavailableTimeMinutes * 60;
 
                 fetch('/api/settings', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ permitMarkXApiKey: xApiKey }),
+                    body: JSON.stringify({ 
+                        permitMarkXApiKey: xApiKey,
+                        permitMarkBaseUrl: baseUrl,
+                        permitMarkLocalHost: localHost,
+                        permitMarkTimeout: timeout,
+                        permitMarkCdnUnavailableTime: cdnUnavailableTimeSeconds,
+                        permitMarkCdnInfoUrl: cdnInfoUrl
+                    }),
                 })
                 .then(response => response.json())
                 .then(data => {

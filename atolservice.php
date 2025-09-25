@@ -92,11 +92,14 @@ function runServer() {
         $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
     }
 
-    $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject);
+    $permitMark = new PermitMarkCheckGateway($currentSettings->permitMarkBaseUrl, $currentSettings->permitMarkXApiKey, $currentSettings->permitMarkTimeout, $logger);
+    
+    $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject, $permitMark);
 
     $fetchHandler = new Handler(
         $checkService, 
-        $logger
+        $logger,
+        $currentSettings->permitMarkXApiKey
     );
 
     $uri = $_SERVER['REQUEST_URI'];
@@ -118,7 +121,6 @@ function runServer() {
     } elseif ($uri === '/api/settings') {
         if ($method === 'GET') {
             $logger->debug("Запрос на получение настроек.");
-            $logger->debug(" $currentSettings->permitMarkXApiKey = " . $currentSettings->permitMarkXApiKey);
             echo json_encode($currentSettings->toArray(), JSON_UNESCAPED_UNICODE);
         } elseif ($method === 'POST') {
             $input = file_get_contents('php://input');

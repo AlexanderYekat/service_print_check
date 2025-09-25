@@ -87,6 +87,11 @@ class Settings {
     public $emailForLogs;
 
     public $permitMarkXApiKey;
+    public $permitMarkBaseUrl;
+    public $permitMarkLocalHost;
+    public $permitMarkTimeout;
+    public $permitMarkCdnUnavailableTime;
+    public $permitMarkCdnInfoUrl;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -115,6 +120,11 @@ class Settings {
         $this->githubRepoName = "service_print_check";
         $this->emailForLogs = "";
         $this->permitMarkXApiKey = "";
+        $this->permitMarkBaseUrl = "cdn.crpt.ru";
+        $this->permitMarkLocalHost = "127.0.0.1:5995";
+        $this->permitMarkTimeout = 30;
+        $this->permitMarkCdnUnavailableTime = 900; // 15 minutes in seconds
+        $this->permitMarkCdnInfoUrl = "/api/v4/true-api/cdn/info";
     }
 
     public function load(): void {
@@ -149,6 +159,11 @@ class Settings {
         $this->githubRepoName = $data['githubRepoName'] ?? $this->githubRepoName;
         $this->emailForLogs = $data['emailForLogs'] ?? $this->emailForLogs;
         $this->permitMarkXApiKey = $data['permitMarkXApiKey'] ?? $this->permitMarkXApiKey;
+        $this->permitMarkBaseUrl = $data['permitMarkBaseUrl'] ?? $this->permitMarkBaseUrl;
+        $this->permitMarkLocalHost = $data['permitMarkLocalHost'] ?? $this->permitMarkLocalHost;
+        $this->permitMarkTimeout = $data['permitMarkTimeout'] ?? $this->permitMarkTimeout;
+        $this->permitMarkCdnUnavailableTime = $data['permitMarkCdnUnavailableTime'] ?? $this->permitMarkCdnUnavailableTime;
+        $this->permitMarkCdnInfoUrl = $data['permitMarkCdnInfoUrl'] ?? $this->permitMarkCdnInfoUrl;
     }
 
     public function toArray(): array {
@@ -174,6 +189,11 @@ class Settings {
             'githubRepoName' => $this->githubRepoName,
             'emailForLogs' => $this->emailForLogs,
             'permitMarkXApiKey' => $this->permitMarkXApiKey,
+            'permitMarkBaseUrl' => $this->permitMarkBaseUrl,
+            'permitMarkLocalHost' => $this->permitMarkLocalHost,
+            'permitMarkTimeout' => $this->permitMarkTimeout,
+            'permitMarkCdnUnavailableTime' => $this->permitMarkCdnUnavailableTime,
+            'permitMarkCdnInfoUrl' => $this->permitMarkCdnInfoUrl,
         ];
     }
 

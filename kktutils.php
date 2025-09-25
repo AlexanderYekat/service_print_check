@@ -308,6 +308,18 @@ class TFptr10Driver {
             return [false, "", "Драйвер не инициализирован"];
         }
 
+        // В режиме эмуляции возвращаем мок-ответ
+        if ($this->emulation) {
+            $mockResponse = [
+                "offlineValidation" => [
+                    "fmCheck" => true,
+                    "fmCheckResult" => false,
+                    "fmCheckErrorReason" => "noKeys"
+                ]
+            ];
+            return [true, json_encode($mockResponse, JSON_UNESCAPED_UNICODE), ""];
+        }
+
         $beginMarkingCodeValidationJson = json_encode([
             "type" => "beginMarkingCodeValidation",
             "params" => [
@@ -332,6 +344,35 @@ class TFptr10Driver {
             return [false, "", "Драйвер не инициализирован"];
         }
 
+        // В режиме эмуляции возвращаем мок-ответ
+        if ($this->emulation) {
+            $mockResponse = [
+                "ready" => true,
+                "sentImcRequest" => true,
+                "driverError" => [
+                    "code" => 0
+                ],
+                "onlineValidation" => [
+                    "itemInfoCheckResult" => [
+                        "imcCheckFlag" => true,
+                        "imcCheckResult" => true,
+                        "imcStatusInfo" => true,
+                        "ecrStandAloneFlag" => true
+                    ],
+                    "markOperatorItemStatus" => "itemEstimatedStatusCorrect",
+                    "markOperatorResponse" => [
+                        "responseStatus" => true,
+                        "itemStatusCheck" => true
+                    ],
+                    "markOperatorResponseResult" => "correct",
+                    "imcType" => "imcFmVerifyCode88",
+                    "imcBarcode" => "MDEwMjkwMDAwMDQ3NTgzMDIxTWRFZng6WHA2WUZkNx05MTgwMjkdOTJhUUlRa0k3b0hYbXpHL21kS3h6Q1VDS1RKSFhvQk9EZG1DZE01azhRajdnYVpWMnhibjY2eEJYR0lLcnRmdnFQSU5BMmprYmp5ajMvTytreTZvdTFOQT09",
+                    "imcModeProcessing" => 0
+                ]
+            ];
+            return [true, json_encode($mockResponse, JSON_UNESCAPED_UNICODE), ""];
+        }
+
         $checkMarkingCodeValidationJson = json_encode([
             "type" => "getMarkingCodeValidationStatus"
         ], JSON_UNESCAPED_UNICODE);
@@ -348,10 +389,24 @@ class TFptr10Driver {
     /**
      * Принимает код маркировки
      */
-        public function acceptMarkingCode()
+    public function acceptMarkingCode()
     {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];
+        }
+
+        // В режиме эмуляции возвращаем мок-ответ
+        if ($this->emulation) {
+            $mockResponse = [
+                "itemInfoCheckResult" => [
+                    "ecrStandAloneFlag" => false,
+                    "imcCheckFlag" => true,
+                    "imcCheckResult" => true,
+                    "imcEstimatedStatusCorrect" => true,
+                    "imcStatusInfo" => true
+                ]
+            ];
+            return [true, json_encode($mockResponse, JSON_UNESCAPED_UNICODE), ""];
         }
 
         $acceptMarkingCodeJson = json_encode([

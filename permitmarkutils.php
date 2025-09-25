@@ -23,7 +23,7 @@ class PermitMarkCheckGateway
 
     public function checkPermit(string $code, array $context = [])
     {
-        return [
+        /*return [
             'success' => true, 
             'data' => [
             'success' => true,
@@ -42,8 +42,8 @@ class PermitMarkCheckGateway
             'message' => 'Марка разрешена к продаже'
             ]
         ]
-    ];
-        /*try {
+    ];*/
+        try {
             $response = $this->performApiRequest($code, $context);
             
             if ($response['success']) {
@@ -75,7 +75,7 @@ class PermitMarkCheckGateway
                     ]
                 ]
             ]];
-        }*/
+        }
     }
 
     private function performApiRequest(string $code, array $context = []): array

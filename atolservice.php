@@ -101,7 +101,8 @@ function runServer() {
             'permitMarkEnabled' => $currentSettings->permitMarkEnabled ?? false, //
             'lmHost' => $currentSettings->permitMarkLmHost ?? 'http://127.0.0.1:5995',
             'lmAuth' => $currentSettings->permitMarkLmAuth ?? 'YWRtaW46YWRtaW4=',
-            'verifySSL' => true
+            'verifySSL' => true,
+            'emulation' => $currentSettings->permitMarkEmulation ?? false
         ]
     );
     

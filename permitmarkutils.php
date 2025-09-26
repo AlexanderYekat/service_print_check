@@ -35,7 +35,8 @@ class PermitMarkCheckGateway
             'lmAuth' => 'YWRtaW46YWRtaW4=', // admin:admin в base64
             'cdnBaseUrl' => 'https://cdn.crpt.ru',
             'sandboxUrl' => 'https://markirovka.sandbox.crptech.ru',
-            'verifySSL' => true // проверка SSL сертификатов
+            'verifySSL' => true, // проверка SSL сертификатов
+            'emulation' => false
         ], $config);
         
         $this->cdnCachePath = $this->config['cdnCachePath'];
@@ -52,15 +53,19 @@ class PermitMarkCheckGateway
     public function checkPermit(string $code, array $context = []): array
     {
         $this->logger->info("Начинаем проверку маркировки: " . $code);
-        
+
         // Сначала пробуем онлайн проверку
         $onlineResult = $this->checkOnline($code, $context);
 
-        $this->logger->info("Результат онлайн проверки: " . json_encode($onlineResult));
+        $this->logger->info("Результат онлайн проверки1: " . json_encode($onlineResult));
         
         if ($onlineResult['success']) {
             $this->logger->info("Онлайн проверка была произведена");
-            return $this->processOnlineResult($onlineResult);
+            $this->logger->info("Результат онлайн проверки2: " . json_encode($onlineResult));
+            $onlineResultFormatted = $this->processOnlineResult($onlineResult);
+            $this->logger->info("Результат онлайн проверки3: " . json_encode($onlineResult));
+            $this->logger->info("Результат онлайн проверки форматированный: " . json_encode($onlineResultFormatted));
+            return $onlineResultFormatted;
         }
         
         // Если онлайн проверка не удалась, переходим к офлайн
@@ -77,6 +82,17 @@ class PermitMarkCheckGateway
     {
         $this->logger->info("Начинаем онлайн проверку маркировки: " . $code);
         
+        if ($this->config['emulation']) {
+            $this->logger->info("Эмуляция разрешительного режима маркировки");
+            return [
+                'success' => true,
+                'data' => ['success' => true, 'code' => 0, 'description' => 'Ok - эмуляция РР', 'codes' => [['errorCode' => 0, 'message' => 'Ok - эмуляция РР', 'found' => true, 'verified' => true, 'sold' => false, 'valid' => true, 'isBlocked' => false, 'expireDate' => null]], 'reqId' => '4dffd-fd-df-4334', 'reqTimestamp' => 1212434334],
+                'message' => 'Маркировка проверена эмуляцией разрешительного режима маркировки',
+                'timeout' => false,
+                'checkedOffline' => false
+            ];
+        }
+
         // 1. Получаем кэш CDN и очищаем недоступные
         $this->clearUnavailableCDN();
         $cdnCache = $this->loadCDNCache();
@@ -290,11 +306,12 @@ class PermitMarkCheckGateway
         //    }
         //}
         //}
-        
+        $this->logger->info("Результат онлайн проверки: " . json_encode($result));
         $this->logger->info("Запрос проверки марки был успешно обработан");
+        $this->logger->info("Codes: " . json_encode($result['data']['codes']));
         
         foreach ($result['data']['codes'] ?? [] as $mark) {
-            $errorCode = $mark['errorCode'] ?? 0;
+            $errorCode = $mark['errorCode'];
             $message = $mark['message'] ?? '';
             
             if ($errorCode !== 0) {
@@ -330,13 +347,14 @@ class PermitMarkCheckGateway
                 $message = 'Не валидная марка';
             }
             
+            $this->logger->info("Маркировка markingCode успешно: " . json_encode($mark));
+
             return [
                 'success' => true,
-                'code' => $mark['code'],
+                'errorCode' => $errorCode,
                 'message' => $message,
-                'reqId' => $mark['reqId'] ?? '',
-                'reqTimestamp' => $mark['reqTimestamp'] ?? '',
-                'errorCode' => $errorCode
+                'reqId' => $result['data']['reqId'] ?? '',
+                'reqTimestamp' => $result['data']['reqTimestamp'] ?? '',
             ];
         }
         

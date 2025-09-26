@@ -405,7 +405,7 @@ class CheckService {
                 'text' => $isBlocked ? $errorMessage : ($result['message'] ?? 'Марка разрешена к продаже')
             ],
             'machine_data' => [
-                'code' => $result['code'],
+                'code' => $result['errorCode'],
                 'uuid' => $result['reqId'] ?? '',
                 'timeStamp' => $result['reqTimestamp'] ?? '',
                 'ver' => $result['ver'] ?? '',

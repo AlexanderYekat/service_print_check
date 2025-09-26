@@ -626,51 +626,52 @@ class TFptr10Driver {
                         $taxType = "vat" . $item['taxNDS'];
                     }
                 }
-            }
-            $quantity = floatval($item['quantity']);
-            $price = floatval($item['price']);
-            $positionItem = [
-                "type" => "position",
-                "name" => $item['name'],
-                "price" => $price,
-                "quantity" => $quantity,
-                "amount" => $price * $quantity,
-                "tax" => [
-                    "type" => $taxType
-                ]
-            ];
-
-            if (!empty($item['markingCode'])) {
-                // Инициализируем imcParams с базовыми данными маркировки
-                $imcParams = [
-                    "imc" => $item['markingCode'],
-                    "imcType" => "auto",
-                    "itemEstimatedStatus" => $item['itemEstimatedStatus'] ?? $itemEstimatedStatus,
-                    "imcModeProcessing" => 0
+                
+                $quantity = floatval($item['quantity']);
+                $price = floatval($item['price']);
+                $positionItem = [
+                    "type" => "position",
+                    "name" => $item['name'],
+                    "price" => $price,
+                    "quantity" => $quantity,
+                    "amount" => $price * $quantity,
+                    "tax" => [
+                        "type" => $taxType
+                    ]
                 ];
 
-                // Если в данных позиции ($item) присутствуют дополнительные параметры маркировки
-                // (например, результаты проверки марки), объединяем их с базовыми imcParams.
-                // Это предотвращает "затирание" предыдущих данных и формирует единый объект imcParams.
-                
-                // Проверяем наличие результатов проверки маркировки в kktCheckResult.machineData
-                if (isset($item['kktCheckResult']['machineData']['itemInfoCheckResult'])) {
-                    $machineData = $item['kktCheckResult']['machineData'];
-                    $itemInfoCheckResult = $machineData['itemInfoCheckResult'];
+                if (!empty($item['markingCode'])) {
+                    // Инициализируем imcParams с базовыми данными маркировки
+                    $imcParams = [
+                        "imc" => $item['markingCode'],
+                        "imcType" => "auto",
+                        "itemEstimatedStatus" => $item['itemEstimatedStatus'] ?? $itemEstimatedStatus,
+                        "imcModeProcessing" => 0
+                    ];
+
+                    // Если в данных позиции ($item) присутствуют дополнительные параметры маркировки
+                    // (например, результаты проверки марки), объединяем их с базовыми imcParams.
+                    // Это предотвращает "затирание" предыдущих данных и формирует единый объект imcParams.
                     
-                    // Объединяем поля из machineData в $imcParams
-                    $imcParams['itemInfoCheckResult'] = $itemInfoCheckResult;
-                    
-                    // Добавляем itemEstimatedStatus из machineData, если он есть
-                    if (isset($machineData['itemEstimatedStatus'])) {
-                        $imcParams['itemEstimatedStatus'] = $machineData['itemEstimatedStatus'];
+                    // Проверяем наличие результатов проверки маркировки в kktCheckResult.machineData
+                    if (isset($item['kktCheckResult']['machineData']['itemInfoCheckResult'])) {
+                        $machineData = $item['kktCheckResult']['machineData'];
+                        $itemInfoCheckResult = $machineData['itemInfoCheckResult'];
+                        
+                        // Объединяем поля из machineData в $imcParams
+                        $imcParams['itemInfoCheckResult'] = $itemInfoCheckResult;
+                        
+                        // Добавляем itemEstimatedStatus из machineData, если он есть
+                        if (isset($machineData['itemEstimatedStatus'])) {
+                            $imcParams['itemEstimatedStatus'] = $machineData['itemEstimatedStatus'];
+                        }
                     }
+                    // Добавляем сформированный объект imcParams как свойство позиции
+                    $positionItem['imcParams'] = $imcParams;
                 }
-                // Добавляем сформированный объект imcParams как свойство позиции
-                $positionItem['imcParams'] = $imcParams;
+                // Добавляем позицию в общий список элементов чека
+                $checkItems[] = $positionItem;
             }
-            // Добавляем позицию в общий список элементов чека
-            $checkItems[] = $positionItem;
         }
 
         // Считаем общую сумму

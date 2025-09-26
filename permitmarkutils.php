@@ -377,7 +377,7 @@ class PermitMarkCheckGateway
      */
     private function getCDNList(): array
     {
-        $baseUrl = $this->config['productionMode'] ? $this->config['cdnBaseUrl'] : $this->config['sandboxUrl'];
+        $baseUrl = $this->config['cdnBaseUrl'];
         $url = $baseUrl . '/api/v4/true-api/cdn/info';
         $headers = $this->buildAPIHeaders();
         $this->logger->info("Запрашиваем список CDN площадок: " . $url);

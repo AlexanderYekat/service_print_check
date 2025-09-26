@@ -668,6 +668,43 @@ class TFptr10Driver {
                     }
                     // Добавляем сформированный объект imcParams как свойство позиции
                     $positionItem['imcParams'] = $imcParams;
+                    //разрешительный режим маркировки
+                    $this->logger->info("Разрешительный режим маркировки industryInfo: " . json_encode($item['permitCheckResult']));
+                    if (isset($item['permitCheckResult']['status']) && $item['permitCheckResult']['status'] === 'success') {
+                        $this->logger->info("Разрешительный режим маркировки status успешно: " . json_encode($item['permitCheckResult']));
+                        $machineData = $item['permitCheckResult']['machineData'];
+                        $this->logger->info("Разрешительный режим маркировки machineData: " . json_encode($machineData));
+                        $uuid = $machineData['uuid'] ?? '';
+                        $time = $machineData['timeStamp'] ?? '';
+                        $inst = $machineData['inst'] ?? '';
+                        $ver = $machineData['ver'] ?? '';
+                        
+                        $industryDetails = "UUID=" . $uuid . "&Time=" . $time;
+                        if (!empty($inst) && $inst !== "N/A") {
+                            $industryDetails .= "&Inst=" . $inst;
+                        }
+                        if (!empty($ver) && $ver !== "N/A") {
+                            $industryDetails .= "&Ver=" . $ver;
+                        }
+                        
+                        // Определяем тип документа
+                        $fois = "030"; // для кормов
+                        $documentDate = "2024.05.27";
+                        $documentNumber = "674";
+                        
+                        // Проверяем, является ли марка ветеринарным препаратом
+                        if (isset($item['isVetDrug']) && $item['isVetDrug']) {
+                            $documentNumber = "675"; // для вет препаратов
+                        }
+                        
+                        // Формируем industryInfo
+                        $positionItem['industryInfo'] = [
+                            "fois" => $fois,
+                            "date" => $documentDate,
+                            "number" => $documentNumber,
+                            "industryAttribute" => $industryDetails
+                        ];
+                    }
                 }
                 // Добавляем позицию в общий список элементов чека
                 $checkItems[] = $positionItem;

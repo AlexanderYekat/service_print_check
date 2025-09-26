@@ -322,8 +322,9 @@ class PermitMarkCheckGateway
                 ];
             }
             
+            $this->logger->info("Маркировка mark успешно: " . json_encode($mark));
             // Проверяем дополнительные условия
-            if (!($mark['isBlocked'] ?? true)) {
+            if ($mark['isBlocked'] ?? false) {
                 $message = 'Марка заблокирована по решению органов государственной власти';
             }
             
@@ -331,7 +332,7 @@ class PermitMarkCheckGateway
                 $message = 'У товара истёк срок годности';
             }
             
-            if (!($mark['sold'] ?? true)) {
+            if ($mark['sold'] ?? false) {
                 $message = 'Марка уже выведена из оборота';
             }
             

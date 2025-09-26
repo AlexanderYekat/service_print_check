@@ -122,8 +122,8 @@ class CheckService {
                                      !isset($item['kktCheckResult']['machineData']) ||
                                      !isset($item['kktCheckResult']['machineData']['itemInfoCheckResult']),
                     'needsPermitCheck' => (!isset($item['permitCheckResult']) || 
-                                        !isset($item['permitCheckResult']['data']) ||
-                                        !isset($item['permitCheckResult']['data']['success'])) && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled()
+                                           !isset($item['permitCheckResult']['status']) ||
+                                           $item['permitCheckResult']['status'] !== 'success') && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled()
                 ];
                 $marks[] = $mark;
             }

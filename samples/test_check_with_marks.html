@@ -455,7 +455,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        markingCode: item.markingCode
+                        markingCode: item.markingCode,
+                        sellOrReturn: 'sell'
                     })
                 });
                 const data = await response.json();

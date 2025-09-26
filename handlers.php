@@ -59,6 +59,7 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $markingCode = $data['markingCode'] ?? '';
+        $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
 
         if (empty($markingCode)) {
             $this->logger->error("HandleCheckMarkingCode: Отсутствует или пустое значение markingCode.");
@@ -66,7 +67,7 @@ class Handler {
             $this->sendHandlerResponse("error", 'Код маркировки не может быть пустым.');
             return;
         }
-        $result = $this->checkService->checkMarkingCode($markingCode);
+        $result = $this->checkService->checkMarkingCode($markingCode, $sellOrReturn);
         if (!$result['success']) {
             $this->logger->error("HandleCheckMarkingCode: Ошибка проверки кода маркировки: " . $result['message']);
             http_response_code(500);

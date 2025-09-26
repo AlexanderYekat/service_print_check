@@ -281,12 +281,13 @@ class TFptr10Driver {
         return [$success, $responseJson, $commandErrorDesc];
     }
 
-    public function checkMarkingCode(string $markingCode) {
+    public function checkMarkingCode(string $markingCode, string $sellOrReturn) {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];
         }
         
-        $beginMarkingCodeValidation = $this->beginMarkingCodeValidation($markingCode);
+        $itemEstimatedStatus = $sellOrReturn === "sell" ? "itemPieceSold" : "itemPieceReturn";
+        $beginMarkingCodeValidation = $this->beginMarkingCodeValidation($markingCode, $itemEstimatedStatus);
         if (!$beginMarkingCodeValidation[0]) {
             return [false, "", $beginMarkingCodeValidation[2]];
         }
@@ -300,10 +301,13 @@ class TFptr10Driver {
         }
         $jsonAnswer = $acceptMarkingCode[1];
 
+        $jsonAnswerArray = json_decode($jsonAnswer, true);
+        $jsonAnswerArray['itemEstimatedStatus'] = $itemEstimatedStatus;
+        $jsonAnswer = json_encode($jsonAnswerArray, JSON_UNESCAPED_UNICODE);
         return [true, $jsonAnswer, ""]; //true, json_encode($jsonAnswer, JSON_UNESCAPED_UNICODE), ""
     }
 
-    public function beginMarkingCodeValidation(string $imc) {
+    public function beginMarkingCodeValidation(string $imc, string $itemEstimatedStatus) {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];
         }
@@ -325,14 +329,28 @@ class TFptr10Driver {
             "params" => [
                 "imcType" => "auto",
                 "imc" => $imc,
-                "itemEstimatedStatus" => "itemPieceSold",
+                "itemEstimatedStatus" => $itemEstimatedStatus,
                 "imcModeProcessing" => 0
             ]
         ], JSON_UNESCAPED_UNICODE);
 
         list($success, $responseJson, $commandErrorDesc) =  $this->sendCommandAndGetAnswerFromKKT($beginMarkingCodeValidationJson);
-        if (!$success) {
+        if (!$success && !$this->emulation) {
             return [false, "", $commandErrorDesc];
+        }
+
+        // В режиме эмуляции возвращаем мок-ответ
+        if ($this->emulation) {
+            $mockResponse = [
+                "offlineValidation" => [
+                    "fmCheck" => true,
+                    "fmCheckResult" => false,
+                    "fmCheckErrorReason" => "noKeys"
+                ]
+            ];
+            //return [true, json_encode($mockResponse, JSON_UNESCAPED_UNICODE), ""];
+            $responseJson = json_encode($mockResponse, JSON_UNESCAPED_UNICODE);
+            $success = true;
         }
 
         return [true, $responseJson, ""];
@@ -560,47 +578,52 @@ class TFptr10Driver {
     public function formatCheckJSON($checkDataArr) {
         $originalCheckData = null; // Инициализируем для предотвращения ошибки линтера
 
-    // Если передан объект, преобразуем в массив
-    if ($checkDataArr instanceof CheckData) {
+        // Если передан объект, преобразуем в массив
+        if ($checkDataArr instanceof CheckData) {
             $originalCheckData = $checkDataArr; // Сохраняем ссылку на оригинальный объект
-        $checkDataArr = [
-                'taxationType' => $originalCheckData->taxationType,
-                'type' => $originalCheckData->type,
-                'cashier' => $originalCheckData->cashier,
-            'tableData' => [],
-            'payments' => [],
-        ];
+            $checkDataArr = [
+                    'taxationType' => $originalCheckData->taxationType,
+                    'type' => $originalCheckData->type,
+                    'cashier' => $originalCheckData->cashier,
+                'tableData' => [],
+                'payments' => [],
+            ];
             foreach ($originalCheckData->tableData as $item) {
             $checkDataArr['tableData'][] = [
                     'name' => $item['name'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'taxNDS' => $item['taxNDS'],
+                    'markingCode' => $item['markingCode'],
+
                 ];
             }
             foreach ($originalCheckData->payments as $pay) {
             $checkDataArr['payments'][] = [
                     'type' => $pay['type'],
-                    'amount' => $pay['amount'],
-            ];
+                    'amount' => $pay['amount']];
+            }
         }
-    }
 
-    // Формируем позиции чека
-    $checkItems = [];
-    if (!empty($checkDataArr['tableData'])) {
-        foreach ($checkDataArr['tableData'] as $item) {
-            $taxType = "none";
-            if (!empty($item['taxNDS'])) {
-                if (strpos($item['taxNDS'], "vat") === 0) {
-                    $taxType = $item['taxNDS'];
-                } else {
-                    $taxType = "vat" . $item['taxNDS'];
+        $checkType = !empty($checkDataArr['type']) ? $checkDataArr['type'] : "sell";
+        $itemEstimatedStatus = $checkType === "sell" ? "itemPieceSold" : "itemPieceReturn";
+
+        // Формируем позиции чека
+        $checkItems = [];
+        if (!empty($checkDataArr['tableData'])) {
+            foreach ($checkDataArr['tableData'] as $item) {
+                $taxType = "none";
+                if (!empty($item['taxNDS'])) {
+                    if (strpos($item['taxNDS'], "vat") === 0) {
+                        $taxType = $item['taxNDS'];
+                    } else {
+                        $taxType = "vat" . $item['taxNDS'];
+                    }
                 }
             }
             $quantity = floatval($item['quantity']);
             $price = floatval($item['price']);
-            $checkItems[] = [
+            $positionItem = [
                 "type" => "position",
                 "name" => $item['name'],
                 "price" => $price,
@@ -610,45 +633,74 @@ class TFptr10Driver {
                     "type" => $taxType
                 ]
             ];
+
+            if (!empty($item['markingCode'])) {
+                // Инициализируем imcParams с базовыми данными маркировки
+                $imcParams = [
+                    "imc" => $item['markingCode'],
+                    "imcType" => "auto",
+                    "itemEstimatedStatus" => $item['itemEstimatedStatus'] ?? $itemEstimatedStatus,
+                    "imcModeProcessing" => 0
+                ];
+
+                // Если в данных позиции ($item) присутствуют дополнительные параметры маркировки
+                // (например, результаты проверки марки), объединяем их с базовыми imcParams.
+                // Это предотвращает "затирание" предыдущих данных и формирует единый объект imcParams.
+                
+                // Проверяем наличие результатов проверки маркировки в kktCheckResult.machineData
+                if (isset($item['kktCheckResult']['machineData']['itemInfoCheckResult'])) {
+                    $machineData = $item['kktCheckResult']['machineData'];
+                    $itemInfoCheckResult = $machineData['itemInfoCheckResult'];
+                    
+                    // Объединяем поля из machineData в $imcParams
+                    $imcParams['itemInfoCheckResult'] = $itemInfoCheckResult;
+                    
+                    // Добавляем itemEstimatedStatus из machineData, если он есть
+                    if (isset($machineData['itemEstimatedStatus'])) {
+                        $imcParams['itemEstimatedStatus'] = $machineData['itemEstimatedStatus'];
+                    }
+                }
+                // Добавляем сформированный объект imcParams как свойство позиции
+                $positionItem['imcParams'] = $imcParams;
+            }
+            // Добавляем позицию в общий список элементов чека
+            $checkItems[] = $positionItem;
         }
-    }
 
-    // Считаем общую сумму
-    $totalAmount = 0.0;
-    foreach ($checkItems as $item) {
-        $totalAmount += $item['amount'];
-    }
+        // Считаем общую сумму
+        $totalAmount = 0.0;
+        foreach ($checkItems as $item) {
+            $totalAmount += $item['amount'];
+        }
 
-    // Формируем оплаты
-    $payments = [];
-    if (empty($checkDataArr['payments'])) {
-        $payments[] = [
-            "type" => "cash",
-            "sum" => $totalAmount
-        ];
-    } else {
-        foreach ($checkDataArr['payments'] as $payment) {
+        // Формируем оплаты
+        $payments = [];
+        if (empty($checkDataArr['payments'])) {
             $payments[] = [
-                "type" => $payment['type'],
-                "sum" => floatval($payment['amount'])
+                "type" => "cash",
+            "sum" => $totalAmount,
             ];
+        } else {
+            foreach ($checkDataArr['payments'] as $payment) {
+                $payments[] = [
+                    "type" => $payment['type'],
+                    "sum" => floatval($payment['amount'])
+                ];
+            }
         }
-    }
 
-    $checkType = !empty($checkDataArr['type']) ? $checkDataArr['type'] : "sell";
+        $checkJSON = [
+            "type" => $checkType,
+            "operator" => [
+                "name" => $checkDataArr['cashier']
+            ],
+            "items" => $checkItems,
+            "payments" => $payments,
+        ];
 
-    $checkJSON = [
-        "type" => $checkType,
-        "operator" => [
-            "name" => $checkDataArr['cashier']
-        ],
-        "items" => $checkItems,
-        "payments" => $payments
-    ];
-
-    if (!empty($checkDataArr['taxationType'])) {
-        $checkJSON['taxationType'] = $checkDataArr['taxationType'];
-    }
+        if (!empty($checkDataArr['taxationType'])) {
+            $checkJSON['taxationType'] = $checkDataArr['taxationType'];
+        }
 
         return ['success' => true, 'checkData' => json_encode($checkJSON, JSON_UNESCAPED_UNICODE)];
     }

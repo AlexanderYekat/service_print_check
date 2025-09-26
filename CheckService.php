@@ -32,7 +32,7 @@ class CheckService {
      */
     private function _executeFptrOperation(callable $operationCallable, array $params, string $operationName): array {
         
-        $this->logger->info("Попытка выполнения операции с ККТ: {$operationName}.");
+        $this->logger->info("Попытка выполнения операции с ККТ: {$operationName}. c параметрами: " . json_encode($params, JSON_UNESCAPED_UNICODE));
         if ($this->FptrDriver === null) {
             $this->logger->error("Драйвер ККТ не инициализирован для {$operationName}.");
             return ['success' => false, 'message' => 'Драйвер ККТ не инициализирован.'];
@@ -99,12 +99,17 @@ class CheckService {
             return ['success' => false, 'message' => 'Неверный формат данных чека.'];
         }
 
+        $this->logger->info("Форматирование JSON для чека: " . json_encode($checkData, JSON_UNESCAPED_UNICODE));
         $formattedCheck = $this->FptrDriver->formatCheckJSON($checkData);
+        $this->logger->info("Форматирование JSON для чека: " . json_encode($formattedCheck, JSON_UNESCAPED_UNICODE));
         if (!$formattedCheck['success']) {
             $this->logger->error("Ошибка форматирования JSON для чека: " . $formattedCheck['message']);
             return ['success' => false, 'message' => $formattedCheck['message']];
         }
         $checkJsonData = $formattedCheck['checkData'];
+        // Декодируем JSON строку в массив для красивого вывода
+        $checkDataArray = json_decode($checkJsonData, true);
+        $this->logger->info("JSON для чека: " . json_encode($checkDataArray, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         // --- Попытка 1 --- 
         $result = $this->_executeFptrOperation([$this->FptrDriver, 'sendCommandAndGetAnswerFromKKT'], [$checkJsonData], 'printCheck_attempt1');
@@ -158,8 +163,8 @@ class CheckService {
         return $result;
     }
 
-    public function checkMarkingCode($markingCode) {
-        return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode], 'checkMarkingCode');
+    public function checkMarkingCode($markingCode, $sellOrReturn) {
+        return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode, $sellOrReturn], 'checkMarkingCode');
     }
 
     public function checkPermitMark($permitMark) {

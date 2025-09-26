@@ -10,13 +10,15 @@ class TFptr10Driver {
     private $portIpKkt;
     private $ipServKkt;
     private $emulation;
+    private $logger;
 
-    public function __construct($comport = 0, $ipKkt = "", $portIpKkt = 0, $ipServKkt = "", $emulation = false) {
+    public function __construct($comport = 0, $ipKkt = "", $portIpKkt = 0, $ipServKkt = "", $logger = null, $emulation = false) {
         $this->comport = $comport;
         $this->ipKkt = $ipKkt;
         $this->portIpKkt = $portIpKkt;
         $this->ipServKkt = $ipServKkt;
         $this->emulation = $emulation;
+        $this->logger = $logger;
     }
 
     public function NewSafe() {
@@ -581,7 +583,7 @@ class TFptr10Driver {
     public function formatCheckJSON($checkDataArr) {
         $originalCheckData = null; // Инициализируем для предотвращения ошибки линтера
 
-        // Если передан объект, преобразуем в массив
+        /*// Если передан объект, преобразуем в массив
         if ($checkDataArr instanceof CheckData) {
             $originalCheckData = $checkDataArr; // Сохраняем ссылку на оригинальный объект
             $checkDataArr = [
@@ -592,13 +594,12 @@ class TFptr10Driver {
                 'payments' => [],
             ];
             foreach ($originalCheckData->tableData as $item) {
-            $checkDataArr['tableData'][] = [
+                $checkDataArr['tableData'][] = [
                     'name' => $item['name'],
                     'quantity' => $item['quantity'],
                     'price' => $item['price'],
                     'taxNDS' => $item['taxNDS'],
                     'markingCode' => $item['markingCode'],
-
                 ];
             }
             foreach ($originalCheckData->payments as $pay) {
@@ -606,12 +607,14 @@ class TFptr10Driver {
                     'type' => $pay['type'],
                     'amount' => $pay['amount']];
             }
-        }
+        }*/
 
         $checkType = !empty($checkDataArr['type']) ? $checkDataArr['type'] : "sell";
         $itemEstimatedStatus = $checkType === "sell" ? "itemPieceSold" : "itemPieceReturn";
 
         // Формируем позиции чека
+        $this->logger->debug("Формируем позиции чека: " . json_encode($checkDataArr, JSON_UNESCAPED_UNICODE));
+
         $checkItems = [];
         if (!empty($checkDataArr['tableData'])) {
             foreach ($checkDataArr['tableData'] as $item) {

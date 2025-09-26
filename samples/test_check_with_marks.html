@@ -545,24 +545,33 @@
                 item.permitCheck.result = data;
                 
                 // Обрабатываем результат для пользователя
-                if (data.success && data.data && data.data.success) {
-                    const responseData = data.data.response;
-                    if (responseData && responseData.user_status) {
-                        if (responseData.user_status.ok) {
-                            item.permitCheck.userResult = '✓ Разрешено к продаже';
+                if (data.success) {
+                    // Для возврата проверка разрешительного режима не требуется
+                    if (checkType === 'return') {
+                        item.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
+                        item.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
+                    } else if (data.data && data.data.success) {
+                        const responseData = data.data.response;
+                        if (responseData && responseData.user_status) {
+                            if (responseData.user_status.ok) {
+                                item.permitCheck.userResult = '✓ Разрешено к продаже';
+                            } else {
+                                item.permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
+                            }
                         } else {
-                            item.permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
+                            item.permitCheck.userResult = '✓ Разрешено к продаже';
                         }
+                        item.permitCheck.machineData = {
+                            code: responseData.machine_data?.code,
+                            uuid: responseData.machine_data?.uuid || 'N/A',
+                            timeStamp: responseData.machine_data?.timeStamp || 'N/A',
+                            ver: responseData.machine_data?.ver || 'N/A',
+                            inst: responseData.machine_data?.inst || 'N/A'
+                        };
                     } else {
                         item.permitCheck.userResult = '✓ Разрешено к продаже';
+                        item.permitCheck.machineData = data;
                     }
-                    item.permitCheck.machineData = {
-                        code: responseData.machine_data?.code,
-                        uuid: responseData.machine_data?.uuid || 'N/A',
-                        timeStamp: responseData.machine_data?.timeStamp || 'N/A',
-                        ver: responseData.machine_data?.ver || 'N/A',
-                        inst: responseData.machine_data?.inst || 'N/A'
-                    };
                 } else {
                     item.permitCheck.userResult = '✗ Ошибка проверки разрешения';
                     item.permitCheck.machineData = data;
@@ -716,6 +725,8 @@
             checkAllButton.disabled = true;
             checkAllButton.textContent = 'Проверяется...';
 
+            const checkType = document.getElementById('checkType').value;
+            
             // Запускаем все проверки параллельно
             const allChecks = [];
             
@@ -723,8 +734,15 @@
                 if (item.kktCheck.status === 'not_checked') {
                     allChecks.push(checkMarkingKKT(item.id));
                 }
-                if (item.permitCheck.status === 'not_checked') {
+                // Для возврата проверка разрешительного режима не требуется
+                if (checkType === 'sell' && item.permitCheck.status === 'not_checked') {
                     allChecks.push(checkMarkingPermit(item.id));
+                } else if (checkType === 'return' && item.permitCheck.status === 'not_checked') {
+                    // Для возврата автоматически помечаем как успешную проверку
+                    item.permitCheck.status = 'success';
+                    item.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
+                    item.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
+                    renderItem(item);
                 }
             }
 
@@ -735,6 +753,7 @@
             } finally {
                 checkAllButton.disabled = false;
                 checkAllButton.textContent = 'Запустить все проверки';
+                updateGlobalCheckStatus();
             }
         }
 
@@ -752,7 +771,10 @@
 
             // Проверяем, что все марки проверены
             const uncheckedKKT = items.filter(item => item.hasMarking && (item.kktCheck.status === 'not_checked' || item.kktCheck.status === 'pending'));
-            const uncheckedPermit = items.filter(item => item.hasMarking && (item.permitCheck.status === 'not_checked' || item.permitCheck.status === 'pending'));
+            const checkType = document.getElementById('checkType').value;
+            const uncheckedPermit = checkType === 'sell' ? 
+                items.filter(item => item.hasMarking && (item.permitCheck.status === 'not_checked' || item.permitCheck.status === 'pending')) : 
+                []; // Для возврата проверка разрешительного режима не требуется
             
             if (uncheckedKKT.length > 0 || uncheckedPermit.length > 0) {
                 let message = 'Есть непроверенные марки:\n';
@@ -765,7 +787,6 @@
                 }
             }
 
-            const checkType = document.getElementById('checkType').value;
             const checkData = {
                 tableData: items.map(item => ({
                     name: item.name,

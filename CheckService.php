@@ -30,7 +30,7 @@ class CheckService {
      * @param string $operationName Название операции для логирования.
      * @return array Результат операции.
      */
-    private function _executeFptrOperation(callable $operationCallable, array $params, string $operationName): array {
+    private function _executeFptrOperation(callable $operationCallable, array $params, string $operationName, bool $disconnectFromKKT = true): array {
         
         $this->logger->info("Попытка выполнения операции с ККТ: {$operationName}. c параметрами: " . json_encode($params, JSON_UNESCAPED_UNICODE));
         if ($this->FptrDriver === null) {
@@ -60,7 +60,9 @@ class CheckService {
             $success = false;
             $actualResponseString = json_encode(['error' => $e->getMessage()]);
         } finally {
-            $this->FptrDriver->Close();
+            if ($disconnectFromKKT) {
+                $this->FptrDriver->Close();
+            }
         }
 
         $finalSuccess = $emulation ? true : $success;
@@ -74,7 +76,7 @@ class CheckService {
                 $finalMessage = "Операция '{$operationName}' завершилась с ошибкой: " . $actualResponseString;
             }
             $this->logger->info($finalMessage);
-            return ['success' => true, 'message' => $finalMessage, 'data' => ['response' => json_decode($actualResponseString, true), 'success' => $isCommandTrulySuccessful]];
+            return ['success' => true, 'message' => $finalMessage, 'data' => ['response' => json_decode($actualResponseString, true), 'success' => $isCommandTrulySuccessful, 'error' => $actualCommandErrorDesc]];
         } else {
             $finalMessage = "Ошибка выполнения операции '{$operationName}': ";
             if ($connectErrorDesc) {
@@ -147,11 +149,13 @@ class CheckService {
             
             $this->logger->info("Проверяем марку на ККТ: {$mark['markingCode']} (товар: {$mark['name']})");
             
-            $checkResult = $this->checkMarkingCode($mark['markingCode'], $sellOrReturn, $mark['itemEstimatedStatus']);
+            $checkResult =$this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$mark['markingCode'], $sellOrReturn, $mark['itemEstimatedStatus']], 'checkMarkingCode', false);
+            //list($success, $actualResponseString, $actualCommandErrorDesc) = $this->checkMarkingCode($mark['markingCode'], $sellOrReturn, $mark['itemEstimatedStatus']);
             
             $results[$mark['index']] = [
                 'success' => $checkResult['success'],
-                'result' => $checkResult,
+                'result' => $checkResult['data'],
+                'error' => $checkResult['message'],
                 'markingCode' => $mark['markingCode']
             ];
             
@@ -230,12 +234,20 @@ class CheckService {
             if (!empty($item['markingCode'])) {
                 // Добавляем результат проверки на ККТ
                 if (isset($kktResults[$index])) {
-                    $item['kktCheckResult'] = $kktResults[$index]['result'];
+                    $item['kktCheckResult'] = [
+                        'success' => $kktResults[$index]['success'],
+                        'message' => $kktResults[$index]['error'] ?? '',
+                        'machineData' => $kktResults[$index]['result']['response'] ?? null
+                    ];
                 }
                 
                 // Добавляем результат проверки в разрешительном режиме
                 if (isset($permitResults[$index])) {
-                    $item['permitCheckResult'] = $permitResults[$index]['result'];
+                    $item['permitCheckResult'] = [
+                        'success' => $permitResults[$index]['success'],
+                        'message' => $permitResults[$index]['result']['message'] ?? '',
+                        'data' => $permitResults[$index]['result'] ?? null
+                    ];
                 }
             }
         }
@@ -261,6 +273,7 @@ class CheckService {
             $kktCheckResult = $this->checkAllMarksOnKKT($marks, $typeCheck);
             if (!$kktCheckResult['success']) {
                 $this->logger->error("Ошибка проверки марок на ККТ: " . $kktCheckResult['message']);
+                $this->FptrDriver->Close(); //закрываем соединение с ККТ
                 return ['success' => false, 'message' => 'Ошибка проверки марок на ККТ: ' . $kktCheckResult['message']];
             }
             

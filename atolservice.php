@@ -60,6 +60,7 @@ function runServer() {
         $currentSettings->ipKkt,
         $currentSettings->portIpKkt,
         $currentSettings->ipServKkt,
+        $logger,
         $currentSettings->emulation
     );
 
@@ -268,6 +269,7 @@ function runServer() {
                 $currentSettings->ipKkt,
                 $currentSettings->portIpKkt,
                 $currentSettings->ipServKkt,
+                $logger,
                 $currentSettings->emulation
             );
             $err = $kktDriver->NewSafe();

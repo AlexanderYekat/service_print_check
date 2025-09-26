@@ -199,10 +199,14 @@ class CheckService {
             $this->logger->info("Проверяем марку в разрешительном режиме: {$mark['markingCode']} (товар: {$mark['name']})");
             
             $checkResult = $this->checkPermitMark($mark['markingCode']);
+
+            $this->logger->debug("checkResult = " . json_encode($checkResult));
             
             $results[$mark['index']] = [
-                'success' => $checkResult['success'],
-                'result' => $checkResult,
+                'status' => $checkResult['success'] ? 'success' : 'error',
+                'userResult' => $checkResult['data']['response']['user_status']['text'],
+                'machineData' => $checkResult['data']['response']['machine_data'],
+                //'result' => $checkResult['data'],
                 'markingCode' => $mark['markingCode']
             ];
             
@@ -245,12 +249,14 @@ class CheckService {
                     ];
                 }
                 
+                $this->logger->debug("permitResults = " . json_encode($permitResults));
+
                 // Добавляем результат проверки в разрешительном режиме
                 if (isset($permitResults[$index])) {
                     $item['permitCheckResult'] = [
-                        'success' => $permitResults[$index]['success'],
-                        'message' => $permitResults[$index]['result']['message'] ?? '',
-                        'data' => $permitResults[$index]['result'] ?? null
+                        'status' => $permitResults[$index]['status'],
+                        'userResult' => $permitResults[$index]['userResult'] ?? '',
+                        'machineData' => $permitResults[$index]['machineData'] ?? null
                     ];
                 }
             }

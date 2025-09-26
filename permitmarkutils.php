@@ -61,10 +61,10 @@ class PermitMarkCheckGateway
         
         if ($onlineResult['success']) {
             $this->logger->info("Онлайн проверка была произведена");
-            $this->logger->info("Результат онлайн проверки2: " . json_encode($onlineResult));
+            //$this->logger->debug("Результат онлайн проверки2: " . json_encode($onlineResult));
             $onlineResultFormatted = $this->processOnlineResult($onlineResult);
-            $this->logger->info("Результат онлайн проверки3: " . json_encode($onlineResult));
-            $this->logger->info("Результат онлайн проверки форматированный: " . json_encode($onlineResultFormatted));
+            //$this->logger->info("Результат онлайн проверки3: " . json_encode($onlineResult));
+            //$this->logger->info("Результат онлайн проверки форматированный: " . json_encode($onlineResultFormatted));
             return $onlineResultFormatted;
         }
         

@@ -36,7 +36,8 @@ class PermitMarkCheckGateway
             'cdnBaseUrl' => 'https://cdn.crpt.ru',
             'sandboxUrl' => 'https://markirovka.sandbox.crptech.ru',
             'verifySSL' => true, // проверка SSL сертификатов
-            'emulation' => false
+            'emulation' => false,
+            'testLocalModule' => false
         ], $config);
         
         $this->cdnCachePath = $this->config['cdnCachePath'];
@@ -47,6 +48,10 @@ class PermitMarkCheckGateway
         return $this->config['permitMarkEnabled'];
     }
 
+    public function getTestLocalModule() {
+        return $this->config['testLocalModule'];
+    }   
+
     /**
      * Основная функция проверки маркировки товара
      */
@@ -55,19 +60,22 @@ class PermitMarkCheckGateway
         $this->logger->info("Начинаем проверку маркировки: " . $code);
 
         // Сначала пробуем онлайн проверку
-        $onlineResult = $this->checkOnline($code, $context);
+        if (!$this->getTestLocalModule()) {
+            $onlineResult = $this->checkOnline($code, $context);
+            $this->logger->info("Результат онлайн проверки1: " . json_encode($onlineResult));
 
-        $this->logger->info("Результат онлайн проверки1: " . json_encode($onlineResult));
-        
-        if ($onlineResult['success']) {
-            $this->logger->info("Онлайн проверка была произведена");
-            //$this->logger->debug("Результат онлайн проверки2: " . json_encode($onlineResult));
-            $onlineResultFormatted = $this->processOnlineResult($onlineResult);
-            //$this->logger->info("Результат онлайн проверки3: " . json_encode($onlineResult));
-            //$this->logger->info("Результат онлайн проверки форматированный: " . json_encode($onlineResultFormatted));
-            return $onlineResultFormatted;
-        }
-        
+            if ($onlineResult['success']) {
+                $this->logger->info("Онлайн проверка была произведена");
+                //$this->logger->debug("Результат онлайн проверки2: " . json_encode($onlineResult));
+                $onlineResultFormatted = $this->processOnlineResult($onlineResult);
+                //$this->logger->info("Результат онлайн проверки3: " . json_encode($onlineResult));
+                //$this->logger->info("Результат онлайн проверки форматированный: " . json_encode($onlineResultFormatted));
+                return $onlineResultFormatted;
+            }    
+        } else {
+            $this->logger->info("Прорускаем online проверку, переходим сразу в offline проверке: ");
+        }        
+                
         // Если онлайн проверка не удалась, переходим к офлайн
         $this->logger->info("Онлайн проверка не удалась, переходим к офлайн проверке");
         $offlineResult = $this->checkOffline($code, $context);

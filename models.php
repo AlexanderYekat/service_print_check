@@ -95,6 +95,7 @@ class Settings {
     public $permitMarkEnabled;
     public $permitMarkLmHost;
     public $permitMarkLmAuth;
+    public $testLocalModule;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -132,6 +133,7 @@ class Settings {
         $this->permitMarkEnabled = false;
         $this->permitMarkLmHost = "http://127.0.0.1:5995";
         $this->permitMarkLmAuth = "YWRtaW46YWRtaW4="; // admin:admin в base64
+        $this->testLocalModule = false;
     }
 
     public function load(): void {
@@ -175,6 +177,7 @@ class Settings {
         $this->permitMarkEnabled = $data['permitMarkEnabled'] ?? $this->permitMarkEnabled;
         $this->permitMarkLmHost = $data['permitMarkLmHost'] ?? $this->permitMarkLmHost;
         $this->permitMarkLmAuth = $data['permitMarkLmAuth'] ?? $this->permitMarkLmAuth;
+        $this->testLocalModule = $data['testLocalModule'] ?? $this->testLocalModule;
     }
 
     public function toArray(): array {
@@ -209,6 +212,7 @@ class Settings {
             'permitMarkEnabled' => $this->permitMarkEnabled,
             'permitMarkLmHost' => $this->permitMarkLmHost,
             'permitMarkLmAuth' => $this->permitMarkLmAuth,
+            'testLocalModule' => $this->testLocalModule,
         ];
     }
 

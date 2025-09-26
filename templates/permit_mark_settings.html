@@ -338,6 +338,15 @@
                     <span class="helper-text">Если включено, система будет работать в режиме эмуляции без реального обращения к сервисам честного знака</span>
                 </div>
 
+                <div class="form-field">
+                    <label for="testLocalModule" class="switch">
+                        <input type="checkbox" id="testLocalModule" name="testLocalModule">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Тестировать локальный модуль</span>
+                    <span class="helper-text">Если включено, система будет использовать локальный модуль для проверки маркировки вместо онлайн API</span>
+                </div>
+
                 <div class="button-container">
                     <button type="button" id="getStatusButton" class="button secondary">Получить статус локального модуля</button>
                     <button type="button" id="initModuleButton" class="button secondary">Инициализировать локальный модуль</button>
@@ -363,6 +372,7 @@
             const cdnUnavailableTimeInput = document.getElementById('cdnUnavailableTime');
             const cdnInfoUrlInput = document.getElementById('cdnInfoUrl');
             const permitMarkEmulationInput = document.getElementById('permitMarkEmulation');
+            const testLocalModuleInput = document.getElementById('testLocalModule');
             const getStatusButton = document.getElementById('getStatusButton');
             const initModuleButton = document.getElementById('initModuleButton');
             const checkCdnButton = document.getElementById('checkCdnButton');
@@ -395,6 +405,9 @@
                     if (settings.permitMarkEmulation !== undefined) {
                         permitMarkEmulationInput.checked = settings.permitMarkEmulation;
                     }
+                    if (settings.testLocalModule !== undefined) {
+                        testLocalModuleInput.checked = settings.testLocalModule;
+                    }
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке настроек:', error);
@@ -410,6 +423,7 @@
                 const cdnUnavailableTimeMinutes = parseInt(cdnUnavailableTimeInput.value) || 15;
                 const cdnInfoUrl = cdnInfoUrlInput.value.trim();
                 const permitMarkEmulation = permitMarkEmulationInput.checked;
+                const testLocalModule = testLocalModuleInput.checked;
 
                 // Convert minutes to seconds for storage
                 const cdnUnavailableTimeSeconds = cdnUnavailableTimeMinutes * 60;
@@ -426,7 +440,8 @@
                         permitMarkTimeout: timeout,
                         permitMarkCdnUnavailableTime: cdnUnavailableTimeSeconds,
                         permitMarkCdnInfoUrl: cdnInfoUrl,
-                        permitMarkEmulation: permitMarkEmulation
+                        permitMarkEmulation: permitMarkEmulation,
+                        testLocalModule: testLocalModule
                     }),
                 })
                 .then(response => response.json())

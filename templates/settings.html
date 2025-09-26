@@ -312,6 +312,17 @@ h2 {
                 </div>
 
                 <div class="form-field">
+                    <h2>Настройки разрешительного режима маркировки</h2>
+                </div>
+                <div class="form-field">
+                    <label for="permitMarkEmulation" class="switch">
+                        <input type="checkbox" id="permitMarkEmulation" name="permitMarkEmulation">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Эмуляция разрешительного режима маркировки</span>
+                    <span class="helper-text">Если включено, служба будет работать в режиме эмуляции разрешительного режима маркировки.</span>
+                </div>
+                <div class="form-field">
                     <h2>Настройки банковского терминала</h2>
                 </div>
                 <div class="form-field">
@@ -362,6 +373,14 @@ h2 {
 
                 <div class="form-field">
                     <h2>Разрешительный режим маркировки</h2>
+                    <div class="form-field">
+                        <label for="permitMarkEnabled" class="switch">
+                            <input type="checkbox" id="permitMarkEnabled" name="permitMarkEnabled">
+                            <span class="slider"></span>
+                        </label>
+                        <span>Включить разрешительный режим маркировки</span>
+                        <span class="helper-text">Если включено, система будет проверять маркировки товаров через разрешительный режим</span>
+                    </div>
                     <p class="helper-text" style="margin-bottom: 8px;">Настройки для работы с системой разрешительного режима маркировки</p>
                     <a href="/permit-mark-settings" style="color: var(--md-sys-color-primary); text-decoration: none; font-size: 14px;">Перейти к настройкам разрешительного режима маркировки →</a>
                 </div>
@@ -444,6 +463,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('githubRepoName').value = settings.githubRepoName;
             // Новая настройка для email для логов
             document.getElementById('emailForLogs').value = settings.emailForLogs || '';
+            // Новая настройка для разрешительного режима маркировки
+            document.getElementById('permitMarkEmulation').checked = settings.permitMarkEmulation;
+            console.log("permitMarkEmulation", settings.permitMarkEmulation);
+            document.getElementById('permitMarkEnabled').checked = settings.permitMarkEnabled;
         })
         .catch(error => console.error('Ошибка при загрузке настроек:', error));
 
@@ -468,6 +491,10 @@ document.addEventListener('DOMContentLoaded', function() {
         settings.bankEmulation = settings.bankEmulation === 'on';
         // Новая настройка для отключения логирования
         settings.disableLogging = settings.disableLogging === 'on';
+        // Новая настройка для разрешительного режима маркировки
+        settings.permitMarkEnabled = settings.permitMarkEnabled === 'on';
+        //console.log("permitMarkEnabled", settings.permitMarkEnabled);
+        settings.permitMarkEmulation = settings.permitMarkEmulation === 'on';
 
         // Преобразование числовых полей
         if ('debug' in settings) settings.debug = Number(settings.debug);

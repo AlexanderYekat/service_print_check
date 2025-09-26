@@ -229,6 +229,52 @@
         .hidden {
             display: none;
         }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 32px;
+            margin-right: 12px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--md-sys-color-outline);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--md-sys-color-primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
     </style>
 </head>
 <body>
@@ -283,6 +329,15 @@
                     <span class="helper-text">Путь для получения информации о доступных CDN серверах</span>
                 </div>
 
+                <div class="form-field">
+                    <label for="permitMarkEmulation" class="switch">
+                        <input type="checkbox" id="permitMarkEmulation" name="permitMarkEmulation">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Эмуляция разрешительного режима</span>
+                    <span class="helper-text">Если включено, система будет работать в режиме эмуляции без реального обращения к сервисам честного знака</span>
+                </div>
+
                 <div class="button-container">
                     <button type="button" id="getStatusButton" class="button secondary">Получить статус локального модуля</button>
                     <button type="button" id="initModuleButton" class="button secondary">Инициализировать локальный модуль</button>
@@ -307,6 +362,7 @@
             const timeoutInput = document.getElementById('timeout');
             const cdnUnavailableTimeInput = document.getElementById('cdnUnavailableTime');
             const cdnInfoUrlInput = document.getElementById('cdnInfoUrl');
+            const permitMarkEmulationInput = document.getElementById('permitMarkEmulation');
             const getStatusButton = document.getElementById('getStatusButton');
             const initModuleButton = document.getElementById('initModuleButton');
             const checkCdnButton = document.getElementById('checkCdnButton');
@@ -336,6 +392,9 @@
                     if (settings.permitMarkCdnInfoUrl) {
                         cdnInfoUrlInput.value = settings.permitMarkCdnInfoUrl;
                     }
+                    if (settings.permitMarkEmulation !== undefined) {
+                        permitMarkEmulationInput.checked = settings.permitMarkEmulation;
+                    }
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке настроек:', error);
@@ -350,6 +409,7 @@
                 const timeout = parseInt(timeoutInput.value) || 30;
                 const cdnUnavailableTimeMinutes = parseInt(cdnUnavailableTimeInput.value) || 15;
                 const cdnInfoUrl = cdnInfoUrlInput.value.trim();
+                const permitMarkEmulation = permitMarkEmulationInput.checked;
 
                 // Convert minutes to seconds for storage
                 const cdnUnavailableTimeSeconds = cdnUnavailableTimeMinutes * 60;
@@ -365,7 +425,8 @@
                         permitMarkLocalHost: localHost,
                         permitMarkTimeout: timeout,
                         permitMarkCdnUnavailableTime: cdnUnavailableTimeSeconds,
-                        permitMarkCdnInfoUrl: cdnInfoUrl
+                        permitMarkCdnInfoUrl: cdnInfoUrl,
+                        permitMarkEmulation: permitMarkEmulation
                     }),
                 })
                 .then(response => response.json())

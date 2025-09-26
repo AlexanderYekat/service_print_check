@@ -85,14 +85,14 @@ class Settings {
     public $githubRepoOwner;
     public $githubRepoName;
     public $emailForLogs;
-
+    public $permitMarkEmulation;
     public $permitMarkXApiKey;
     public $permitMarkBaseUrl;
     public $permitMarkLocalHost;
     public $permitMarkTimeout;
     public $permitMarkCdnUnavailableTime;
     public $permitMarkCdnInfoUrl;
-    public $permitMarkProductionMode;
+    public $permitMarkEnabled;
     public $permitMarkLmHost;
     public $permitMarkLmAuth;
 
@@ -115,6 +115,7 @@ class Settings {
         $this->baudRateScale = 18;
         $this->modelScale = 38;
         $this->emulationScale = false;
+        $this->permitMarkEmulation = false;
         $this->bankEmulation = false;
         $this->disableLogging = false;
         $this->updateUrl = "";
@@ -128,7 +129,7 @@ class Settings {
         $this->permitMarkTimeout = 30;
         $this->permitMarkCdnUnavailableTime = 900; // 15 minutes in seconds
         $this->permitMarkCdnInfoUrl = "/api/v4/true-api/cdn/info";
-        $this->permitMarkProductionMode = true;
+        $this->permitMarkEnabled = false;
         $this->permitMarkLmHost = "http://127.0.0.1:5995";
         $this->permitMarkLmAuth = "YWRtaW46YWRtaW4="; // admin:admin в base64
     }
@@ -164,13 +165,14 @@ class Settings {
         $this->githubRepoOwner = $data['githubRepoOwner'] ?? $this->githubRepoOwner;
         $this->githubRepoName = $data['githubRepoName'] ?? $this->githubRepoName;
         $this->emailForLogs = $data['emailForLogs'] ?? $this->emailForLogs;
+        $this->permitMarkEmulation = $data['permitMarkEmulation'] ?? $this->permitMarkEmulation;
         $this->permitMarkXApiKey = $data['permitMarkXApiKey'] ?? $this->permitMarkXApiKey;
         $this->permitMarkBaseUrl = $data['permitMarkBaseUrl'] ?? $this->permitMarkBaseUrl;
         $this->permitMarkLocalHost = $data['permitMarkLocalHost'] ?? $this->permitMarkLocalHost;
         $this->permitMarkTimeout = $data['permitMarkTimeout'] ?? $this->permitMarkTimeout;
         $this->permitMarkCdnUnavailableTime = $data['permitMarkCdnUnavailableTime'] ?? $this->permitMarkCdnUnavailableTime;
         $this->permitMarkCdnInfoUrl = $data['permitMarkCdnInfoUrl'] ?? $this->permitMarkCdnInfoUrl;
-        $this->permitMarkProductionMode = $data['permitMarkProductionMode'] ?? $this->permitMarkProductionMode;
+        $this->permitMarkEnabled = $data['permitMarkEnabled'] ?? $this->permitMarkEnabled;
         $this->permitMarkLmHost = $data['permitMarkLmHost'] ?? $this->permitMarkLmHost;
         $this->permitMarkLmAuth = $data['permitMarkLmAuth'] ?? $this->permitMarkLmAuth;
     }
@@ -197,13 +199,14 @@ class Settings {
             'githubRepoOwner' => $this->githubRepoOwner,
             'githubRepoName' => $this->githubRepoName,
             'emailForLogs' => $this->emailForLogs,
+            'permitMarkEmulation' => $this->permitMarkEmulation,
             'permitMarkXApiKey' => $this->permitMarkXApiKey,
             'permitMarkBaseUrl' => $this->permitMarkBaseUrl,
             'permitMarkLocalHost' => $this->permitMarkLocalHost,
             'permitMarkTimeout' => $this->permitMarkTimeout,
             'permitMarkCdnUnavailableTime' => $this->permitMarkCdnUnavailableTime,
             'permitMarkCdnInfoUrl' => $this->permitMarkCdnInfoUrl,
-            'permitMarkProductionMode' => $this->permitMarkProductionMode,
+            'permitMarkEnabled' => $this->permitMarkEnabled,
             'permitMarkLmHost' => $this->permitMarkLmHost,
             'permitMarkLmAuth' => $this->permitMarkLmAuth,
         ];

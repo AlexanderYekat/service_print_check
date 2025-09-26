@@ -98,7 +98,7 @@ function runServer() {
         $currentSettings->permitMarkTimeout, 
         $logger,
         [
-            'productionMode' => $currentSettings->permitMarkProductionMode ?? false, // По умолчанию sandbox
+            'productionMode' => $currentSettings->permitMarkEnabled ?? false, // По умолчанию sandbox
             'lmHost' => $currentSettings->permitMarkLmHost ?? 'http://127.0.0.1:5995',
             'lmAuth' => $currentSettings->permitMarkLmAuth ?? 'YWRtaW46YWRtaW4=',
             'verifySSL' => true
@@ -130,6 +130,7 @@ function runServer() {
         header('Content-Type: text/html; charset=utf-8');
         readfile(__DIR__ . '/templates/permit_mark_settings.html');
     } elseif ($uri === '/api/settings') {
+        $logger->debug("Запрос настроек.");
         if ($method === 'GET') {
             $logger->debug("Запрос на получение настроек.");
             echo json_encode($currentSettings->toArray(), JSON_UNESCAPED_UNICODE);

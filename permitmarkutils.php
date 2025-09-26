@@ -23,13 +23,13 @@ class PermitMarkCheckGateway
         $this->timeout = $timeout;
         $this->logger = $logger;
         
-        // Конфигурация по умолчанию (аналог ПолучитьПараметрыПоУмолчанию из 1С)
+        // Конфигурация по умолчанию (аналог ПолучитьПараметрыПоУмолчанию )
         $this->config = array_merge([
             'onlineTimeout' => 1.5, // секунды
             'cdnUnavailableTime' => 900, // 15 минут в секундах
             'maxRetries' => 3,
             'cdnCachePath' => sys_get_temp_dir() . '/rr/cdns/cdn_cache.json',
-            'productionMode' => true,
+            'permitMarkEnabled' => false,
             'clientId' => '',
             'lmHost' => 'http://127.0.0.1:5995',
             'lmAuth' => 'YWRtaW46YWRtaW4=', // admin:admin в base64
@@ -40,6 +40,10 @@ class PermitMarkCheckGateway
         
         $this->cdnCachePath = $this->config['cdnCachePath'];
         $this->ensureCacheDirectory();
+    }
+
+    public function getPermitMarkEnabled() {
+        return $this->config['permitMarkEnabled'];
     }
 
     /**

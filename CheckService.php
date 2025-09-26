@@ -22,6 +22,10 @@ class CheckService {
         $this->permitMarkCheckGateway = $permitMarkCheckGateway;
     }
 
+    public function getPermitMarkEnabled() {
+        return $this->permitMarkCheckGateway->getPermitMarkEnabled();
+    }
+
     /**
      * Вспомогательный метод для выполнения операций с ККТ.
      *
@@ -119,7 +123,7 @@ class CheckService {
                                      !isset($item['kktCheckResult']['machineData']['itemInfoCheckResult']),
                     'needsPermitCheck' => (!isset($item['permitCheckResult']) || 
                                         !isset($item['permitCheckResult']['data']) ||
-                                        !isset($item['permitCheckResult']['data']['success'])) && ($typeCheck === 'sell' || $typeCheck === 'buyReturn')
+                                        !isset($item['permitCheckResult']['data']['success'])) && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled()
                 ];
                 $marks[] = $mark;
             }

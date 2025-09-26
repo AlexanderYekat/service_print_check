@@ -153,6 +153,12 @@
                     <span class="helper-text">Укажите номер COM-порта (например, 1, 2, 3), к которому подключены весы. Если не знаете (можно посмостреть в диспетчере устройств, вклдака COM-порты), оставьте значение по умолчанию.</span>
                 </div>
                 
+                <div class="form-field">
+                    <label for="permitMarkEnabled" style="display: inline-block; margin-right: 8px;">Включить разрешительный режим маркировки</label>
+                    <input type="checkbox" id="permitMarkEnabled" name="permitMarkEnabled" style="transform: scale(1.2); vertical-align: middle;">
+                    <span class="helper-text">Если включено, система будет проверять маркировки товаров через разрешительный режим.</span>
+                </div>
+                
                 <div class="button-container">
                     <button type="submit" class="button primary">Сохранить</button>
                     <button type="button" id="diagnoseButton" class="button secondary">Диагностика</button>
@@ -200,6 +206,11 @@
                     } else {
                         comScaleInput.value = settings.comScale - 1000;
                     }
+                    // Разрешительный режим маркировки
+                    const permitCheckbox = document.getElementById('permitMarkEnabled');
+                    if (permitCheckbox) {
+                        permitCheckbox.checked = !!settings.permitMarkEnabled;
+                    }
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке настроек:', error);
@@ -228,6 +239,7 @@
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const comScaleValue = Number(comScaleInput.value);
+                const permitCheckbox = document.getElementById('permitMarkEnabled');
                 
                 let valueToSend;
                 if (comScaleValue === -1000) {
@@ -241,7 +253,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ comScale: valueToSend }),
+                    body: JSON.stringify({ 
+                        comScale: valueToSend,
+                        permitMarkEnabled: permitCheckbox ? !!permitCheckbox.checked : undefined
+                    }),
                 })
                 .then(response => response.json())
                 .then(data => {

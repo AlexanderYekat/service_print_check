@@ -87,6 +87,12 @@ class Handler {
             return;
         }
         
+        if (!$this->checkService->getPermitMarkEnabled()) {
+            $this->logger->warning("HandleCheckPermitMark: Разрешительный режим маркировки не включен");
+            $this->sendHandlerResponse("success", "Разрешительный режим маркировки не включен", []);
+            return;
+        }
+
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $permitMark = $data['permitMark'] ?? '';

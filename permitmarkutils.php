@@ -356,6 +356,8 @@ class PermitMarkCheckGateway
                 'message' => $message,
                 'reqId' => $result['data']['reqId'] ?? '',
                 'reqTimestamp' => $result['data']['reqTimestamp'] ?? '',
+                'ver' => '',
+                'inst' => ''
             ];
         }
         

@@ -281,12 +281,15 @@ class TFptr10Driver {
         return [$success, $responseJson, $commandErrorDesc];
     }
 
-    public function checkMarkingCode(string $markingCode, string $sellOrReturn) {
+    public function checkMarkingCode(string $markingCode, string $sellOrReturn, $itemEstimatedStatus) {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];
         }
         
-        $itemEstimatedStatus = $sellOrReturn === "sell" ? "itemPieceSold" : "itemPieceReturn";
+        // Используем переданный параметр, если он не пустой, иначе определяем по типу операции
+        if (empty($itemEstimatedStatus)) {
+            $itemEstimatedStatus = $sellOrReturn === "sell" ? "itemPieceSold" : "itemPieceReturn";
+        }
         $beginMarkingCodeValidation = $this->beginMarkingCodeValidation($markingCode, $itemEstimatedStatus);
         if (!$beginMarkingCodeValidation[0]) {
             return [false, "", $beginMarkingCodeValidation[2]];

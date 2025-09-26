@@ -60,6 +60,7 @@ class Handler {
         $data = json_decode($input, true);
         $markingCode = $data['markingCode'] ?? '';
         $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
+        $itemEstimatedStatus = $data['itemEstimatedStatus'] ?? '';
 
         if (empty($markingCode)) {
             $this->logger->error("HandleCheckMarkingCode: Отсутствует или пустое значение markingCode.");
@@ -67,7 +68,7 @@ class Handler {
             $this->sendHandlerResponse("error", 'Код маркировки не может быть пустым.');
             return;
         }
-        $result = $this->checkService->checkMarkingCode($markingCode, $sellOrReturn);
+        $result = $this->checkService->checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus);
         if (!$result['success']) {
             $this->logger->error("HandleCheckMarkingCode: Ошибка проверки кода маркировки: " . $result['message']);
             http_response_code(500);
@@ -89,6 +90,13 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $permitMark = $data['permitMark'] ?? '';
+        $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
+
+        if ($sellOrReturn != 'sell' && $sellOrReturn != 'buyReturn') {
+            $this->logger->error("HandleCheckPermitMark: Проверка по разрешительному режиму для возврата не требуется " . $sellOrReturn);
+            $this->sendHandlerResponse("success", "Проверка по разрешительному режиму для возврата не требуется", []);
+            return;
+        }
 
         if (empty($permitMark)) {
             $this->logger->error("HandleCheckPermitMark: Отсутствует или пустое значение permitMark.");

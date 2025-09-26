@@ -92,11 +92,191 @@ class CheckService {
         }
     }
 
+    /**
+     * Извлекает марки из данных чека
+     * 
+     * @param array $checkData Данные чека
+     * @return array Массив марок с информацией о необходимости проверки
+     */
+    private function extractMarksFromCheck($checkData, $typeCheck) {
+        $marks = [];
+        
+        if (!isset($checkData['tableData']) || !is_array($checkData['tableData'])) {
+            return $marks;
+        }
+        
+        foreach ($checkData['tableData'] as $index => $item) {
+            if (!empty($item['markingCode'])) {
+                $mark = [
+                    'index' => $index,
+                    'markingCode' => $item['markingCode'],
+                    'name' => $item['name'] ?? 'Товар',
+                    'itemEstimatedStatus' => $item['itemEstimatedStatus'] ?? '',
+                    'needsKktCheck' => !isset($item['kktCheckResult']) || 
+                                     !isset($item['kktCheckResult']['machineData']) ||
+                                     !isset($item['kktCheckResult']['machineData']['itemInfoCheckResult']),
+                    'needsPermitCheck' => (!isset($item['permitCheckResult']) || 
+                                        !isset($item['permitCheckResult']['data']) ||
+                                        !isset($item['permitCheckResult']['data']['success'])) && ($typeCheck === 'sell' || $typeCheck === 'buyReturn')
+                ];
+                $marks[] = $mark;
+            }
+        }
+        
+        return $marks;
+    }
+
+    /**
+     * Проверяет все марки в чеке на ККТ
+     * 
+     * @param array $marks Массив марок для проверки
+     * @param string $sellOrReturn Тип операции (sell/return)
+     * @return array Результат проверки
+     */
+    private function checkAllMarksOnKKT($marks, $sellOrReturn) {
+        $this->logger->info("Начинаем проверку " . count($marks) . " марок на ККТ");
+        
+        $results = [];
+        $allSuccess = true;
+        
+        foreach ($marks as $mark) {
+            if (!$mark['needsKktCheck']) {
+                $this->logger->info("Марка '{$mark['name']}' уже проверена на ККТ, пропускаем");
+                continue;
+            }
+            
+            $this->logger->info("Проверяем марку на ККТ: {$mark['markingCode']} (товар: {$mark['name']})");
+            
+            $checkResult = $this->checkMarkingCode($mark['markingCode'], $sellOrReturn, $mark['itemEstimatedStatus']);
+            
+            $results[$mark['index']] = [
+                'success' => $checkResult['success'],
+                'result' => $checkResult,
+                'markingCode' => $mark['markingCode']
+            ];
+            
+            if (!$checkResult['success']) {
+                $allSuccess = false;
+                $this->logger->error("Ошибка проверки марки на ККТ: {$mark['markingCode']} - {$checkResult['message']}");
+            } else {
+                $this->logger->info("Марка успешно проверена на ККТ: {$mark['markingCode']}");
+            }
+        }
+        
+        return [
+            'success' => $allSuccess,
+            'results' => $results,
+            'message' => $allSuccess ? 'Все марки успешно проверены на ККТ' : 'Ошибки при проверке марок на ККТ'
+        ];
+    }
+
+    /**
+     * Проверяет все марки в чеке в разрешительном режиме
+     * 
+     * @param array $marks Массив марок для проверки
+     * @return array Результат проверки
+     */
+    private function checkAllMarksPermit($marks) {
+        $this->logger->info("Начинаем проверку " . count($marks) . " марок в разрешительном режиме");
+        
+        $results = [];
+        $allSuccess = true;
+        
+        foreach ($marks as $mark) {
+            if (!$mark['needsPermitCheck']) {
+                $this->logger->info("Марка '{$mark['name']}' уже проверена в разрешительном режиме, пропускаем");
+                continue;
+            }
+            
+            $this->logger->info("Проверяем марку в разрешительном режиме: {$mark['markingCode']} (товар: {$mark['name']})");
+            
+            $checkResult = $this->checkPermitMark($mark['markingCode']);
+            
+            $results[$mark['index']] = [
+                'success' => $checkResult['success'],
+                'result' => $checkResult,
+                'markingCode' => $mark['markingCode']
+            ];
+            
+            if (!$checkResult['success']) {
+                $allSuccess = false;
+                $this->logger->error("Ошибка проверки марки в разрешительном режиме: {$mark['markingCode']} - {$checkResult['message']}");
+            } else {
+                $this->logger->info("Марка успешно проверена в разрешительном режиме: {$mark['markingCode']}");
+            }
+        }
+        
+        return [
+            'success' => $allSuccess,
+            'results' => $results,
+            'message' => $allSuccess ? 'Все марки успешно проверены в разрешительном режиме' : 'Ошибки при проверке марок в разрешительном режиме'
+        ];
+    }
+
+    /**
+     * Добавляет результаты проверки марок в данные чека
+     * 
+     * @param array $checkData Данные чека
+     * @param array $kktResults Результаты проверки на ККТ
+     * @param array $permitResults Результаты проверки в разрешительном режиме
+     * @return array Обновленные данные чека
+     */
+    private function addMarkCheckResultsToCheckData($checkData, $kktResults, $permitResults) {
+        if (!isset($checkData['tableData']) || !is_array($checkData['tableData'])) {
+            return $checkData;
+        }
+        
+        foreach ($checkData['tableData'] as $index => &$item) {
+            if (!empty($item['markingCode'])) {
+                // Добавляем результат проверки на ККТ
+                if (isset($kktResults[$index])) {
+                    $item['kktCheckResult'] = $kktResults[$index]['result'];
+                }
+                
+                // Добавляем результат проверки в разрешительном режиме
+                if (isset($permitResults[$index])) {
+                    $item['permitCheckResult'] = $permitResults[$index]['result'];
+                }
+            }
+        }
+        
+        return $checkData;
+    }
+
     public function printCheck($checkData) {
         // Проверяем, что $checkData является массивом
         if (!is_array($checkData)) {
             $this->logger->error("Неверный формат данных чека: данные не являются массивом.");
             return ['success' => false, 'message' => 'Неверный формат данных чека.'];
+        }
+
+        // Извлекаем марки из чека
+        $typeCheck = $checkData['type'] ?? 'sell';
+        $marks = $this->extractMarksFromCheck($checkData, $typeCheck);
+        
+        if (!empty($marks)) {
+            $this->logger->info("Найдено " . count($marks) . " марок в чеке, начинаем проверку");
+            
+            // Проверяем марки на ККТ
+            $kktCheckResult = $this->checkAllMarksOnKKT($marks, $typeCheck);
+            if (!$kktCheckResult['success']) {
+                $this->logger->error("Ошибка проверки марок на ККТ: " . $kktCheckResult['message']);
+                return ['success' => false, 'message' => 'Ошибка проверки марок на ККТ: ' . $kktCheckResult['message']];
+            }
+            
+            // Проверяем марки в разрешительном режиме
+            $permitCheckResult = $this->checkAllMarksPermit($marks);
+            if (!$permitCheckResult['success']) {
+                $this->logger->error("Ошибка проверки марок в разрешительном режиме: " . $permitCheckResult['message']);
+                return ['success' => false, 'message' => 'Ошибка проверки марок в разрешительном режиме: ' . $permitCheckResult['message']];
+            }
+            
+            // Добавляем результаты проверки в данные чека
+            $checkData = $this->addMarkCheckResultsToCheckData($checkData, $kktCheckResult['results'], $permitCheckResult['results']);
+            
+            $this->logger->info("Все марки успешно проверены, продолжаем печать чека");
+        } else {
+            $this->logger->info("Марки в чеке не найдены, печатаем чек без проверки марок");
         }
 
         $this->logger->info("Форматирование JSON для чека: " . json_encode($checkData, JSON_UNESCAPED_UNICODE));
@@ -163,8 +343,8 @@ class CheckService {
         return $result;
     }
 
-    public function checkMarkingCode($markingCode, $sellOrReturn) {
-        return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode, $sellOrReturn], 'checkMarkingCode');
+    public function checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus) {
+        return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode, $sellOrReturn, $itemEstimatedStatus], 'checkMarkingCode');
     }
 
     public function checkPermitMark($permitMark) {

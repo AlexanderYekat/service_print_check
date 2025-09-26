@@ -44,7 +44,6 @@ class PermitMarkCheckGateway
 
     /**
      * Основная функция проверки маркировки товара
-     * Аналог ПроверитьМаркировку из 1С
      */
     public function checkPermit(string $code, array $context = []): array
     {
@@ -56,7 +55,7 @@ class PermitMarkCheckGateway
         $this->logger->info("Результат онлайн проверки: " . json_encode($onlineResult));
         
         if ($onlineResult['success']) {
-            $this->logger->info("Онлайн проверка успешна");
+            $this->logger->info("Онлайн проверка была произведена");
             return $this->processOnlineResult($onlineResult);
         }
         
@@ -69,7 +68,6 @@ class PermitMarkCheckGateway
 
     /**
      * Онлайн проверка через CDN площадки
-     * Аналог ПроверитьОнлайн из 1С
      */
     private function checkOnline(string $code, array $context = []): array
     {
@@ -272,28 +270,28 @@ class PermitMarkCheckGateway
         if (isset($result['data']['code']) && $result['data']['code'] !== 0) {
             return [
                 'success' => false,
-                'message' => $result['data']['description'] ?? 'Ошибка проверки марки',
+                'message' => $result['data']['description'] ?? 'Ошибка online проверки',
                 'errorCode' => $result['data']['code']
             ];
         }
         
-        if ($result['checkedOffline'] ?? false) {
-            foreach ($result['data']['codes'] ?? [] as $mark) {
-                if ($mark['isBlocked'] ?? false) {
-                    return [
-                        'success' => false,
-                        'message' => 'Марка заблокирована по решению органов государственной власти',
-                        'errorCode' => '200'
-                    ];
-                }
-            }
-        }
+        //if ($result['checkedOffline'] ?? false) {
+        //foreach ($result['data']['codes'] ?? [] as $mark) {
+        //    if ($mark['errorCode'] !== 0) {
+        //        return [
+        //            'success' => false,
+        //            'message' => $mark['message'] ?? 'Ошибка online проверки',
+        //            'errorCode' => $mark['errorCode'] ?? 0
+        //        ];
+        //    }
+        //}
+        //}
         
-        $this->logger->info("Запрос проверки марки успешно обработан");
+        $this->logger->info("Запрос проверки марки был успешно обработан");
         
         foreach ($result['data']['codes'] ?? [] as $mark) {
             $errorCode = $mark['errorCode'] ?? 0;
-            $message = $result['data']['message'] ?? '';
+            $message = $mark['message'] ?? '';
             
             if ($errorCode !== 0) {
                 return [
@@ -330,10 +328,10 @@ class PermitMarkCheckGateway
             
             return [
                 'success' => true,
-                'code' => $result['data']['code'],
+                'code' => $mark['code'],
                 'message' => $message,
-                'reqId' => $result['data']['reqId'] ?? '',
-                'reqTimestamp' => $result['data']['reqTimestamp'] ?? '',
+                'reqId' => $mark['reqId'] ?? '',
+                'reqTimestamp' => $mark['reqTimestamp'] ?? '',
                 'errorCode' => $errorCode
             ];
         }

@@ -173,12 +173,28 @@
         .back-link:hover {
             text-decoration: underline;
         }
+        .check-type-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .check-type-sell {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .check-type-return {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
     <a href="test_fetchs.html" class="back-link">← Вернуться к основным тестам</a>
     
-    <h1>Тест печати чека с маркировкой</h1>
+    <h1>Тест печати чека с маркировкой <span id="checkTypeIndicator" class="check-type-indicator check-type-sell">Продажа</span></h1>
     
     <div class="check-summary">
         <h3>Сводка по чеку</h3>
@@ -235,6 +251,13 @@
         <div class="form-group">
             <label for="cashierName">Имя кассира:</label>
             <input type="text" id="cashierName" value="Иван Иванов">
+        </div>
+        <div class="form-group">
+            <label for="checkType">Тип чека:</label>
+            <select id="checkType" onchange="updateCheckType()">
+                <option value="sell">Продажа</option>
+                <option value="return">Возврат</option>
+            </select>
         </div>
         <button class="button" onclick="printCheck()" style="font-size: 18px; padding: 15px 30px;">Отправить чек на печать</button>
     </div>
@@ -448,6 +471,8 @@
             item.kktCheck.status = 'pending';
             renderItem(item);
 
+            const checkType = document.getElementById('checkType').value;
+
             try {
                 const response = await fetch(`${API_URL}/api/check-marking-code`, {
                     method: 'POST',
@@ -456,7 +481,7 @@
                     },
                     body: JSON.stringify({
                         markingCode: item.markingCode,
-                        sellOrReturn: 'sell'
+                        sellOrReturn: checkType
                     })
                 });
                 const data = await response.json();
@@ -501,6 +526,8 @@
             item.permitCheck.status = 'pending';
             renderItem(item);
 
+            const checkType = document.getElementById('checkType').value;
+
             try {
                 const response = await fetch(`${API_URL}/api/check-permit-mark`, {
                     method: 'POST',
@@ -508,7 +535,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        permitMark: item.markingCode
+                        permitMark: item.markingCode,
+                        sellOrReturn: checkType
                     })
                 });
                 const data = await response.json();
@@ -576,6 +604,27 @@
             document.getElementById('grandTotal').textContent = (cashTotal + cardTotal).toFixed(2) + ' ₽';
             
             // Обновляем глобальные статусы проверки
+            updateGlobalCheckStatus();
+        }
+
+        function updateCheckType() {
+            const checkType = document.getElementById('checkType').value;
+            const checkTypeText = checkType === 'sell' ? 'Продажа' : 'Возврат';
+            
+            // Обновляем индикатор типа чека
+            const indicator = document.getElementById('checkTypeIndicator');
+            indicator.textContent = checkTypeText;
+            indicator.className = `check-type-indicator check-type-${checkType}`;
+            
+            // Сбрасываем статусы проверки марок, так как тип чека изменился
+            items.forEach(item => {
+                if (item.hasMarking) {
+                    item.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                    item.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                    renderItem(item);
+                }
+            });
+            
             updateGlobalCheckStatus();
         }
 
@@ -716,6 +765,7 @@
                 }
             }
 
+            const checkType = document.getElementById('checkType').value;
             const checkData = {
                 tableData: items.map(item => ({
                     name: item.name,
@@ -723,6 +773,7 @@
                     price: item.price.toFixed(2),
                     ...(item.hasMarking ? {
                         markingCode: item.markingCode,
+                        itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
                         ...(item.kktCheck.status && (item.kktCheck.status === 'success' || item.kktCheck.status === 'error') ? {
                             kktCheckResult: {
                                 status: item.kktCheck.status,
@@ -746,7 +797,7 @@
                         amount: parseFloat(document.getElementById('grandTotal').textContent.replace(' ₽', ''))
                     }
                 ],
-                type: 'sell'
+                type: checkType
             };
 
             try {

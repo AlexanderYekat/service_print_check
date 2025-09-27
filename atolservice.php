@@ -486,9 +486,9 @@ function runServer() {
         $fetchHandler->HandleCheckMarkingCode();
     } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {
         $fetchHandler->HandleCheckPermitMark();
-    } elseif ($uri === '/api/permit-local-module-status' && $method === 'POST') {
-        //$fetchHandler->HandlePermitLocalModuleStatus();
-    } elseif ($uri === '/api/permit-local-module-init' && $method === 'POST') {
+    } elseif ($uri === '/api/permit-local-module-status' && $method === 'GET') {
+        $fetchHandler->HandlePermitLocalModuleStatus();
+    } elseif ($uri === '/api/permit-local-module-init' && $method === 'GET') {
         //$fetchHandler->HandlePermitLocalModuleInit();
     } elseif ($uri === '/api/permit-mark-check-cdn' && $method === 'GET') {
         $fetchHandler->HandlePermitCheckCdn();

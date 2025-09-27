@@ -72,12 +72,12 @@ class PermitMarkCheckGateway
                 //$this->logger->info("Результат онлайн проверки форматированный: " . json_encode($onlineResultFormatted));
                 return $onlineResultFormatted;
             }    
+            $this->logger->info("Онлайн проверка не удалась, переходим к офлайн проверке");
         } else {
             $this->logger->info("Прорускаем online проверку, переходим сразу в offline проверке: ");
         }        
                 
         // Если онлайн проверка не удалась, переходим к офлайн
-        $this->logger->info("Онлайн проверка не удалась, переходим к офлайн проверке");
         $offlineResult = $this->checkOffline($code, $context);
         
         return $this->processOfflineResult($offlineResult);
@@ -283,7 +283,10 @@ class PermitMarkCheckGateway
         
         return [
             'success' => true,
-            'data' => $checkResult['data'],
+            'data' => array_merge($checkResult['data'], [
+                'version' => $readinessResult['data']['version'] ?? '',
+                'inst' => $readinessResult['data']['inst'] ?? ''
+            ]),
             'message' => 'Маркировка проверена офлайн через локальный модуль ЧЗ',
             'timeout' => false,
             'checkedOffline' => true
@@ -377,6 +380,38 @@ class PermitMarkCheckGateway
      */
     private function processOfflineResult(array $result): array
     {
+        if (isset($result['data']['code']) && $result['data']['code'] !== 0) {
+            return [
+                'success' => false,
+                'message' => $result['data']['description'] ?? 'Ошибка offline проверки',
+                'errorCode' => $result['data']['code']
+            ];
+        }
+        
+        $this->logger->info("Результат offline проверки: " . json_encode($result));
+        $this->logger->info("Запрос проверки марки был успешно обработан");
+        $this->logger->info("Codes: " . json_encode($result['data']['codes']));
+        
+        foreach ($result['data']['codes'] ?? [] as $mark) {            
+            $this->logger->info("Маркировка mark успешно: " . json_encode($mark));
+            // Проверяем дополнительные условия
+            if ($mark['isBlocked'] ?? false) {
+                $message = 'Марка заблокирована по решению органов государственной власти';
+            }
+                        
+            $this->logger->info("Маркировка markingCode успешно: " . json_encode($mark));
+
+            return [
+                'success' => true,
+                'errorCode' => 0,
+                'message' => 'Ok',
+                'reqId' => $result['data']['reqId'] ?? '',
+                'reqTimestamp' => $result['data']['reqTimestamp'] ?? '',
+                'ver' => $result['data']['version'],
+                'inst' => $result['data']['inst']
+            ];
+        }
+        
         return $result;
     }
 
@@ -496,6 +531,11 @@ class PermitMarkCheckGateway
         }
     }
 
+    public function getLocalModuleStatus(): array
+    {
+        return $this->checkLMReadiness();
+    }
+
     /**
      * Проверка готовности локального модуля ЧЗ
      */
@@ -564,6 +604,8 @@ class PermitMarkCheckGateway
         
         $result = $this->performJSONRequest($url, $headers, '', 30, true);
         
+        $this->logger->info("Результат проверки CIS в ЛМ ЧЗ: " . json_encode($result));
+
         if (!$result['success']) {
             return [
                 'success' => false,
@@ -585,6 +627,13 @@ class PermitMarkCheckGateway
                 'message' => 'В ответе ЛМ ЧЗ отсутствуют результаты проверки'
             ];
         }
+
+        if ($data['code'] !== 0) {
+            return [
+                'success' => false,
+                'message' => 'Ошибка проверки CIS в ЛМ ЧЗ (код ' . $data['code'] . ')' . $data['description']
+            ];
+        }
         
         $checkResult = $data['codes'][0];
         if (!isset($checkResult['isBlocked'])) {
@@ -593,12 +642,18 @@ class PermitMarkCheckGateway
                 'message' => 'В результате проверки отсутствует поле isBlocked'
             ];
         }
+
+        if (isset($checkResult['isGreyGtin'])) {
+            if ($checkResult['isGreyGtin']) {
+                $this->logger->info("CIS является серым GTIN");
+            }
+        }
         
         if ($checkResult['isBlocked']) {
             $description = $checkResult['description'] ?? '';
             return [
                 'success' => false,
-                'message' => 'Ошибка проверки CIS в ЛМ ЧЗ (код ' . $checkResult['isBlocked'] . ')' . $description
+                'message' => 'Ошибка проверки CIS в ЛМ ЧЗ (код ' . $checkResult['isBlocked'] . ' заблокирован по решению органов государственной власти)' . $description
             ];
         }
         
@@ -623,8 +678,17 @@ class PermitMarkCheckGateway
         $marking = trim($marking);
         $this->logger->info("Извлечение CIS из маркировки: " . $marking);
         
-        // TODO: Реализовать логику извлечения CIS согласно стандарту GS1
-        // Пока возвращаем исходный код
+        // Служебный символ разделителя групп GS (ASCII код 29)
+        $gsSeparator = chr(29);
+        
+        $pos = strpos($marking, $gsSeparator);
+        
+        if ($pos !== false) {
+            // Возвращаем все символы до разделителя GS
+            return substr($marking, 0, $pos);
+        }
+        
+        // Если разделитель не найден, возвращаем исходную маркировку
         return $marking;
     }
 

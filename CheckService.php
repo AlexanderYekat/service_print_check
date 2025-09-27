@@ -429,6 +429,10 @@ class CheckService {
         ];
     }
 
+    public function permitLocalModuleStatus() {
+        return $this->permitMarkCheckGateway->getLocalModuleStatus();
+    }
+
     public function permitCheckCdn() {
         return $this->permitMarkCheckGateway->checkCdn();
     }

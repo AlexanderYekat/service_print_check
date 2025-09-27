@@ -460,7 +460,7 @@
                 showLoadingStatus('Получение статуса локального модуля...');
                 
                 fetch('/api/permit-local-module-status', {
-                    method: 'POST',
+                    method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     }
@@ -479,7 +479,7 @@
                 showLoadingStatus('Инициализация локального модуля...');
                 
                 fetch('/api/permit-local-module-init', {
-                    method: 'POST',
+                    method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
                     }

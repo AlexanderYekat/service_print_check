@@ -121,6 +121,24 @@ class Handler {
         $this->sendHandlerResponse("success", "Разрешение маркировки проверено", $result['data']);
     }
 
+    public function HandlePermitLocalModuleStatus() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->logger->warning("HandlePermitLocalModuleStatus: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        $result = $this->checkService->permitLocalModuleStatus();
+        if (!$result['success']) {
+            $this->logger->error("HandlePermitLocalModuleStatus: Ошибка получения статуса локального модуля: " . $result['message']);
+            http_response_code(500);
+            $this->sendHandlerResponse("error", $result['message']);
+            return;
+        }
+        $this->logger->info("HandlePermitLocalModuleStatus: Статус локального модуля получен.");
+        $this->sendHandlerResponse("success", "Статус локального модуля получен", $result['data']);
+    }
+
     public function HandlePermitCheckCdn() {
         if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
             $this->logger->warning("HandlePermitCheckCdn: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);

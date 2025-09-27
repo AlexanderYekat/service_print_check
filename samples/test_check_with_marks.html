@@ -223,6 +223,7 @@
                 <h3 style="margin: 0;">Проверка марок</h3>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button class="button secondary" onclick="checkAllMarks()" id="checkAllButton">Запустить все проверки</button>
+                    <button class="button danger" onclick="clearMarkingCodes()" id="clearMarkingButton">Очистить результаты проверки марок</button>
                     <div id="globalCheckStatus" class="marking-status status-not_checked">Все марки: Не проверено</div>
                 </div>
             </div>
@@ -860,6 +861,66 @@
                     <h3>Ошибка печати чека:</h3>
                     <p style="color: red;">${error.message}</p>
                 `;
+            }
+        }
+
+        async function clearMarkingCodes() {
+            const clearButton = document.getElementById('clearMarkingButton');
+            const originalText = clearButton.textContent;
+            
+            try {
+                clearButton.disabled = true;
+                clearButton.textContent = 'Очищается...';
+
+                const response = await fetch(`${API_URL}/api/clear-marking-codes`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                
+                if (data.success) {
+                    // Сбрасываем результаты всех проверок марок
+                    items.forEach(item => {
+                        if (item.hasMarking) {
+                            item.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                            item.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                            renderItem(item);
+                        }
+                    });
+                    
+                    // Обновляем глобальные статусы
+                    updateGlobalCheckStatus();
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Результат очистки результатов проверки:</h3>
+                        <p style="color: green; font-weight: bold;">✓ Результаты проверки кодов маркировки успешно очищены</p>
+                        <p style="color: blue;">Все статусы проверок марок сброшены</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3>Ошибка очистки результатов проверки:</h3>
+                        <p style="color: red; font-weight: bold;">✗ Не удалось очистить результаты проверки кодов маркировки</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+                
+            } catch (error) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h3>Ошибка очистки результатов проверки:</h3>
+                    <p style="color: red; font-weight: bold;">✗ Ошибка: ${error.message}</p>
+                `;
+            } finally {
+                clearButton.disabled = false;
+                clearButton.textContent = originalText;
             }
         }
 

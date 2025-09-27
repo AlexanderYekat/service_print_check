@@ -566,6 +566,9 @@ class TFptr10Driver {
                 case 'nonFiscal': // Для печати банковского слипа (пример)
                     $resJson = '{ "success": true, "message": "Банковский слип успешно напечатан (мок)" }';
                     break;
+                case 'clearMarkingCodeValidationResult':
+                    $resJson = '{ "success": true, "message": "Результат очистки валидации кода маркировки успешно очищен (мок)" }';
+                    break;
                 default: // По умолчанию для других команд, включая printCheck
                     $resJson = '{ "fiscalParams" : { "fiscalDocumentDateTime" : "2018-03-06T13:52:00+03:00", "fiscalDocumentNumber" : 71, "fiscalDocumentSign" : "1494325660", "fiscalReceiptNumber" : 1, "fnNumber" : "9999078900000961", "registrationNumber" : "0000000001002292", "shiftNumber" : 12, "total" : 390.75, "fnsUrl": "www.nalog.gov.ru" }, "warnings": null }';
                     break;

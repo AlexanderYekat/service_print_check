@@ -350,6 +350,7 @@
                 <div class="button-container">
                     <button type="button" id="getStatusButton" class="button secondary">Получить статус локального модуля</button>
                     <button type="button" id="initModuleButton" class="button secondary">Инициализировать локальный модуль</button>
+                    <button type="button" id="initModuleButton2" class="button secondary">Инициализация локального модуля 2</button>
                     <button type="button" id="checkCdnButton" class="button secondary">Проверить CDN-ы</button>
                     <button type="submit" class="button primary">Сохранить настройки</button>
                 </div>
@@ -375,6 +376,7 @@
             const testLocalModuleInput = document.getElementById('testLocalModule');
             const getStatusButton = document.getElementById('getStatusButton');
             const initModuleButton = document.getElementById('initModuleButton');
+            const initModuleButton2 = document.getElementById('initModuleButton2');
             const checkCdnButton = document.getElementById('checkCdnButton');
             const statusSection = document.getElementById('statusSection');
             const statusResults = document.getElementById('statusResults');
@@ -493,6 +495,11 @@
                 });
             });
 
+            // Обработка кнопки "Инициализация локального модуля 2"
+            initModuleButton2.addEventListener('click', function() {
+                sendInitRequest2();
+            });
+
             // Обработка кнопки "Проверить CDN-ы"
             checkCdnButton.addEventListener('click', function() {
                 showLoadingStatus('Проверка CDN-ов...');
@@ -554,6 +561,71 @@
                     toggleIcon.textContent = 'visibility';
                 }
             };
+
+            // Функция инициализации локального модуля 2 (по аналогии с UI LM4Z chatgpt.html)
+            function sendInitRequest2() {
+                showLoadingStatus('Инициализация локального модуля 2...');
+                
+                // Получаем параметры из настроек
+                const localHost = localHostInput.value.trim() || '127.0.0.1:5995';
+                const xApiKey = xApiKeyInput.value.trim();
+                
+                if (!xApiKey) {
+                    showStatusResult('Инициализация локального модуля 2', false, 'Ошибка: X-API-Key не указан');
+                    return;
+                }
+                
+                // Парсим хост и порт
+                const [address, port] = localHost.includes(':') ? localHost.split(':') : [localHost, '5995'];
+                const cleanAddress = address.replace(/^https?:\/\//, '');
+                
+                const url = `http://${cleanAddress}:${port}/api/v1/init`;
+                const credentials = btoa(`admin:admin`); // Используем стандартные credentials как в UI LM4Z chatgpt.html
+                const data = { token: xApiKey };
+                
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${credentials}`
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+                    
+                    if (!response.ok) {
+                        // Сначала пытаемся получить JSON с деталями ошибки
+                        return response.json().then(data => {
+                            console.log('Error response data:', data);
+                            
+                            // Если есть детальная информация об ошибке в JSON, показываем её
+                            if (data.reason && data.reason.server_body) {
+                                console.log('Found reason.server_body:', data.reason.server_body);
+                                const errorDetails = data.reason.server_body;
+                                if (errorDetails.globalErrors && errorDetails.globalErrors.length > 0) {
+                                    const errorMessage = errorDetails.globalErrors[0].error;
+                                    console.log('Extracted error message:', errorMessage);
+                                    // Пробрасываем ошибку напрямую, без дополнительного catch
+                                    return Promise.reject(new Error(`Ошибка сервера: ${errorMessage}`));
+                                }
+                            }
+                            console.log('No detailed error found, using generic message');
+                            return Promise.reject(new Error(`HTTP error! Status: ${response.status}`));
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Success:', data);
+                    showStatusResult('Инициализация локального модуля 2', true, 'Инициализация выполнена успешно!', data);
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    showStatusResult('Инициализация локального модуля 2', false, `Ошибка инициализации! ${error.message}`);
+                });
+            }
         });
     </script>
 </body>

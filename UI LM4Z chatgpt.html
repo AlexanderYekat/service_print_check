@@ -1,0 +1,250 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Работа с ЛМ ЧЗ</title>
+    <!-- Подключаем шрифт Google Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 20px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        input {
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            padding: 10px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status-output {
+            margin-left: 40px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            width: 400px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: hidden;
+            max-width: 100%;
+            text-align: left;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+        .status-key {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .status-value {
+            color: #333;
+        }
+        .timestamp {
+            margin-top: 10px;
+            color: #555;
+            font-size: 12px;
+            text-align: right;
+        }
+        .copy-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            align-items: center;
+        }
+        .copy-message {
+            font-size: 12px;
+            color: #28a745;
+            visibility: hidden;
+        }
+        .copy-button {
+            cursor: pointer;
+            font-size: 24px;
+            color: #007bff;
+            display: flex;
+            align-items: center;
+        }
+        .copy-button.copied {
+            color: #28a745;
+        }
+        .copy-button span {
+            margin-left: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Работа с ЛМ ЧЗ</h1>
+        <form id="initForm">
+            <label for="address">Address:</label>
+            <input type="text" id="address" name="address" value="127.0.0.1" required>
+            
+            <label for="port">Port:</label>
+            <input type="text" id="port" name="port" value="5995" required>
+            
+            <label for="login">Login:</label>
+            <input type="text" id="login" name="login" value="admin" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" value="admin" required>
+            
+            <label for="token">Token:</label>
+            <input type="text" id="token" name="token" required>
+            
+            <div class="button-group">
+                <button type="button" onclick="sendInitRequest()">Выполнить инициализацию</button>
+                <button type="button" onclick="checkStatus()">Проверить статус</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="status-output" id="statusOutput"></div>
+
+    <script>
+        function sendInitRequest() {
+            let address = document.getElementById('address').value;
+            const port = document.getElementById('port').value;
+            const login = document.getElementById('login').value;
+            const password = document.getElementById('password').value;
+            const token = document.getElementById('token').value;
+            
+            address = address.replace(/^https?:\/\//, '');
+            const url = `http://${address}:${port}/api/v1/init`;
+            const credentials = btoa(`${login}:${password}`);
+            const data = { token: token };
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Basic ${credentials}`
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json().catch(() => ({}));
+            })
+            .then(data => {
+                console.log('Success:', data);
+                alert('Инициализация выполнена успешно!');
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert(`Ошибка инициализации! ${error.message}`);
+            });
+        }
+
+        function checkStatus() {
+            let address = document.getElementById('address').value;
+            const port = document.getElementById('port').value;
+            const login = document.getElementById('login').value;
+            const password = document.getElementById('password').value;
+
+            address = address.replace(/^https?:\/\//, '');
+            const url = `http://${address}:${port}/api/v1/status`;
+            const credentials = btoa(`${login}:${password}`);
+
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Basic ${credentials}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const formattedData = formatStatusResponse(data);
+                document.getElementById('statusOutput').innerHTML = formattedData;
+
+                const timestamp = new Date().toLocaleTimeString();
+                document.getElementById('timestamp').innerText = `Последний ответ: ${timestamp}`;
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert(`Ошибка получения статуса! ${error.message}`);
+            });
+        }
+
+        function formatStatusResponse(data) {
+            let formatted = JSON.stringify(data, null, 4);
+            let highlighted = formatted
+                .replace(/"([^"]+)":/g, '<span class="status-key">"$1":</span>')
+                .replace(/: (".*?")/g, ': <span class="status-value">$1</span>');
+
+            return `
+                <pre>${highlighted}</pre>
+                <div class="timestamp" id="timestamp">Последний ответ: ${new Date().toLocaleTimeString()}</div>
+                <div class="copy-container">
+                    <span class="copy-message" id="copyMessage">Скопировано!</span>
+                    <span class="copy-button" id="copyButton" onclick="copyToClipboard()">
+                        <!-- Иконка копирования -->
+                        <span class="material-symbols-outlined">content_copy</span>
+                        <span>Скопировать</span>
+                    </span>
+                </div>
+            `;
+        }
+
+        function copyToClipboard() {
+            const statusOutput = document.getElementById('statusOutput').innerText;
+            navigator.clipboard.writeText(statusOutput).then(() => {
+                const copyButton = document.getElementById('copyButton');
+                const copyMessage = document.getElementById('copyMessage');
+                copyButton.classList.add('copied');
+                copyMessage.style.visibility = 'visible';
+
+                setTimeout(() => {
+                    copyButton.classList.remove('copied');
+                    copyMessage.style.visibility = 'hidden';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

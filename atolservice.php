@@ -506,8 +506,8 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
-    } elseif (strpos($uri, '/static/') === 0 && $method === 'GET') {
-        // Обработка статических файлов (CSS, JS)
+    } elseif ((strpos($uri, '/static/') === 0 || strpos($uri, '/samples/') === 0) && $method === 'GET') {
+        // Обработка статических файлов (CSS, JS) и файлов тестирования
         $filePath = __DIR__ . $uri;
         if (file_exists($filePath)) {
             $mimeType = mime_content_type($filePath);

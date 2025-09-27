@@ -489,7 +489,7 @@ function runServer() {
     } elseif ($uri === '/api/permit-local-module-status' && $method === 'GET') {
         $fetchHandler->HandlePermitLocalModuleStatus();
     } elseif ($uri === '/api/permit-local-module-init' && $method === 'GET') {
-        //$fetchHandler->HandlePermitLocalModuleInit();
+        $fetchHandler->HandlePermitLocalModuleInit();
     } elseif ($uri === '/api/permit-mark-check-cdn' && $method === 'GET') {
         $fetchHandler->HandlePermitCheckCdn();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {

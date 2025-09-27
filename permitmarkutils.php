@@ -7,7 +7,6 @@ require_once 'logger.php'; // Подключаем логгер
  * Реализация проверки маркировки товаров через API Честного знака
  * с fallback на локальный модуль ЧЗ согласно ППРФ 1944
  * 
- * Перенесено с рабочего кода 1С
  */
 class PermitMarkCheckGateway
 {
@@ -248,7 +247,6 @@ class PermitMarkCheckGateway
 
     /**
      * Офлайн проверка через локальный модуль ЧЗ
-     * Аналог ПроверитьОфлайн из 1С
      */
     private function checkOffline(string $code, array $context = []): array
     {
@@ -534,6 +532,66 @@ class PermitMarkCheckGateway
     public function getLocalModuleStatus(): array
     {
         return $this->checkLMReadiness();
+    }
+
+
+    public function permitLocalModuleInit(): array
+    {
+        $this->logger->info("Начинаем инициализацию локального модуля ЧЗ");
+        
+        // Проверяем наличие токена API
+        if (empty($this->apiKey)) {
+            return [
+                'success' => false,
+                'message' => 'Токен API не может быть пустым'
+            ];
+        }
+        
+        // Формируем URL для инициализации
+        $url = rtrim($this->config['lmHost'], '/') . '/api/v1/init';
+        
+        // Формируем заголовки согласно документации
+        $headers = [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Basic ' . $this->config['lmAuth']
+        ];
+        
+        // Формируем тело запроса
+        $requestData = [
+            'token' => $this->apiKey
+        ];
+        
+        $jsonBody = json_encode($requestData, JSON_UNESCAPED_UNICODE);
+        
+        $this->logger->info("Инициализируем ЛМ ЧЗ: " . $url);
+        $this->logger->info("Токен: " . $this->apiKey);
+        
+        // Выполняем запрос к ЛМ ЧЗ
+        $result = $this->performJSONRequest($url, $headers, $jsonBody, 30, true);
+        
+        if (!$result['success']) {
+            $this->logger->error("Ошибка запроса инициализации к ЛМ ЧЗ: " . $result['message']);
+            return [
+                'success' => false,
+                'message' => 'Ошибка запроса инициализации к ЛМ ЧЗ: ' . $result['message']
+            ];
+        }
+        
+        // Проверяем HTTP код
+        if ($result['httpCode'] !== 200) {
+            $this->logger->error("ЛМ ЧЗ вернул HTTP код: " . $result['httpCode']);
+            return [
+                'success' => false,
+                'message' => 'ЛМ ЧЗ вернул HTTP код: ' . $result['httpCode']
+            ];
+        }
+        
+        // Инициализация успешна
+        $this->logger->info("ЛМ ЧЗ в процессе инициализации");
+        return [
+            'success' => true,
+            'message' => 'ЛМ ЧЗ в процессе инициализации'
+        ];
     }
 
     /**

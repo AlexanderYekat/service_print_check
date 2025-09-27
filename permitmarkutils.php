@@ -577,12 +577,22 @@ class PermitMarkCheckGateway
             ];
         }
         
-        // Проверяем HTTP код
-        if ($result['httpCode'] !== 200) {
-            $this->logger->error("ЛМ ЧЗ вернул HTTP код: " . $result['httpCode']);
+        // Для инициализации ЛМ ЧЗ HTTP код 200 не обязателен
+        // Проверяем только на критические ошибки (4xx кроме 401, 5xx)
+        $httpCode = $result['httpCode'] ?? 0;
+        if ($httpCode >= 400 && $httpCode < 500 && $httpCode !== 401) {
+            $this->logger->error("ЛМ ЧЗ вернул ошибку клиента: " . $httpCode);
             return [
                 'success' => false,
-                'message' => 'ЛМ ЧЗ вернул HTTP код: ' . $result['httpCode']
+                'message' => 'ЛМ ЧЗ вернул ошибку клиента: ' . $httpCode
+            ];
+        }
+        
+        if ($httpCode >= 500) {
+            $this->logger->error("ЛМ ЧЗ вернул ошибку сервера: " . $httpCode);
+            return [
+                'success' => false,
+                'message' => 'ЛМ ЧЗ вернул ошибку сервера: ' . $httpCode
             ];
         }
         
@@ -756,7 +766,7 @@ class PermitMarkCheckGateway
     private function performJSONRequest(string $url, array $headers, string $body = '', int $timeout = 30, bool $isLM = false): array
     {
         $ch = curl_init();
-        curl_setopt_array($ch, [
+        $curlOptions = [
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
@@ -767,10 +777,19 @@ class PermitMarkCheckGateway
             CURLOPT_CUSTOMREQUEST => !empty($body) ? 'POST' : 'GET',
             CURLOPT_POSTFIELDS => !empty($body) ? $body : '{"data":"string"}', // Используем рабочий формат
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_SSL_VERIFYPEER => $this->config['verifySSL'],
-            CURLOPT_SSL_VERIFYHOST => $this->config['verifySSL'] ? 2 : 0,
             CURLOPT_USERAGENT => 'CloudPosBridgePHP/1.0'
-        ]);
+        ];
+        
+        // Для локального модуля отключаем SSL проверку
+        if ($isLM) {
+            $curlOptions[CURLOPT_SSL_VERIFYPEER] = false;
+            $curlOptions[CURLOPT_SSL_VERIFYHOST] = 0;
+        } else {
+            $curlOptions[CURLOPT_SSL_VERIFYPEER] = $this->config['verifySSL'];
+            $curlOptions[CURLOPT_SSL_VERIFYHOST] = $this->config['verifySSL'] ? 2 : 0;
+        }
+        
+        curl_setopt_array($ch, $curlOptions);
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -805,11 +824,27 @@ class PermitMarkCheckGateway
             ];
         }
         
-        if ($httpCode !== 200) {
+        // Для локального модуля не требуем строго HTTP 200
+        if (!$isLM && $httpCode !== 200) {
             $this->logger->warning("HTTP код не 200: " . $httpCode . ", ответ: " . substr($response, 0, 500));
             return [
                 'success' => false,
                 'message' => "HTTP ошибка: {$httpCode}. Ответ: " . substr($response, 0, 200),
+                'httpCode' => $httpCode,
+                'response' => $response
+            ];
+        }
+        
+        // Для локального модуля логируем, но не считаем ошибкой
+        if ($isLM && $httpCode !== 200) {
+            $this->logger->info("ЛМ ЧЗ вернул HTTP код: " . $httpCode . ", ответ: " . substr($response, 0, 500));
+        }
+        
+        // Для локального модуля может не быть JSON ответа
+        if ($isLM) {
+            return [
+                'success' => true,
+                'data' => $response ? json_decode($response, true) : null,
                 'httpCode' => $httpCode,
                 'response' => $response
             ];

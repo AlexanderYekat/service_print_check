@@ -11,15 +11,16 @@ class CheckService {
     private $bankDriver;
     private $scaleObject;
     private $logger;
-
     private $permitMarkCheckGateway;
+    private $settings; 
 
-    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, ?TBankDriver $bankDriver = null, ?TScale8Driver $scaleObject = null, ?PermitMarkCheckGateway $permitMarkCheckGateway = null) {
+    public function __construct(TFptr10Driver $FptrDriver, Logger $logger, ?TBankDriver $bankDriver = null, ?TScale8Driver $scaleObject = null, ?PermitMarkCheckGateway $permitMarkCheckGateway = null, ?Settings $settings = null) {
         $this->FptrDriver = $FptrDriver;
         $this->logger = $logger;
         $this->bankDriver = $bankDriver;
         $this->scaleObject = $scaleObject;
         $this->permitMarkCheckGateway = $permitMarkCheckGateway;
+        $this->settings = $settings; // Инициализируем поле для настроек
     }
 
     public function getPermitMarkEnabled() {
@@ -309,6 +310,12 @@ class CheckService {
             $this->logger->error("Ошибка форматирования JSON для чека: " . $formattedCheck['message']);
             return ['success' => false, 'message' => $formattedCheck['message']];
         }
+
+        //выполняем команду установки часового пояса
+        $result = $this->_executeFptrOperation([$this->FptrDriver, 'setTimeZone'], [$this->settings->timeZone], 'setTimeZone', false);
+        $this->logger->info("Результат установки часового пояса: " . json_encode($result, JSON_UNESCAPED_UNICODE));
+
+
         $checkJsonData = $formattedCheck['checkData'];
         // Декодируем JSON строку в массив для красивого вывода
         $checkDataArray = json_decode($checkJsonData, true);

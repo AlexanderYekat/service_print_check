@@ -107,7 +107,7 @@ function runServer() {
         ]
     );
     
-    $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject, $permitMark);
+    $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject, $permitMark, $currentSettings);
 
     $fetchHandler = new Handler(
         $checkService, 

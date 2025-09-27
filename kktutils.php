@@ -166,6 +166,15 @@ class TFptr10Driver {
         return [$shiftOpened, $commandErrorDesc, $result];
     }
 
+    public function setTimeZone(int $timeZone) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+        $this->fptr->setSingleSetting($this->fptr->LIBFPTR_SETTING_TIME_ZONE, $timeZone);
+        $this->fptr->applySingleSettings();
+        return [true, "", ""];
+    }
+
     public function PrintXReport(string $cashier) {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];

@@ -134,6 +134,27 @@ class TFptr10Driver {
         return $this->fptr;
     }
 
+    public function OpenShift(string $cashier, string $cashierVatin = "") {
+        if ($this->fptr === null) {
+            return [false, "Драйвер не инициализирован"];
+        }
+        $this->fptr->setParam(1021, $cashier);
+        if (!empty($cashierVatin)) {
+            $this->fptr->setParam(1203, $cashierVatin);
+        }
+        $this->fptr->operatorLogin;
+    
+        $result = $this->fptr->OpenShift();
+        if ($result !== 0) {
+            $errorDescription = $this->fptr->errorDescription();
+            $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription  ?? '');
+            if (!$this->emulation) {
+                return [false, $commandErrorDesc];
+            }
+        }
+        return [true, ""];
+    }
+
     public function IsShiftOpened() {
         if ($this->fptr === null) {
             return [false, "Драйвер не инициализирован"];
@@ -163,7 +184,18 @@ class TFptr10Driver {
         } finally {
             $this->Close();
         }
-        return [$shiftOpened, $commandErrorDesc, $result];
+        //return [$shiftOpened, $commandErrorDesc, $result];
+        $successGetInfoShift = true;
+        if ($commandErrorDesc !== "") {
+            $successGetInfoShift = false;
+        }
+        if ($this->emulation) {
+            $commandErrorDesc = "";
+            $successGetInfoShift = true;
+            $result = 1;
+            $shiftOpened = true;
+        }
+        return [$successGetInfoShift, json_encode(['isShiftOpened' => $shiftOpened, 'constOfSmeny' => $result], JSON_UNESCAPED_UNICODE), $commandErrorDesc];
     }
 
     public function setTimeZone(int $timeZone) {

@@ -484,6 +484,8 @@ function runServer() {
         $fetchHandler->HandlePrintCheck();
     } elseif ($uri === '/api/check-marking-code' && $method === 'POST') {
         $fetchHandler->HandleCheckMarkingCode();
+    } elseif ($uri === '/api/clear-marking-codes' && $method === 'GET') {
+        $fetchHandler->HandleClearMarkingCodes();
     } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {
         $fetchHandler->HandleCheckPermitMark();
     } elseif ($uri === '/api/permit-local-module-status' && $method === 'GET') {

@@ -145,6 +145,13 @@ class CheckService {
         
         $results = [];
         $allSuccess = true;
+
+        $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkAllMarksOnKKT_IsShiftOpened', false);
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+
+        if (!$isShiftOpened) {
+            return ['success' => false, 'message' => 'Смена не открыта - поэтому не можем проверить марки на ККТ'];
+        }
         
         foreach ($marks as $mark) {
             if (!$mark['needsKktCheck']) {
@@ -155,7 +162,6 @@ class CheckService {
             $this->logger->info("Проверяем марку на ККТ: {$mark['markingCode']} (товар: {$mark['name']})");
             
             $checkResult =$this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$mark['markingCode'], $sellOrReturn, $mark['itemEstimatedStatus']], 'checkMarkingCode', false);
-            //list($success, $actualResponseString, $actualCommandErrorDesc) = $this->checkMarkingCode($mark['markingCode'], $sellOrReturn, $mark['itemEstimatedStatus']);
             
             $results[$mark['index']] = [
                 'success' => $checkResult['success'],
@@ -273,6 +279,19 @@ class CheckService {
             return ['success' => false, 'message' => 'Неверный формат данных чека.'];
         }
 
+        $cashier = $checkData['cashier'] ?? '';
+        $cashierVatin = $checkData['cashierVatin'] ?? '';
+
+        $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'printCheck_IsShiftOpened', false);
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+
+        if (!$isShiftOpened) {
+            $resultOpenShift = $this->_executeFptrOperation([$this->FptrDriver, 'OpenShift'], [$cashier, $cashierVatin], 'printCheck_OpenShift', false);
+            if (!$resultOpenShift['success']) {
+                return ['success' => false, 'message' => 'Ошибка открытия смены: ' . $resultOpenShift['message']];
+            }
+        }
+
         // Извлекаем марки из чека
         $typeCheck = $checkData['type'] ?? 'sell';
         $marks = $this->extractMarksFromCheck($checkData, $typeCheck);
@@ -377,7 +396,22 @@ class CheckService {
         return $this->_executeFptrOperation([$this->FptrDriver, 'clearMarkingCodes'], [], 'clearMarkingCodes');
     }
 
-    public function checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus) {
+    public function checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus, $cashier = "", $cashierVatin = "") {
+        $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkMarkingCode_IsShiftOpened', false);
+
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+
+        if (!$isShiftOpened) {
+            if ($cashier === "") {
+                $this->logger->error("Ошибка проверки марки - смена не открыта и не указан кассир для открытия смены");
+                return ['success' => false, 'message' => 'Ошибка проверки марки - смена не открыта и не указан кассир для открытия смены'];
+            }
+            $resultOpenShift = $this->_executeFptrOperation([$this->FptrDriver, 'OpenShift'], [$cashier, $cashierVatin], 'checkMarkingCode_OpenShift', false);
+            if (!$resultOpenShift['success']) {
+                return ['success' => false, 'message' => 'Ошибка проверки марки - ошибка открытия смены: ' . $resultOpenShift['message']];
+            }
+        }
+
         return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode, $sellOrReturn, $itemEstimatedStatus], 'checkMarkingCode');
     }
 
@@ -463,18 +497,20 @@ class CheckService {
         }
 
         // Дополнительная проверка на открытую смену
-        list($isShiftOpened, $shiftErrorDesc, $constOfSmeny) = $this->FptrDriver->IsShiftOpened();
-        $this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc . ", constOfSmeny=" . $constOfSmeny);
+        //list($isShiftOpened, $shiftErrorDesc, $constOfSmeny) = $this->FptrDriver->IsShiftOpened();
+        $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'CloseShift_IsShiftOpened', false);
+        if (!$resultCheckShiftOpened['success']) {
+            $this->logger->error("Ошибка при проверке открытой смены: " . $resultCheckShiftOpened['message']);
+            return ['success' => false, 'message' => "Ошибка при проверке открытой смены: " . $resultCheckShiftOpened['message']];
+        }
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+        $shiftErrorDesc = $resultCheckShiftOpened['data']['error'];
+        $constOfSmeny = $resultCheckShiftOpened['data']['response']['constOfSmeny'];
+        $this->logger->debug("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc . ", constOfSmeny=" . $constOfSmeny);
         ////$this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc);
-        if (!$isShiftOpened && $shiftErrorDesc === "") {
+        if (!$isShiftOpened) {
             $this->logger->warning(message: "Смена уже закрыта");
             return ['success' => false, 'message' => 'Ошибка закрытия смены: смена уже закрыта'];
-        }
-        if ($shiftErrorDesc != "") {
-            $this->logger->error("Ошибка при проверке открытой смены: {$shiftErrorDesc}");
-            if (!$this->FptrDriver->getEmulation()) {
-                return ['success' => false, 'message' => "Ошибка при проверке открытой смены: {$shiftErrorDesc}"];
-            }
         }
         return $this->_executeFptrOperation([$this->FptrDriver, 'CloseShift'], [$cashier], 'CloseShift');
     }

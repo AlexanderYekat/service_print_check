@@ -38,6 +38,7 @@ class CheckData {
     public $taxationType;
     public $type;
     public $cashier;
+    public $cashierVatin;
     public $tableData = []; // array of CheckItem
     public $payments = [];  // array of Payment
 
@@ -46,6 +47,7 @@ class CheckData {
             $this->taxationType = $data['taxationType'] ?? null;
             $this->type = $data['type'] ?? '';
             $this->cashier = $data['cashier'] ?? '';
+            $this->cashierVatin = $data['cashierVatin'] ?? '';
             if (!empty($data['tableData']) && is_array($data['tableData'])) {
                 foreach ($data['tableData'] as $item) {
                     $this->tableData[] = new CheckItem($item);

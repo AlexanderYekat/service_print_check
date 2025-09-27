@@ -218,7 +218,7 @@
 
     <div id="itemsContainer">
         <!-- Глобальная панель проверки марок -->
-        <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+        <div id="globalCheckPanel" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                 <h3 style="margin: 0;">Проверка марок</h3>
                 <div style="display: flex; gap: 10px; align-items: center;">
@@ -597,7 +597,14 @@
         function clearAllItems() {
             if (confirm('Вы уверены, что хотите удалить все позиции?')) {
                 items = [];
-                document.getElementById('itemsContainer').innerHTML = '';
+                const container = document.getElementById('itemsContainer');
+                const globalPanel = document.getElementById('globalCheckPanel');
+                
+                // Очищаем контейнер, но сохраняем глобальную панель
+                container.innerHTML = '';
+                if (globalPanel) {
+                    container.appendChild(globalPanel);
+                }
                 updateSummary();
             }
         }
@@ -640,13 +647,22 @@
         function updateGlobalCheckStatus() {
             const markedItems = items.filter(item => item.hasMarking);
             
+            // Проверяем, что элементы существуют
+            const globalCheckStatus = document.getElementById('globalCheckStatus');
+            const kktGlobalStatus = document.getElementById('kktGlobalStatus');
+            const permitGlobalStatus = document.getElementById('permitGlobalStatus');
+            
+            if (!globalCheckStatus || !kktGlobalStatus || !permitGlobalStatus) {
+                return; // Элементы не найдены, выходим
+            }
+            
             if (markedItems.length === 0) {
-                document.getElementById('globalCheckStatus').textContent = 'Все марки: Нет марок';
-                document.getElementById('globalCheckStatus').className = 'marking-status status-not_checked';
-                document.getElementById('kktGlobalStatus').textContent = 'Нет марок';
-                document.getElementById('kktGlobalStatus').className = 'marking-status status-not_checked';
-                document.getElementById('permitGlobalStatus').textContent = 'Нет марок';
-                document.getElementById('permitGlobalStatus').className = 'marking-status status-not_checked';
+                globalCheckStatus.textContent = 'Все марки: Нет марок';
+                globalCheckStatus.className = 'marking-status status-not_checked';
+                kktGlobalStatus.textContent = 'Нет марок';
+                kktGlobalStatus.className = 'marking-status status-not_checked';
+                permitGlobalStatus.textContent = 'Нет марок';
+                permitGlobalStatus.className = 'marking-status status-not_checked';
                 return;
             }
 
@@ -658,17 +674,17 @@
             const kktError = kktStatuses.filter(status => status === 'error').length;
 
             if (kktPending > 0) {
-                document.getElementById('kktGlobalStatus').textContent = `Проверяется (${kktPending})`;
-                document.getElementById('kktGlobalStatus').className = 'marking-status status-pending';
+                kktGlobalStatus.textContent = `Проверяется (${kktPending})`;
+                kktGlobalStatus.className = 'marking-status status-pending';
             } else if (kktError > 0) {
-                document.getElementById('kktGlobalStatus').textContent = `Ошибки (${kktError})`;
-                document.getElementById('kktGlobalStatus').className = 'marking-status status-error';
+                kktGlobalStatus.textContent = `Ошибки (${kktError})`;
+                kktGlobalStatus.className = 'marking-status status-error';
             } else if (kktSuccess === kktStatuses.length) {
-                document.getElementById('kktGlobalStatus').textContent = `Проверено (${kktSuccess})`;
-                document.getElementById('kktGlobalStatus').className = 'marking-status status-success';
+                kktGlobalStatus.textContent = `Проверено (${kktSuccess})`;
+                kktGlobalStatus.className = 'marking-status status-success';
             } else {
-                document.getElementById('kktGlobalStatus').textContent = `Не проверено (${kktNotChecked})`;
-                document.getElementById('kktGlobalStatus').className = 'marking-status status-not_checked';
+                kktGlobalStatus.textContent = `Не проверено (${kktNotChecked})`;
+                kktGlobalStatus.className = 'marking-status status-not_checked';
             }
 
             // Статус разрешительного режима
@@ -679,17 +695,17 @@
             const permitError = permitStatuses.filter(status => status === 'error').length;
 
             if (permitPending > 0) {
-                document.getElementById('permitGlobalStatus').textContent = `Проверяется (${permitPending})`;
-                document.getElementById('permitGlobalStatus').className = 'marking-status status-pending';
+                permitGlobalStatus.textContent = `Проверяется (${permitPending})`;
+                permitGlobalStatus.className = 'marking-status status-pending';
             } else if (permitError > 0) {
-                document.getElementById('permitGlobalStatus').textContent = `Ошибки (${permitError})`;
-                document.getElementById('permitGlobalStatus').className = 'marking-status status-error';
+                permitGlobalStatus.textContent = `Ошибки (${permitError})`;
+                permitGlobalStatus.className = 'marking-status status-error';
             } else if (permitSuccess === permitStatuses.length) {
-                document.getElementById('permitGlobalStatus').textContent = `Проверено (${permitSuccess})`;
-                document.getElementById('permitGlobalStatus').className = 'marking-status status-success';
+                permitGlobalStatus.textContent = `Проверено (${permitSuccess})`;
+                permitGlobalStatus.className = 'marking-status status-success';
             } else {
-                document.getElementById('permitGlobalStatus').textContent = `Не проверено (${permitNotChecked})`;
-                document.getElementById('permitGlobalStatus').className = 'marking-status status-not_checked';
+                permitGlobalStatus.textContent = `Не проверено (${permitNotChecked})`;
+                permitGlobalStatus.className = 'marking-status status-not_checked';
             }
 
             // Общий статус
@@ -699,17 +715,17 @@
             const totalNotChecked = kktNotChecked + permitNotChecked;
 
             if (totalPending > 0) {
-                document.getElementById('globalCheckStatus').textContent = `Все марки: Проверяется (${totalPending})`;
-                document.getElementById('globalCheckStatus').className = 'marking-status status-pending';
+                globalCheckStatus.textContent = `Все марки: Проверяется (${totalPending})`;
+                globalCheckStatus.className = 'marking-status status-pending';
             } else if (totalError > 0) {
-                document.getElementById('globalCheckStatus').textContent = `Все марки: Ошибки (${totalError})`;
-                document.getElementById('globalCheckStatus').className = 'marking-status status-error';
+                globalCheckStatus.textContent = `Все марки: Ошибки (${totalError})`;
+                globalCheckStatus.className = 'marking-status status-error';
             } else if (totalSuccess === (kktStatuses.length + permitStatuses.length)) {
-                document.getElementById('globalCheckStatus').textContent = `Все марки: Проверено (${totalSuccess})`;
-                document.getElementById('globalCheckStatus').className = 'marking-status status-success';
+                globalCheckStatus.textContent = `Все марки: Проверено (${totalSuccess})`;
+                globalCheckStatus.className = 'marking-status status-success';
             } else {
-                document.getElementById('globalCheckStatus').textContent = `Все марки: Не проверено (${totalNotChecked})`;
-                document.getElementById('globalCheckStatus').className = 'marking-status status-not_checked';
+                globalCheckStatus.textContent = `Все марки: Не проверено (${totalNotChecked})`;
+                globalCheckStatus.className = 'marking-status status-not_checked';
             }
         }
 

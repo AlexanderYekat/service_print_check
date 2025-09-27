@@ -386,23 +386,23 @@ class PermitMarkCheckGateway
             ];
         }
         
-        $this->logger->info("Результат offline проверки: " . json_encode($result));
-        $this->logger->info("Запрос проверки марки был успешно обработан");
-        $this->logger->info("Codes: " . json_encode($result['data']['codes']));
-        
+        $this->logger->debug("Результат offline проверки: " . json_encode($result));
+        $this->logger->debug("Запрос проверки марки был успешно обработан");
+        //$this->logger->info("Codes: " . json_encode($result['data']['codes']));
+        $message = 'Ok';
         foreach ($result['data']['codes'] ?? [] as $mark) {            
-            $this->logger->info("Маркировка mark успешно: " . json_encode($mark));
+            $this->logger->debug("Маркировка mark успешно: " . json_encode($mark));
             // Проверяем дополнительные условия
             if ($mark['isBlocked'] ?? false) {
                 $message = 'Марка заблокирована по решению органов государственной власти';
             }
                         
-            $this->logger->info("Маркировка markingCode успешно: " . json_encode($mark));
+            $this->logger->debug("Маркировка markingCode успешно: " . json_encode($mark));
 
             return [
                 'success' => true,
                 'errorCode' => 0,
-                'message' => 'Ok',
+                'message' => $message,
                 'reqId' => $result['data']['reqId'] ?? '',
                 'reqTimestamp' => $result['data']['reqTimestamp'] ?? '',
                 'ver' => $result['data']['version'],
@@ -689,17 +689,18 @@ class PermitMarkCheckGateway
         }
         
         $data = $result['data'];
-        if (!isset($data['codes']) || !is_array($data['codes']) || empty($data['codes'])) {
-            return [
-                'success' => false,
-                'message' => 'В ответе ЛМ ЧЗ отсутствуют результаты проверки'
-            ];
-        }
 
         if ($data['code'] !== 0) {
             return [
                 'success' => false,
                 'message' => 'Ошибка проверки CIS в ЛМ ЧЗ (код ' . $data['code'] . ')' . $data['description']
+            ];
+        }
+
+        if (!isset($data['codes']) || !is_array($data['codes']) || empty($data['codes'])) {
+            return [
+                'success' => false,
+                'message' => 'В ответе ЛМ ЧЗ отсутствуют результаты проверки'
             ];
         }
         
@@ -846,7 +847,6 @@ class PermitMarkCheckGateway
                 'success' => true,
                 'data' => $response ? json_decode($response, true) : null,
                 'httpCode' => $httpCode,
-                'response' => $response
             ];
         }
         

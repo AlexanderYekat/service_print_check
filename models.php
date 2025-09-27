@@ -96,10 +96,68 @@ class Settings {
     public $permitMarkLmHost;
     public $permitMarkLmAuth;
     public $testLocalModule;
+    public $timeZone;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
         $this->_setDefaults(); // Вызываем метод установки значений по умолчанию
+    }
+
+    /**
+     * Автоматически определяет часовой пояс системы
+     * @return int Номер часового пояса для LIBFPTR_TIME_ZONE (1-11)
+     */
+    public function detectTimeZone(): int {
+        try {
+            // Определяем часовой пояс через Windows tzutil
+            if (PHP_OS_FAMILY === 'Windows') {
+                $output = shell_exec('tzutil /g 2>nul');
+                if ($output) {
+                    $windowsTimezone = trim($output);
+                    
+                    // Маппинг Windows названий на PHP идентификаторы
+                    $windowsToPhp = [
+                        'Ekaterinburg Standard Time' => 'Asia/Yekaterinburg',
+                        'Russian Standard Time' => 'Europe/Moscow',
+                        'Moscow Standard Time' => 'Europe/Moscow',
+                        'Samara Standard Time' => 'Europe/Samara',
+                        'Omsk Standard Time' => 'Asia/Omsk',
+                        'Novosibirsk Standard Time' => 'Asia/Novosibirsk',
+                        'Krasnoyarsk Standard Time' => 'Asia/Krasnoyarsk',
+                        'Irkutsk Standard Time' => 'Asia/Irkutsk',
+                        'Yakutsk Standard Time' => 'Asia/Yakutsk',
+                        'Vladivostok Standard Time' => 'Asia/Vladivostok',
+                        'Magadan Standard Time' => 'Asia/Magadan',
+                        'Kamchatka Standard Time' => 'Asia/Kamchatka',
+                        'Chukotka Standard Time' => 'Asia/Anadyr',
+                        'Kaliningrad Standard Time' => 'Europe/Kaliningrad'
+                    ];
+                    
+                    if (isset($windowsToPhp[$windowsTimezone])) {
+                        $phpTimezone = $windowsToPhp[$windowsTimezone];
+                        $dateTime = new DateTime();
+                        $dateTime->setTimezone(new DateTimeZone($phpTimezone));
+                        $offset = $dateTime->getOffset();
+                        $hours = $offset / 3600;
+                        
+                        // Преобразуем в формат LIBFPTR_TIME_ZONE (UTC+2 = 1, UTC+3 = 2, и т.д.)
+                        $libfptrZone = $hours - 1;
+                        
+                        // Ограничиваем диапазон от 1 до 11
+                        if ($libfptrZone < 1) $libfptrZone = 1;
+                        if ($libfptrZone > 11) $libfptrZone = 11;
+                        
+                        return (int)$libfptrZone;
+                    }
+                }
+            }
+            
+            // Если Windows tzutil не сработал, возвращаем UTC+3 (Москва) по умолчанию
+            return 2;
+        } catch (Exception $e) {
+            // В случае ошибки возвращаем UTC+3 (Москва) по умолчанию
+            return 2;
+        }
     }
 
     private function _setDefaults(): void {
@@ -134,6 +192,7 @@ class Settings {
         $this->permitMarkLmHost = "http://127.0.0.1:5995";
         $this->permitMarkLmAuth = "YWRtaW46YWRtaW4="; // admin:admin в base64
         $this->testLocalModule = false;
+        $this->timeZone = $this->detectTimeZone(); // Автоматически определяем часовой пояс системы
     }
 
     public function load(): void {
@@ -178,6 +237,8 @@ class Settings {
         $this->permitMarkLmHost = $data['permitMarkLmHost'] ?? $this->permitMarkLmHost;
         $this->permitMarkLmAuth = $data['permitMarkLmAuth'] ?? $this->permitMarkLmAuth;
         $this->testLocalModule = $data['testLocalModule'] ?? $this->testLocalModule;
+        // Если часовой пояс не задан в настройках, определяем автоматически
+        $this->timeZone = $data['timeZone'] ?? $this->detectTimeZone();
     }
 
     public function toArray(): array {
@@ -213,6 +274,7 @@ class Settings {
             'permitMarkLmHost' => $this->permitMarkLmHost,
             'permitMarkLmAuth' => $this->permitMarkLmAuth,
             'testLocalModule' => $this->testLocalModule,
+            'timeZone' => $this->timeZone,
         ];
     }
 

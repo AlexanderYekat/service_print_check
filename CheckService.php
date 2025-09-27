@@ -373,6 +373,10 @@ class CheckService {
         return $result;
     }
 
+    public function clearMarkingCodes() {
+        return $this->_executeFptrOperation([$this->FptrDriver, 'clearMarkingCodes'], [], 'clearMarkingCodes');
+    }
+
     public function checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus) {
         return $this->_executeFptrOperation([$this->FptrDriver, 'checkMarkingCode'], [$markingCode, $sellOrReturn, $itemEstimatedStatus], 'checkMarkingCode');
     }

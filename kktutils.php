@@ -476,7 +476,7 @@ class TFptr10Driver {
     /**
      * Очищает результат валидации кода маркировки
      */
-    public function clearMarkingCodeValidationResult()
+    public function clearMarkingCodes()
     {
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];

@@ -49,6 +49,23 @@ class Handler {
         $this->sendHandlerResponse("success", "Чек успешно напечатан", $result['data']);
     }
 
+    public function HandleClearMarkingCodes() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->logger->warning("HandleClearMarkingCodes: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        $result = $this->checkService->clearMarkingCodes();
+        if (!$result['success']) {
+            $this->logger->error("HandleClearMarkingCodes: Ошибка очистки кодов маркировки: " . $result['message']);
+            http_response_code(500);
+            $this->sendHandlerResponse("error", $result['message']);
+            return;
+        }
+        $this->logger->info("HandleClearMarkingCodes: Коды маркировки очищены.");
+        $this->sendHandlerResponse("success", "Коды маркировки очищены", $result['data']);
+    }
     public function HandleCheckMarkingCode() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCheckMarkingCode: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);

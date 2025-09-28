@@ -101,6 +101,8 @@ class Settings {
     public $timeZone;
     public $comScanner;
     public $scannerSuffix;
+    public $scannerUsbVendorId;
+    public $scannerUsbProductId;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -198,7 +200,9 @@ class Settings {
         $this->testLocalModule = false;
         $this->timeZone = $this->detectTimeZone(); // Автоматически определяем часовой пояс системы
         $this->comScanner = 0; // По умолчанию не используется (0 = не настроено)
-        $this->scannerSuffix = '\\t'; // По умолчанию табуляция
+        $this->scannerSuffix = '\t'; // По умолчанию табуляция
+        $this->scannerUsbVendorId = 0; // По умолчанию не настроено
+        $this->scannerUsbProductId = 0; // По умолчанию не настроено
     }
 
     public function load(): void {
@@ -247,6 +251,8 @@ class Settings {
         $this->timeZone = $data['timeZone'] ?? $this->detectTimeZone();
         $this->comScanner = $data['comScanner'] ?? $this->comScanner;
         $this->scannerSuffix = $data['scannerSuffix'] ?? $this->scannerSuffix;
+        $this->scannerUsbVendorId = $data['scannerUsbVendorId'] ?? $this->scannerUsbVendorId;
+        $this->scannerUsbProductId = $data['scannerUsbProductId'] ?? $this->scannerUsbProductId;
     }
 
     public function toArray(): array {
@@ -285,6 +291,8 @@ class Settings {
             'timeZone' => $this->timeZone,
             'comScanner' => $this->comScanner,
             'scannerSuffix' => $this->scannerSuffix,
+            'scannerUsbVendorId' => $this->scannerUsbVendorId,
+            'scannerUsbProductId' => $this->scannerUsbProductId,
         ];
     }
 

@@ -26,6 +26,7 @@ class BarcodeScanner {
     this.reader = null;
     this.keepReading = false;
     this.isConnected = false;
+    this.dataBuffer = ''; // Буфер для накопления данных от сканера
     
     // Callbacks
     this.onScan = options.onScan || console.log;
@@ -36,6 +37,15 @@ class BarcodeScanner {
     // Настройки
     this.terminator = this.parseTerminator(options.terminator || '\t');
     this.baudRate = options.baudRate || 9600;
+    
+    // Настройки логирования
+    this.debug = options.debug || false;
+    
+    // Настройки управления буфером
+    this.maxBufferSize = options.maxBufferSize || 10240; // 10KB по умолчанию
+    this.bufferTimeout = options.bufferTimeout || 300000; // 5 минут по умолчанию
+    this.lastDataTime = Date.now(); // Время последнего получения данных
+    this.bufferTimer = null; // Таймер для очистки буфера по таймауту
   }
 
   /**
@@ -64,6 +74,14 @@ class BarcodeScanner {
       // Устанавливаем флаги
       this.keepReading = true;
       this.isConnected = true;
+      
+      // Очищаем буфер данных при новом подключении
+      this.dataBuffer = '';
+      this.lastDataTime = Date.now();
+      this.log('Буфер данных очищен при подключении');
+      
+      // Запускаем таймер для очистки буфера по таймауту
+      this.startBufferTimer();
       
       // Вызываем callback подключения
       this.onConnect();
@@ -106,6 +124,13 @@ class BarcodeScanner {
       // Сбрасываем флаги
       this.isConnected = false;
       
+      // Останавливаем таймер очистки буфера
+      this.stopBufferTimer();
+      
+      // Очищаем буфер данных при отключении
+      this.dataBuffer = '';
+      this.log('Буфер данных очищен при отключении');
+      
       // Вызываем callback отключения
       this.onDisconnect();
       
@@ -124,10 +149,8 @@ class BarcodeScanner {
     const textDecoder = new TextDecoderStream();
     this.port.readable.pipeTo(textDecoder.writable);
     
-    // Создаем TransformStream для разделения данных по терминатору
-    this.reader = textDecoder.readable.pipeThrough(
-      new TransformStream(new SuffixTransformer(this.terminator))
-    ).getReader();
+    // Получаем reader для чтения декодированных данных
+    this.reader = textDecoder.readable.getReader();
 
     try {
       // Основной цикл чтения
@@ -140,9 +163,9 @@ class BarcodeScanner {
           break;
         }
         
-        // Если получены данные - обрабатываем их
-        if (value && value.trim()) {
-          this.onScan(value.trim());
+        // Если получены данные - обрабатываем их через буфер
+        if (value) {
+          this.processIncomingData(value);
         }
       }
     } catch (error) {
@@ -157,6 +180,65 @@ class BarcodeScanner {
   }
 
   /**
+   * Обрабатывает входящие данные с буферизацией
+   * @param {string} data - Входящие данные
+   * @private
+   */
+  processIncomingData(data) {
+    // Обновляем время последнего получения данных
+    this.lastDataTime = Date.now();
+    
+    if (this.debug) {
+      this.log(`Получены данные: "${data}" (размер: ${data.length})`);
+      this.log(`Коды символов: [${Array.from(data).map(c => c.charCodeAt(0)).join(', ')}]`);
+    }
+    
+    // Проверяем размер буфера перед добавлением новых данных
+    if (this.dataBuffer.length + data.length > this.maxBufferSize) {
+      this.log(`Буфер превышает максимальный размер (${this.maxBufferSize} байт), очищаем его`);
+      this.dataBuffer = '';
+    }
+    
+    // Добавляем новые данные в буфер
+    this.dataBuffer += data;
+    
+    if (this.debug) {
+      this.log(`Текущий буфер: "${this.dataBuffer}" (размер: ${this.dataBuffer.length}/${this.maxBufferSize})`);
+      this.log(`Используемый терминатор: "${this.terminator}" (коды: [${Array.from(this.terminator).map(c => c.charCodeAt(0)).join(', ')}])`);
+    }
+    
+    // Ищем полные коды в буфере
+    let index;
+    while ((index = this.dataBuffer.indexOf(this.terminator)) !== -1) {
+      // Извлекаем полный код до терминатора
+      const fullCode = this.dataBuffer.slice(0, index);
+      
+      if (this.debug) {
+        this.log(`Найден полный код: "${fullCode}" (размер: ${fullCode.length})`);
+      }
+      
+      // Обрабатываем код (убираем лишние пробелы)
+      const trimmedCode = fullCode.trim();
+      if (trimmedCode) {
+        if (this.debug) {
+          this.log(`Обрабатываем код: "${trimmedCode}"`);
+        }
+        this.onScan(trimmedCode);
+      }
+      
+      // Удаляем обработанные данные из буфера
+      this.dataBuffer = this.dataBuffer.slice(index + this.terminator.length);
+      
+      if (this.debug) {
+        this.log(`Обновленный буфер: "${this.dataBuffer}" (размер: ${this.dataBuffer.length})`);
+      }
+    }
+    
+    // Перезапускаем таймер очистки буфера
+    this.restartBufferTimer();
+  }
+
+  /**
    * Проверяет, подключен ли сканер
    * @returns {boolean}
    */
@@ -165,11 +247,92 @@ class BarcodeScanner {
   }
 
   /**
+   * Очищает буфер данных сканера
+   */
+  clearBuffer() {
+    this.dataBuffer = '';
+    this.lastDataTime = Date.now();
+    this.log('Буфер данных очищен вручную');
+  }
+
+  /**
+   * Запускает таймер для автоматической очистки буфера по таймауту
+   * @private
+   */
+  startBufferTimer() {
+    this.stopBufferTimer(); // Останавливаем предыдущий таймер если есть
+    
+    // Устанавливаем таймер на время таймаута + небольшая задержка
+    const timeoutMs = this.bufferTimeout + 1000; // +1 секунда для надежности
+    
+    this.bufferTimer = setTimeout(() => {
+      const now = Date.now();
+      const timeSinceLastData = now - this.lastDataTime;
+      
+      if (timeSinceLastData > this.bufferTimeout && this.dataBuffer.length > 0) {
+        this.log(`Буфер очищен по таймауту (${Math.round(timeSinceLastData / 1000)} сек без данных)`);
+        this.dataBuffer = '';
+        this.lastDataTime = now;
+      }
+      
+      // Перезапускаем таймер только если сканер подключен
+      if (this.isConnected) {
+        this.startBufferTimer();
+      }
+    }, timeoutMs);
+    
+    this.log(`Таймер очистки буфера запущен (очистка через ${timeoutMs / 1000} сек)`);
+  }
+
+  /**
+   * Останавливает таймер очистки буфера
+   * @private
+   */
+  stopBufferTimer() {
+    if (this.bufferTimer) {
+      clearTimeout(this.bufferTimer);
+      this.bufferTimer = null;
+      this.log('Таймер очистки буфера остановлен');
+    }
+  }
+
+  /**
+   * Перезапускает таймер очистки буфера
+   * @private
+   */
+  restartBufferTimer() {
+    // Перезапускаем таймер только если сканер подключен
+    if (this.isConnected) {
+      this.startBufferTimer();
+    }
+  }
+
+  /**
    * Получает информацию о порте
    * @returns {Object|null} Информация о порте или null если не подключен
    */
   getPortInfo() {
     return this.port ? this.port.getInfo() : null;
+  }
+
+  /**
+   * Получает статистику буфера данных
+   * @returns {Object} Информация о состоянии буфера
+   */
+  getBufferStats() {
+    const now = Date.now();
+    const timeSinceLastData = now - this.lastDataTime;
+    
+    return {
+      bufferSize: this.dataBuffer.length,
+      maxBufferSize: this.maxBufferSize,
+      bufferUsagePercent: Math.round((this.dataBuffer.length / this.maxBufferSize) * 100),
+      timeSinceLastData: timeSinceLastData,
+      timeSinceLastDataSeconds: Math.round(timeSinceLastData / 1000),
+      bufferTimeout: this.bufferTimeout,
+      isTimerActive: this.bufferTimer !== null,
+      isConnected: this.isConnected
+    };
   }
 
   /**
@@ -203,58 +366,13 @@ class BarcodeScanner {
   }
 }
 
-/**
- * TransformStream для разделения данных по терминатору
- * Используется для корректной обработки данных от сканера
- */
-class SuffixTransformer {
-  /**
-   * Создает экземпляр SuffixTransformer
-   * @param {string} suffix - Терминатор для разделения данных
-   */
-  constructor(suffix = '\t') {
-    this.suffix = suffix;
-    this.buffer = '';
-  }
-
-  /**
-   * Обрабатывает входящие данные
-   * @param {string} chunk - Часть данных
-   * @param {TransformStreamDefaultController} controller - Контроллер потока
-   */
-  transform(chunk, controller) {
-    this.buffer += chunk;
-    let index;
-    
-    // Ищем терминатор в буфере
-    while ((index = this.buffer.indexOf(this.suffix)) !== -1) {
-      // Извлекаем полные данные до терминатора
-      const fullData = this.buffer.slice(0, index);
-      controller.enqueue(fullData);
-      
-      // Удаляем обработанные данные из буфера
-      this.buffer = this.buffer.slice(index + this.suffix.length);
-    }
-  }
-
-  /**
-   * Обрабатывает оставшиеся данные при закрытии потока
-   * @param {TransformStreamDefaultController} controller - Контроллер потока
-   */
-  flush(controller) {
-    if (this.buffer) {
-      controller.enqueue(this.buffer);
-    }
-  }
-}
 
 // Экспорт для использования в модулях
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BarcodeScanner, SuffixTransformer };
+  module.exports = { BarcodeScanner };
 }
 
 // Глобальный экспорт для браузера
 if (typeof window !== 'undefined') {
   window.BarcodeScanner = BarcodeScanner;
-  window.SuffixTransformer = SuffixTransformer;
 }

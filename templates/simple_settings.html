@@ -183,6 +183,7 @@
                             <button type="button" id="testConnectBtn" class="button secondary" style="padding: 8px 16px;">🔗 Подключить</button>
                             <button type="button" id="testDisconnectBtn" class="button secondary" style="padding: 8px 16px; display: none;">❌ Отключить</button>
                             <button type="button" id="testClearBtn" class="button secondary" style="padding: 8px 16px;">🗑️ Очистить</button>
+                            <button type="button" id="testStatsBtn" class="button secondary" style="padding: 8px 16px;">📊 Статистика</button>
                         </div>
                         <span class="helper-text">Используйте эти кнопки для тестирования подключения и работы сканера.</span>
                     </div>
@@ -199,11 +200,11 @@
                     <div class="form-field">
                         <label for="scannerSuffix">Настройка завершения сканирования</label>
                         <select id="scannerSuffix" name="scannerSuffix" class="text-input" style="height: auto; padding: 12px 16px;">
-                            <option value="\\t" selected>Табуляция (\t) - код 9</option>
-                            <option value="\\r\\n">Windows (\r\n) - коды 13,10</option>
-                            <option value="\\n">Unix (\n) - код 10</option>
-                            <option value="\\r">Mac (\r) - код 13</option>
-                            <option value="\\0">Null (\0) - код 0</option>
+                            <option value="\t" selected>Табуляция (\t) - код 9</option>
+                            <option value="\r\n">Windows (\r\n) - коды 13,10</option>
+                            <option value="\n">Unix (\n) - код 10</option>
+                            <option value="\r">Mac (\r) - код 13</option>
+                            <option value="\0">Null (\0) - код 0</option>
                             <option value=" ">Пробел - код 32</option>
                             <option value=";">Точка с запятой - код 59</option>
                             <option value="|">Вертикальная черта - код 124</option>
@@ -323,6 +324,7 @@
             const testConnectBtn = document.getElementById('testConnectBtn');
             const testDisconnectBtn = document.getElementById('testDisconnectBtn');
             const testClearBtn = document.getElementById('testClearBtn');
+            const testStatsBtn = document.getElementById('testStatsBtn');
             const scannerTestResults = document.getElementById('scannerTestResults');
             const scannerStatus = document.getElementById('scannerStatus');
             const scannedCodes = document.getElementById('scannedCodes');
@@ -339,79 +341,6 @@
             let currentPort = null;
             let portReader = null;
 
-            // Функция для настройки чтения данных с порта
-            async function setupPortReading(port) {
-                console.log('=== setupPortReading вызвана ===');
-                console.log('Порт:', port);
-                
-                currentPort = port;
-                
-                try {
-                    // Создаем reader для чтения данных
-                    portReader = port.readable.getReader();
-                    console.log('Reader создан');
-                    
-                    // Запускаем чтение данных в цикле
-                    readPortData();
-                    
-                } catch (error) {
-                    console.error('Ошибка при настройке чтения порта:', error);
-                    updateScannerStatus(`❌ Ошибка чтения данных: ${error.message}`, false);
-                }
-            }
-            
-            // Функция для чтения данных с порта
-            async function readPortData() {
-                console.log('=== readPortData запущена ===');
-                
-                try {
-                    while (currentPort && currentPort.readable) {
-                        console.log('Ожидаем данные от порта...');
-                        const { value, done } = await portReader.read();
-                        
-                        if (done) {
-                            console.log('Чтение порта завершено');
-                            break;
-                        }
-                        
-                        if (value) {
-                            console.log('Получены данные от порта:', value);
-                            // Преобразуем Uint8Array в строку
-                            const dataString = new TextDecoder().decode(value);
-                            console.log('Декодированные данные:', dataString);
-                            
-                            // Обрабатываем полученные данные
-                            processScannerData(dataString);
-                        }
-                    }
-                } catch (error) {
-                    console.error('Ошибка при чтении данных с порта:', error);
-                    updateScannerStatus(`❌ Ошибка чтения: ${error.message}`, false);
-                }
-            }
-            
-            // Функция для обработки данных от сканера
-            function processScannerData(data) {
-                console.log('=== processScannerData вызвана ===');
-                console.log('Полученные данные:', data);
-                
-                const suffix = getScannerSuffixValue();
-                console.log('Используемый суффикс для разделения:', suffix);
-                
-                // Разделяем данные по терминатору
-                const codes = data.split(suffix);
-                console.log('Разделенные коды:', codes);
-                
-                // Обрабатываем каждый код
-                codes.forEach((code, index) => {
-                    const trimmedCode = code.trim();
-                    if (trimmedCode) {
-                        console.log(`Обрабатываем код ${index + 1}:`, trimmedCode);
-                        addScannedCode(trimmedCode);
-                        updateScannerStatus('✅ Сканер подключен - отсканирован код!', true);
-                    }
-                });
-            }
 
             // Функция для обновления статуса сканера
             function updateScannerStatus(message, isConnected = false) {
@@ -507,7 +436,10 @@
                         updateScannerStatus(`❌ Ошибка: ${message}`, false);
                     },
                     terminator: suffix,
-                    baudRate: 9600
+                    baudRate: 9600,
+                    debug: true, // Включаем подробное логирование
+                    maxBufferSize: 20480, // 20KB для долгосрочной работы
+                    bufferTimeout: 600000 // 10 минут без данных = очистка буфера
                 });
             }
             const diagnosticResultsDiv = document.getElementById('diagnosticResults');
@@ -541,7 +473,7 @@
                     }
                     // Суффикс сканера
                     if (scannerSuffixSelect) {
-                        scannerSuffixSelect.value = settings.scannerSuffix || '\\t';
+                        scannerSuffixSelect.value = settings.scannerSuffix || '\t';
                         // Показываем поле для произвольного суффикса если выбрано
                         if (scannerSuffixSelect.value === 'custom') {
                             customSuffixDiv.style.display = 'block';
@@ -704,7 +636,10 @@
             function parseEscapeSequences(str) {
                 if (typeof str !== 'string') return str;
                 
-                return str
+                console.log('parseEscapeSequences input:', str);
+                console.log('parseEscapeSequences input codes:', Array.from(str).map(c => c.charCodeAt(0)));
+                
+                const result = str
                     .replace(/\\t/g, '\t')      // табуляция
                     .replace(/\\r\\n/g, '\r\n') // Windows CRLF
                     .replace(/\\n/g, '\n')      // Unix LF
@@ -713,6 +648,11 @@
                     .replace(/\\\\/g, '\\')     // обратный слеш
                     .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Unicode
                     .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))); // Hex
+                
+                console.log('parseEscapeSequences output:', result);
+                console.log('parseEscapeSequences output codes:', Array.from(result).map(c => c.charCodeAt(0)));
+                
+                return result;
             }
 
             // Функция для получения значения суффикса сканера
@@ -721,7 +661,7 @@
                 console.log('scannerSuffixSelect.value:', scannerSuffixSelect.value);
                 
                 if (scannerSuffixSelect.value === 'custom') {
-                    const rawValue = customSuffixInput.value || '\\t';
+                    const rawValue = customSuffixInput.value || '\t';
                     console.log('Произвольный суффикс. rawValue:', rawValue);
                     const parsed = parseEscapeSequences(rawValue);
                     console.log('Парсированный суффикс:', parsed);
@@ -730,6 +670,8 @@
                 
                 const directValue = scannerSuffixSelect.value;
                 console.log('Прямое значение суффикса:', directValue);
+                console.log('Коды символов суффикса:', Array.from(directValue).map(c => c.charCodeAt(0)));
+                
                 return directValue;
             }
 
@@ -874,27 +816,52 @@
             // Инициализация информации о суффиксе
             showSuffixInfo(parseEscapeSequences(scannerSuffixSelect.value));
 
-            // Функция для сохранения информации о порте
-            function savePortInfo(portInfo, comNumber) {
+            // Функция для сохранения информации о порте на сервере
+            async function savePortInfo(portInfo, comNumber) {
                 const portData = {
-                    vendorId: portInfo.usbVendorId,
-                    productId: portInfo.usbProductId,
-                    comNumber: comNumber,
-                    timestamp: Date.now()
+                    scannerUsbVendorId: portInfo.usbVendorId,
+                    scannerUsbProductId: portInfo.usbProductId,
+                    comScanner: comNumber
                 };
-                localStorage.setItem('scannerPortInfo', JSON.stringify(portData));
-                console.log('Информация о порте сохранена:', portData);
+                
+                try {
+                    const response = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(portData)
+                    });
+                    
+                    if (response.ok) {
+                        console.log('Информация о порте сохранена на сервере:', portData);
+                        return true;
+                    } else {
+                        console.error('Ошибка при сохранении информации о порте на сервере');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Ошибка при сохранении информации о порте:', error);
+                    return false;
+                }
             }
 
-            // Функция для загрузки информации о порте
-            function loadPortInfo() {
-                const saved = localStorage.getItem('scannerPortInfo');
-                if (saved) {
-                    try {
-                        return JSON.parse(saved);
-                    } catch (e) {
-                        console.error('Ошибка при загрузке сохраненной информации о порте:', e);
+            // Функция для загрузки информации о порте с сервера
+            async function loadPortInfo() {
+                try {
+                    const response = await fetch('/api/settings');
+                    if (response.ok) {
+                        const settings = await response.json();
+                        if (settings.scannerUsbVendorId && settings.scannerUsbProductId) {
+                            return {
+                                vendorId: settings.scannerUsbVendorId,
+                                productId: settings.scannerUsbProductId,
+                                comNumber: settings.comScanner || 0
+                            };
+                        }
                     }
+                } catch (error) {
+                    console.error('Ошибка при загрузке настроек с сервера:', error);
                 }
                 return null;
             }
@@ -902,27 +869,35 @@
             // Функция для поиска сохраненного порта среди разрешенных (без подключения)
             async function tryConnectToSavedPort() {
                 try {
-                    const savedPortInfo = loadPortInfo();
+                    const savedPortInfo = await loadPortInfo();
                     if (!savedPortInfo) {
+                        console.log('Сохраненная информация о порте не найдена');
                         return null;
                     }
 
+                    console.log('Найдена сохраненная информация о порте:', savedPortInfo);
+
                     // Получаем список разрешенных портов (без подключения к ним)
                     const ports = await navigator.serial.getPorts();
+                    console.log('Доступные порты:', ports.length);
                     
                     // Ищем порт по USB ID среди разрешенных устройств
                     const savedPort = ports.find(port => {
                         const info = port.getInfo();
+                        console.log('Проверяем порт:', info.usbVendorId, info.usbProductId, 'vs', savedPortInfo.vendorId, savedPortInfo.productId);
                         return info.usbVendorId === savedPortInfo.vendorId && 
                                info.usbProductId === savedPortInfo.productId;
                     });
 
                     if (savedPort) {
+                        console.log('Найден сохраненный порт:', savedPort);
                         // Возвращаем информацию о найденном порте (без подключения)
                         return {
                             port: savedPort,
                             comNumber: savedPortInfo.comNumber
                         };
+                    } else {
+                        console.log('Сохраненный порт не найден среди доступных');
                     }
                 } catch (error) {
                     console.error('Ошибка при поиске сохраненного порта:', error);
@@ -962,12 +937,16 @@
                     if (manualInput !== null && manualInput.trim() !== '') {
                         const comNumber = parseInt(manualInput.trim());
                         if (!isNaN(comNumber) && comNumber > 0) {
-                            // Сохраняем информацию о порте
-                            savePortInfo(portInfo, comNumber);
+                            // Сохраняем информацию о порте на сервере
+                            const saved = await savePortInfo(portInfo, comNumber);
                             
-                            // Заполняем поле
-                            comScannerInput.value = comNumber;
-                            alert(`✅ COM-порт ${comNumber} настроен и сохранен!\n\nПри следующем запуске порт будет выбран автоматически.`);
+                            if (saved) {
+                                // Заполняем поле
+                                comScannerInput.value = comNumber;
+                                alert(`✅ COM-порт ${comNumber} настроен и сохранен на сервере!\n\nПри следующем запуске порт будет выбран автоматически.`);
+                            } else {
+                                alert('❌ Ошибка при сохранении настроек на сервере. Попробуйте еще раз.');
+                            }
                         } else {
                             alert('❌ Введено некорректное значение. Номер порта должен быть положительным числом.');
                         }
@@ -986,8 +965,10 @@
             // Автоматическое заполнение сохраненного порта при загрузке страницы
             async function initSavedPort() {
                 try {
+                    console.log('=== initSavedPort: проверяем сохраненный порт ===');
                     const savedConnection = await tryConnectToSavedPort();
                     if (savedConnection) {
+                        console.log('Найден сохраненный порт, заполняем поле COM-порта');
                         comScannerInput.value = savedConnection.comNumber;
                         console.log('Автоматически заполнен сохраненный порт:', savedConnection.comNumber);
                         console.log('Примечание: это только заполнение поля, реальное подключение не происходит');
@@ -996,6 +977,8 @@
                         if (comScannerInput.value && comScannerInput.value !== '0') {
                             console.log('Поле COM-порта автоматически заполнено значением:', comScannerInput.value);
                         }
+                    } else {
+                        console.log('Сохраненный порт не найден или недоступен');
                     }
                 } catch (error) {
                     console.error('Ошибка при загрузке сохраненного порта:', error);
@@ -1003,11 +986,32 @@
             }
 
             // Обработчик кнопки сброса сохраненного порта
-            resetPortBtn.addEventListener('click', function() {
+            resetPortBtn.addEventListener('click', async function() {
                 if (confirm('Вы уверены, что хотите сбросить сохраненную информацию о порте?')) {
-                    localStorage.removeItem('scannerPortInfo');
-                    comScannerInput.value = 0;
-                    alert('✅ Сохраненная информация о порте удалена.\n\nТеперь при следующем выборе порта появится диалог выбора.');
+                    try {
+                        // Очищаем настройки на сервере
+                        const response = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                scannerUsbVendorId: 0,
+                                scannerUsbProductId: 0,
+                                comScanner: 0
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            comScannerInput.value = 0;
+                            alert('✅ Сохраненная информация о порте удалена с сервера.\n\nТеперь при следующем выборе порта появится диалог выбора.');
+                        } else {
+                            alert('❌ Ошибка при удалении настроек с сервера.');
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при сбросе настроек порта:', error);
+                        alert('❌ Ошибка при сбросе настроек порта.');
+                    }
                 }
             });
 
@@ -1036,12 +1040,19 @@
                     
                     if (savedConnection) {
                         console.log('Найден сохраненный порт, подключаемся к нему:', savedConnection.port);
+                        
                         // Подключаемся к сохраненному порту без диалога
                         await savedConnection.port.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' });
                         console.log('Подключение к сохраненному порту успешно');
                         
-                        // Настраиваем чтение данных для сохраненного порта
-                        setupPortReading(savedConnection.port);
+                        // Используем BarcodeScanner для обработки данных
+                        testScanner = createTestScanner();
+                        testScanner.port = savedConnection.port;
+                        testScanner.isConnected = true;
+                        testScanner.keepReading = true;
+                        
+                        // Запускаем чтение данных
+                        testScanner.startReading();
                         
                         // Обновляем статус
                         updateScannerStatus('✅ Сканер подключен к сохраненному порту!', true);
@@ -1079,30 +1090,10 @@
                         console.log('BarcodeScanner отключен');
                     }
                     
-                    // Отключаем прямое подключение к порту если оно используется
-                    if (currentPort) {
-                        console.log('Отключаем прямое подключение к порту...');
-                        
-                        // Закрываем reader
-                        if (portReader) {
-                            try {
-                                await portReader.cancel();
-                                await portReader.releaseLock();
-                                console.log('Reader закрыт');
-                            } catch (e) {
-                                console.log('Ошибка при закрытии reader:', e);
-                            }
-                            portReader = null;
-                        }
-                        
-                        // Закрываем порт
-                        if (currentPort.readable) {
-                            await currentPort.close();
-                            console.log('Порт закрыт');
-                        }
-                        
-                        currentPort = null;
-                        console.log('Прямое подключение к порту отключено');
+                    // Очищаем буфер данных сканера при отключении
+                    if (testScanner) {
+                        testScanner.clearBuffer();
+                        console.log('Буфер данных сканера очищен');
                     }
                     
                     updateScannerStatus('❌ Сканер отключен', false);
@@ -1119,10 +1110,41 @@
                 // Очищаем отсканированные коды
                 scannedCodes.innerHTML = '<div style="color: var(--md-sys-color-outline); font-style: italic;">Отсканированные коды появятся здесь...</div>';
                 
+                // Очищаем буфер данных сканера
+                if (testScanner) {
+                    testScanner.clearBuffer();
+                    console.log('Буфер данных сканера очищен при очистке результатов');
+                }
+                
                 // Сбрасываем статус
                 if (!testScanner || !testScanner.isScannerConnected()) {
                     updateScannerStatus('📱 Готов к тестированию', false);
                 }
+            });
+
+            testStatsBtn.addEventListener('click', function() {
+                if (!testScanner) {
+                    alert('Сканер не создан. Сначала подключитесь к сканеру.');
+                    return;
+                }
+                
+                const stats = testScanner.getBufferStats();
+                
+                let message = '📊 Статистика буфера сканера:\n\n';
+                message += `📦 Размер буфера: ${stats.bufferSize} / ${stats.maxBufferSize} байт (${stats.bufferUsagePercent}%)\n`;
+                message += `⏱️ Время с последних данных: ${stats.timeSinceLastDataSeconds} сек\n`;
+                message += `⏰ Таймаут очистки: ${Math.round(stats.bufferTimeout / 1000)} сек\n`;
+                message += `🔗 Статус подключения: ${stats.isConnected ? 'Подключен' : 'Отключен'}\n`;
+                message += `⏲️ Таймер активен: ${stats.isTimerActive ? 'Да' : 'Нет'}\n\n`;
+                
+                if (stats.bufferSize > 0) {
+                    message += `📝 Содержимое буфера: "${stats.bufferSize > 50 ? testScanner.dataBuffer.substring(0, 50) + '...' : testScanner.dataBuffer}"\n`;
+                    message += `🔢 Коды символов: [${Array.from(testScanner.dataBuffer.substring(0, 20)).map(c => c.charCodeAt(0)).join(', ')}${testScanner.dataBuffer.length > 20 ? '...' : ''}]`;
+                } else {
+                    message += '📝 Буфер пуст';
+                }
+                
+                alert(message);
             });
 
             // initSavedPort() теперь вызывается после загрузки настроек выше

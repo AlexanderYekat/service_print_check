@@ -282,6 +282,7 @@
         let itemCounter = 0;
         let items = [];
         let scanner = null; // Глобальная переменная для сканера
+        let currentItemId = null; // ID текущей позиции
 
         // Функции для работы со сканером
         function updateScannerStatus(message, isConnected = false) {
@@ -427,21 +428,22 @@
             }
 
             if (existingItem && existingMarkIndex !== -1) {
-                // Марка уже есть в позиции - увеличиваем количество
-                existingItem.quantity += 1;
-                renderItem(existingItem);
-                updateSummary();
-                
-                // Показываем уведомление
-                showNotification(`✅ Марка уже есть в позиции "${existingItem.name}". Количество: ${existingItem.quantity}`, 'success');
+                // Марка уже есть в позиции - показываем предупреждение
+                showNotification(`⚠️ Марка уже есть в позиции "${existingItem.name}". Марка не добавлена.`, 'warning');
                 updateGlobalCheckStatus();
             } else {
-                // Добавляем марку к текущей (последней) позиции
+                // Добавляем марку к текущей позиции
                 let targetItem = null;
                 
-                // Если есть позиции, берем последнюю
-                if (items.length > 0) {
+                // Если есть текущая позиция, используем её
+                if (currentItemId) {
+                    targetItem = items.find(item => item.id === currentItemId);
+                }
+                
+                // Если текущей позиции нет, берем последнюю
+                if (!targetItem && items.length > 0) {
                     targetItem = items[items.length - 1];
+                    currentItemId = targetItem.id; // Устанавливаем как текущую
                 }
                 
                 if (targetItem) {
@@ -452,11 +454,15 @@
                     }
                     
                     targetItem.markingCodes.push(markingCode);
+                    
+                    // Синхронизируем количество с количеством марок
+                    targetItem.quantity = targetItem.markingCodes.length;
+                    
                     updateAllItemsDisplay(); // Обновляем все позиции
                     updateSummary();
                     
                     // Показываем уведомление
-                    showNotification(`✅ Марка добавлена к позиции "${targetItem.name}". Всего марок: ${targetItem.markingCodes.length}`, 'success');
+                    showNotification(`✅ Марка добавлена к позиции "${targetItem.name}". Количество: ${targetItem.quantity}`, 'success');
                 } else {
                     // Если нет позиций, создаем новую с маркой
                     const testItem = testItems.find(item => item.markingCode) || testItems[1]; // Берем первый товар с маркой или молоко
@@ -546,6 +552,16 @@
             showNotification(`✅ Создана новая текущая позиция "${testItem.name}"`, 'success');
         }
 
+        // Функция для установки текущей позиции
+        function setCurrentItem(itemId) {
+            const item = items.find(i => i.id === itemId);
+            if (item) {
+                currentItemId = itemId;
+                updateAllItemsDisplay(); // Обновляем все позиции
+                showNotification(`✅ Позиция "${item.name}" выбрана как текущая`, 'success');
+            }
+        }
+
         // Добавить марку к конкретной позиции
         function addManualMark(itemId) {
             const markingCode = prompt('Введите код маркировки:', '0104607008480429215KpOL.jHnx6Xm93kl/E');
@@ -575,15 +591,21 @@
                 if (confirm(`Удалить марку: ${markingCode.substring(0, 30)}...?`)) {
                     item.markingCodes.splice(markIndex, 1);
                     
-                    // Если марок не осталось, убираем маркировку
-                    if (item.markingCodes.length === 0) {
-                        item.hasMarking = false;
+                    // Синхронизируем количество с количеством марок
+                    if (item.hasMarking) {
+                        item.quantity = item.markingCodes.length;
+                        
+                        // Если марок не осталось, убираем маркировку
+                        if (item.markingCodes.length === 0) {
+                            item.hasMarking = false;
+                            item.quantity = 1; // Минимальное количество
+                        }
                     }
                     
-                    renderItem(item);
+                    updateAllItemsDisplay();
                     updateSummary();
                     updateGlobalCheckStatus();
-                    showNotification(`✅ Марка удалена из позиции "${item.name}"`, 'success');
+                    showNotification(`✅ Марка удалена из позиции "${item.name}". Количество: ${item.quantity}`, 'success');
                 }
             }
         }
@@ -618,6 +640,9 @@
             };
             items.push(item);
             
+            // Новая позиция становится текущей
+            currentItemId = itemId;
+            
             // Обновляем все позиции, чтобы показать новую текущую позицию
             updateAllItemsDisplay();
             updateSummary();
@@ -641,8 +666,8 @@
                 container.appendChild(itemDiv);
             }
 
-            // Определяем, является ли это последней (текущей) позицией
-            const isCurrentItem = items.length > 0 && items[items.length - 1].id === item.id;
+            // Определяем, является ли это текущей позицией
+            const isCurrentItem = currentItemId === item.id;
             const itemIndex = items.indexOf(item);
 
             const itemHtml = `
@@ -652,6 +677,7 @@
                         ${isCurrentItem ? '<span style="background-color: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">ТЕКУЩАЯ</span>' : ''}
                     </div>
                     <div class="item-controls">
+                        ${!isCurrentItem ? `<button class="button small" onclick="setCurrentItem('${item.id}')" style="background-color: #2196F3;">Выбрать текущей</button>` : ''}
                         <button class="button danger small" onclick="removeItem('${item.id}')">Удалить</button>
                     </div>
                 </div>
@@ -769,6 +795,16 @@
 
             if (field === 'price' || field === 'quantity') {
                 item[field] = parseFloat(value);
+                
+                // Если это позиция с марками, синхронизируем количество с количеством марок
+                if (field === 'quantity' && item.hasMarking && item.markingCodes.length > 0) {
+                    // Если пользователь пытается изменить количество вручную, 
+                    // показываем предупреждение и корректируем количество
+                    if (item.quantity !== item.markingCodes.length) {
+                        item.quantity = item.markingCodes.length;
+                        showNotification(`⚠️ Количество автоматически скорректировано под количество марок: ${item.quantity}`, 'warning');
+                    }
+                }
             } else {
                 item[field] = value;
             }
@@ -786,10 +822,12 @@
                 // Убираем все марки
                 item.hasMarking = false;
                 item.markingCodes = [];
+                item.quantity = 1; // Минимальное количество
             } else {
                 // Добавляем первую марку
                 item.hasMarking = true;
                 item.markingCodes = [testItems[1].markingCode]; // Берем тестовый код
+                item.quantity = 1; // Синхронизируем количество
             }
 
             // Перерисовываем позицию
@@ -936,14 +974,28 @@
         }
 
         function removeItem(itemId) {
+            const itemIndex = items.findIndex(i => i.id === itemId);
             items = items.filter(i => i.id !== itemId);
             document.getElementById(itemId).remove();
+            
+            // Если удалили текущую позицию, устанавливаем новую текущую
+            if (currentItemId === itemId) {
+                if (items.length > 0) {
+                    // Берем позицию на том же месте или последнюю
+                    currentItemId = items[Math.min(itemIndex, items.length - 1)].id;
+                } else {
+                    currentItemId = null;
+                }
+                updateAllItemsDisplay(); // Обновляем отображение текущей позиции
+            }
+            
             updateSummary();
         }
 
         function clearAllItems() {
             if (confirm('Вы уверены, что хотите удалить все позиции?')) {
                 items = [];
+                currentItemId = null; // Сбрасываем текущую позицию
                 const container = document.getElementById('itemsContainer');
                 const globalPanel = document.getElementById('globalCheckPanel');
                 
@@ -981,9 +1033,11 @@
             
             // Сбрасываем статусы проверки марок, так как тип чека изменился
             items.forEach(item => {
-                if (item.hasMarking) {
-                    item.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                    item.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                if (item.hasMarking && item.markingCodes) {
+                    item.markingCodes.forEach(mark => {
+                        mark.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                        mark.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                    });
                     renderItem(item);
                 }
             });
@@ -1158,11 +1212,22 @@
             }
 
             // Проверяем, что все марки проверены
-            const uncheckedKKT = items.filter(item => item.hasMarking && (item.kktCheck.status === 'not_checked' || item.kktCheck.status === 'pending'));
+            const uncheckedKKT = [];
+            const uncheckedPermit = [];
             const checkType = document.getElementById('checkType').value;
-            const uncheckedPermit = checkType === 'sell' ? 
-                items.filter(item => item.hasMarking && (item.permitCheck.status === 'not_checked' || item.permitCheck.status === 'pending')) : 
-                []; // Для возврата проверка разрешительного режима не требуется
+            
+            items.forEach(item => {
+                if (item.hasMarking && item.markingCodes) {
+                    item.markingCodes.forEach(mark => {
+                        if (mark.kktCheck && (mark.kktCheck.status === 'not_checked' || mark.kktCheck.status === 'pending')) {
+                            uncheckedKKT.push(item);
+                        }
+                        if (checkType === 'sell' && mark.permitCheck && (mark.permitCheck.status === 'not_checked' || mark.permitCheck.status === 'pending')) {
+                            uncheckedPermit.push(item);
+                        }
+                    });
+                }
+            });
             
             if (uncheckedKKT.length > 0 || uncheckedPermit.length > 0) {
                 let message = 'Есть непроверенные марки:\n';
@@ -1175,30 +1240,54 @@
                 }
             }
 
+            // Создаем данные для печати чека - каждая марка становится отдельной строкой
+            const tableData = [];
+            
+            items.forEach(item => {
+                if (item.hasMarking && item.markingCodes.length > 0) {
+                    // Для позиций с марками - создаем строку для каждой марки
+                    item.markingCodes.forEach((markingCode, index) => {
+                        const mark = item.markingCodes[index];
+                        const rowData = {
+                            name: item.name,
+                            quantity: "1", // Каждая марка = 1 штука
+                            price: item.price.toFixed(2),
+                            markingCode: markingCode,
+                            itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn'
+                        };
+                        
+                        // Добавляем результаты проверки ККТ
+                        if (mark.kktCheck && (mark.kktCheck.status === 'success' || mark.kktCheck.status === 'error')) {
+                            rowData.kktCheckResult = {
+                                status: mark.kktCheck.status,
+                                userResult: mark.kktCheck.userResult,
+                                machineData: mark.kktCheck.machineData
+                            };
+                        }
+                        
+                        // Добавляем результаты проверки разрешительного режима
+                        if (mark.permitCheck && (mark.permitCheck.status === 'success' || mark.permitCheck.status === 'error')) {
+                            rowData.permitCheckResult = {
+                                status: mark.permitCheck.status,
+                                userResult: mark.permitCheck.userResult,
+                                machineData: mark.permitCheck.machineData
+                            };
+                        }
+                        
+                        tableData.push(rowData);
+                    });
+                } else {
+                    // Для позиций без марок - обычная строка
+                    tableData.push({
+                        name: item.name,
+                        quantity: item.quantity.toString(),
+                        price: item.price.toFixed(2)
+                    });
+                }
+            });
+
             const checkData = {
-                tableData: items.map(item => ({
-                    name: item.name,
-                    quantity: item.quantity.toString(),
-                    price: item.price.toFixed(2),
-                    ...(item.hasMarking ? {
-                        markingCode: item.markingCode,
-                        itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
-                        ...(item.kktCheck.status && (item.kktCheck.status === 'success' || item.kktCheck.status === 'error') ? {
-                            kktCheckResult: {
-                                status: item.kktCheck.status,
-                                userResult: item.kktCheck.userResult,
-                                machineData: item.kktCheck.machineData
-                            }
-                        } : {}),
-                        ...(item.permitCheck.status && (item.permitCheck.status === 'success' || item.permitCheck.status === 'error') ? {
-                            permitCheckResult: {
-                                status: item.permitCheck.status,
-                                userResult: item.permitCheck.userResult,
-                                machineData: item.permitCheck.machineData
-                            }
-                        } : {})
-                    } : {})
-                })),
+                tableData: tableData,
                 cashier: cashierName,
                 payments: [
                     {
@@ -1258,9 +1347,11 @@
                 if (data.success) {
                     // Сбрасываем результаты всех проверок марок
                     items.forEach(item => {
-                        if (item.hasMarking) {
-                            item.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                            item.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                        if (item.hasMarking && item.markingCodes) {
+                            item.markingCodes.forEach(mark => {
+                                mark.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                                mark.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                            });
                             renderItem(item);
                         }
                     });

@@ -252,6 +252,7 @@
         <button class="button" onclick="addItem()">Добавить позицию</button>
         <button class="button secondary" onclick="addMarkedItem()">Добавить позицию с маркой</button>
         <button class="button" onclick="manualAddMark()" style="background-color: #FF9800;">📱 Добавить марку вручную</button>
+        <button class="button" onclick="addNewCurrentItem()" style="background-color: #9C27B0;">➕ Новая текущая позиция</button>
         <button class="button danger" onclick="clearAllItems()">Очистить все</button>
     </div>
 
@@ -410,7 +411,7 @@
 
         // Функция добавления марки к позиции
         function addMarkToPosition(markingCode) {
-            // Ищем существующую позицию с такой же маркой
+            // Проверяем, нет ли уже такой марки в любой позиции
             let existingItem = null;
             let existingMarkIndex = -1;
             
@@ -435,28 +436,29 @@
                 showNotification(`✅ Марка уже есть в позиции "${existingItem.name}". Количество: ${existingItem.quantity}`, 'success');
                 updateGlobalCheckStatus();
             } else {
-                // Ищем позицию без марок или создаем новую
+                // Добавляем марку к текущей (последней) позиции
                 let targetItem = null;
                 
-                // Сначала ищем позицию без марок того же товара
-                for (let item of items) {
-                    if (item.name === "Молоко 1л" && !item.hasMarking) { // Берем молоко как пример
-                        targetItem = item;
-                        break;
-                    }
+                // Если есть позиции, берем последнюю
+                if (items.length > 0) {
+                    targetItem = items[items.length - 1];
                 }
                 
                 if (targetItem) {
-                    // Добавляем марку к существующей позиции
-                    targetItem.hasMarking = true;
+                    // Добавляем марку к текущей позиции
+                    if (!targetItem.hasMarking) {
+                        targetItem.hasMarking = true;
+                        targetItem.markingCodes = [];
+                    }
+                    
                     targetItem.markingCodes.push(markingCode);
-                    renderItem(targetItem);
+                    updateAllItemsDisplay(); // Обновляем все позиции
                     updateSummary();
                     
                     // Показываем уведомление
                     showNotification(`✅ Марка добавлена к позиции "${targetItem.name}". Всего марок: ${targetItem.markingCodes.length}`, 'success');
                 } else {
-                    // Создаем новую позицию с маркой
+                    // Если нет позиций, создаем новую с маркой
                     const testItem = testItems.find(item => item.markingCode) || testItems[1]; // Берем первый товар с маркой или молоко
                     addItemToContainer(testItem.name, testItem.price, 1, markingCode, true);
                     
@@ -537,6 +539,13 @@
             }
         }
 
+        // Функция для создания новой текущей позиции
+        function addNewCurrentItem() {
+            const testItem = testItems[itemCounter % testItems.length];
+            addItemToContainer(testItem.name, testItem.price, testItem.quantity, "", false);
+            showNotification(`✅ Создана новая текущая позиция "${testItem.name}"`, 'success');
+        }
+
         // Добавить марку к конкретной позиции
         function addManualMark(itemId) {
             const markingCode = prompt('Введите код маркировки:', '0104607008480429215KpOL.jHnx6Xm93kl/E');
@@ -608,8 +617,17 @@
                 // Убираем глобальные проверки - теперь они будут для каждой марки отдельно
             };
             items.push(item);
-            renderItem(item);
+            
+            // Обновляем все позиции, чтобы показать новую текущую позицию
+            updateAllItemsDisplay();
             updateSummary();
+        }
+
+        // Функция для обновления отображения всех позиций
+        function updateAllItemsDisplay() {
+            items.forEach(item => {
+                renderItem(item);
+            });
         }
 
         function renderItem(item) {
@@ -623,9 +641,16 @@
                 container.appendChild(itemDiv);
             }
 
+            // Определяем, является ли это последней (текущей) позицией
+            const isCurrentItem = items.length > 0 && items[items.length - 1].id === item.id;
+            const itemIndex = items.indexOf(item);
+
             const itemHtml = `
                 <div class="item-header">
-                    <div class="item-title">Позиция ${items.indexOf(item) + 1}</div>
+                    <div class="item-title">
+                        Позиция ${itemIndex + 1}
+                        ${isCurrentItem ? '<span style="background-color: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">ТЕКУЩАЯ</span>' : ''}
+                    </div>
                     <div class="item-controls">
                         <button class="button danger small" onclick="removeItem('${item.id}')">Удалить</button>
                     </div>

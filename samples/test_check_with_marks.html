@@ -412,34 +412,59 @@
         function addMarkToPosition(markingCode) {
             // Ищем существующую позицию с такой же маркой
             let existingItem = null;
+            let existingMarkIndex = -1;
+            
             for (let item of items) {
-                if (item.hasMarking && item.markingCode === markingCode) {
-                    existingItem = item;
-                    break;
+                if (item.hasMarking) {
+                    const markIndex = item.markingCodes.findIndex(code => code === markingCode);
+                    if (markIndex !== -1) {
+                        existingItem = item;
+                        existingMarkIndex = markIndex;
+                        break;
+                    }
                 }
             }
 
-            if (existingItem) {
-                // Увеличиваем количество существующей позиции
+            if (existingItem && existingMarkIndex !== -1) {
+                // Марка уже есть в позиции - увеличиваем количество
                 existingItem.quantity += 1;
                 renderItem(existingItem);
                 updateSummary();
                 
                 // Показываем уведомление
-                showNotification(`✅ Марка добавлена к позиции "${existingItem.name}". Количество: ${existingItem.quantity}`, 'success');
-                
-                // Сбрасываем результаты проверки, так как количество изменилось
-                existingItem.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                existingItem.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                renderItem(existingItem);
+                showNotification(`✅ Марка уже есть в позиции "${existingItem.name}". Количество: ${existingItem.quantity}`, 'success');
                 updateGlobalCheckStatus();
             } else {
-                // Создаем новую позицию с маркой
-                const testItem = testItems.find(item => item.markingCode) || testItems[1]; // Берем первый товар с маркой или молоко
-                addItemToContainer(testItem.name, testItem.price, 1, markingCode, true);
+                // Ищем позицию без марок или создаем новую
+                let targetItem = null;
                 
-                // Показываем уведомление
-                showNotification(`✅ Создана новая позиция "${testItem.name}" с маркой`, 'success');
+                // Сначала ищем позицию без марок того же товара
+                for (let item of items) {
+                    if (item.name === "Молоко 1л" && !item.hasMarking) { // Берем молоко как пример
+                        targetItem = item;
+                        break;
+                    }
+                }
+                
+                if (targetItem) {
+                    // Добавляем марку к существующей позиции
+                    targetItem.hasMarking = true;
+                    targetItem.markingCodes.push(markingCode);
+                    renderItem(targetItem);
+                    updateSummary();
+                    
+                    // Показываем уведомление
+                    showNotification(`✅ Марка добавлена к позиции "${targetItem.name}". Всего марок: ${targetItem.markingCodes.length}`, 'success');
+                } else {
+                    // Создаем новую позицию с маркой
+                    const testItem = testItems.find(item => item.markingCode) || testItems[1]; // Берем первый товар с маркой или молоко
+                    addItemToContainer(testItem.name, testItem.price, 1, markingCode, true);
+                    
+                    // Показываем уведомление
+                    showNotification(`✅ Создана новая позиция "${testItem.name}" с маркой`, 'success');
+                }
+                
+                updateGlobalCheckStatus();
             }
         }
 
@@ -512,6 +537,65 @@
             }
         }
 
+        // Добавить марку к конкретной позиции
+        function addManualMark(itemId) {
+            const markingCode = prompt('Введите код маркировки:', '0104607008480429215KpOL.jHnx6Xm93kl/E');
+            if (markingCode && markingCode.trim()) {
+                const item = items.find(i => i.id === itemId);
+                if (item) {
+                    // Проверяем, нет ли уже такой марки
+                    if (!item.markingCodes.includes(markingCode.trim())) {
+                        item.markingCodes.push(markingCode.trim());
+                        item.hasMarking = true;
+                        renderItem(item);
+                        updateSummary();
+                        updateGlobalCheckStatus();
+                        showNotification(`✅ Марка добавлена к позиции "${item.name}"`, 'success');
+                    } else {
+                        showNotification(`⚠️ Марка уже существует в позиции "${item.name}"`, 'warning');
+                    }
+                }
+            }
+        }
+
+        // Удалить конкретную марку
+        function removeMark(itemId, markIndex) {
+            const item = items.find(i => i.id === itemId);
+            if (item && item.markingCodes[markIndex]) {
+                const markingCode = item.markingCodes[markIndex];
+                if (confirm(`Удалить марку: ${markingCode.substring(0, 30)}...?`)) {
+                    item.markingCodes.splice(markIndex, 1);
+                    
+                    // Если марок не осталось, убираем маркировку
+                    if (item.markingCodes.length === 0) {
+                        item.hasMarking = false;
+                    }
+                    
+                    renderItem(item);
+                    updateSummary();
+                    updateGlobalCheckStatus();
+                    showNotification(`✅ Марка удалена из позиции "${item.name}"`, 'success');
+                }
+            }
+        }
+
+        // Обновить код маркировки
+        function updateMarkingCode(itemId, markIndex, newCode) {
+            const item = items.find(i => i.id === itemId);
+            if (item && item.markingCodes[markIndex]) {
+                item.markingCodes[markIndex] = newCode;
+                // Сбрасываем результаты проверки при изменении кода
+                if (item.markingCodes[markIndex].kktCheck) {
+                    item.markingCodes[markIndex].kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                }
+                if (item.markingCodes[markIndex].permitCheck) {
+                    item.markingCodes[markIndex].permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                }
+                renderItem(item);
+                updateGlobalCheckStatus();
+            }
+        }
+
         function addItemToContainer(name, price, quantity, markingCode, hasMarking) {
             const itemId = `item_${itemCounter++}`;
             const item = {
@@ -519,20 +603,9 @@
                 name: name,
                 price: parseFloat(price),
                 quantity: parseInt(quantity),
-                markingCode: markingCode,
+                markingCodes: hasMarking && markingCode ? [markingCode] : [], // Массив марок
                 hasMarking: hasMarking,
-                kktCheck: {
-                    status: hasMarking ? 'not_checked' : null,
-                    result: null,
-                    userResult: null,
-                    machineData: null
-                },
-                permitCheck: {
-                    status: hasMarking ? 'not_checked' : null,
-                    result: null,
-                    userResult: null,
-                    machineData: null
-                }
+                // Убираем глобальные проверки - теперь они будут для каждой марки отдельно
             };
             items.push(item);
             renderItem(item);
@@ -549,8 +622,6 @@
                 itemDiv.id = item.id;
                 container.appendChild(itemDiv);
             }
-
-            // Убираем статусы из заголовка - они будут в табло марки
 
             const itemHtml = `
                 <div class="item-header">
@@ -577,68 +648,82 @@
                         <input type="text" value="${(item.price * item.quantity).toFixed(2)} ₽" readonly>
                     </div>
                 </div>
-                ${item.hasMarking ? `
+                ${item.hasMarking && item.markingCodes.length > 0 ? `
                     <div class="marking-section">
-                        <div class="form-group">
-                            <label>Код маркировки</label>
-                            <input type="text" value="${item.markingCode}" onchange="updateItem('${item.id}', 'markingCode', this.value)" placeholder="Введите код маркировки">
+                        <div class="marking-type-title" style="font-weight: bold; margin-bottom: 10px;">
+                            Марки товара (${item.markingCodes.length} шт.)
+                            <button class="button small" onclick="addManualMark('${item.id}')" style="margin-left: 10px; background-color: #4CAF50;">+ Добавить марку</button>
                         </div>
-                        
-                        <div class="marking-type">
-                            <div class="marking-type-title">
-                                Проверка на ККТ
-                                ${item.kktCheck.status ? 
-                                    `<span class="marking-status status-${item.kktCheck.status}" style="margin-left: 10px;">
-                                        ${item.kktCheck.status === 'not_checked' ? 'Не проверена' : 
-                                          item.kktCheck.status === 'pending' ? 'Проверяется' : 
-                                          item.kktCheck.status === 'success' ? 'Проверена ✓' : 'Ошибка ✗'}
-                                    </span>` : ''}
-                            </div>
-                            <div class="marking-type-controls">
-                                <button class="button small" onclick="checkMarkingKKT('${item.id}')" ${item.kktCheck.status === 'pending' ? 'disabled' : ''}>
-                                    ${item.kktCheck.status === 'pending' ? 'Проверяется...' : 'Проверить на ККТ'}
-                                </button>
-                            </div>
-                            <div class="info-board" style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; min-height: 50px;">
-                                ${item.kktCheck.userResult ? `
-                                    <div class="user-result">${item.kktCheck.userResult}</div>
-                                    <div class="machine-data">
-                                        <strong>Машинные данные:</strong><br>
-                                        <pre style="font-size: 10px; margin: 2px 0;">${JSON.stringify(item.kktCheck.machineData, null, 2)}</pre>
+                        ${item.markingCodes.map((markingCode, index) => `
+                            <div class="marking-type" style="margin-bottom: 15px; border-left: 3px solid #2196F3;">
+                                <div class="marking-type-title" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Марка ${index + 1}: ${markingCode.substring(0, 20)}${markingCode.length > 20 ? '...' : ''}</span>
+                                    <div>
+                                        <button class="button danger small" onclick="removeMark('${item.id}', ${index})" style="padding: 2px 6px; font-size: 10px;">🗑️</button>
                                     </div>
-                                ` : '<div style="color: #6c757d; font-style: italic;">Результат проверки будет отображен здесь</div>'}
-                            </div>
-                        </div>
-                        
-                        <div class="marking-type">
-                            <div class="marking-type-title">
-                                Проверка разрешительного режима
-                                ${item.permitCheck.status ? 
-                                    `<span class="marking-status status-${item.permitCheck.status}" style="margin-left: 10px;">
-                                        ${item.permitCheck.status === 'not_checked' ? 'Не проверено' : 
-                                          item.permitCheck.status === 'pending' ? 'Проверяется' : 
-                                          item.permitCheck.status === 'success' ? 'Проверено ✓' : 'Ошибка ✗'}
-                                    </span>` : ''}
-                            </div>
-                            <div class="marking-type-controls">
-                                <button class="button small" onclick="checkMarkingPermit('${item.id}')" ${item.permitCheck.status === 'pending' ? 'disabled' : ''}>
-                                    ${item.permitCheck.status === 'pending' ? 'Проверяется...' : 'Проверить разрешение'}
-                                </button>
-                            </div>
-                            <div class="info-board" style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; min-height: 50px;">
-                                ${item.permitCheck.userResult ? `
-                                    <div class="user-result">${item.permitCheck.userResult}</div>
-                                    <div class="machine-data">
-                                        <strong>Машинные данные:</strong><br>
-                                        <pre style="font-size: 10px; margin: 2px 0;">${JSON.stringify(item.permitCheck.machineData, null, 2)}</pre>
+                                </div>
+                                <div class="form-group" style="margin-top: 8px;">
+                                    <label>Код маркировки</label>
+                                    <input type="text" value="${markingCode}" onchange="updateMarkingCode('${item.id}', ${index}, this.value)" placeholder="Введите код маркировки" style="font-family: monospace; font-size: 12px;">
+                                </div>
+                                
+                                <div class="marking-type">
+                                    <div class="marking-type-title">
+                                        Проверка на ККТ
+                                        ${item.markingCodes[index].kktCheck && item.markingCodes[index].kktCheck.status ? 
+                                            `<span class="marking-status status-${item.markingCodes[index].kktCheck.status}" style="margin-left: 10px;">
+                                                ${item.markingCodes[index].kktCheck.status === 'not_checked' ? 'Не проверена' : 
+                                                  item.markingCodes[index].kktCheck.status === 'pending' ? 'Проверяется' : 
+                                                  item.markingCodes[index].kktCheck.status === 'success' ? 'Проверена ✓' : 'Ошибка ✗'}
+                                            </span>` : ''}
                                     </div>
-                                ` : '<div style="color: #6c757d; font-style: italic;">Результат проверки будет отображен здесь</div>'}
+                                    <div class="marking-type-controls">
+                                        <button class="button small" onclick="checkMarkingKKT('${item.id}', ${index})" ${item.markingCodes[index].kktCheck && item.markingCodes[index].kktCheck.status === 'pending' ? 'disabled' : ''}>
+                                            ${item.markingCodes[index].kktCheck && item.markingCodes[index].kktCheck.status === 'pending' ? 'Проверяется...' : 'Проверить на ККТ'}
+                                        </button>
+                                    </div>
+                                    <div class="info-board" style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; min-height: 50px;">
+                                        ${item.markingCodes[index].kktCheck && item.markingCodes[index].kktCheck.userResult ? `
+                                            <div class="user-result">${item.markingCodes[index].kktCheck.userResult}</div>
+                                            <div class="machine-data">
+                                                <strong>Машинные данные:</strong><br>
+                                                <pre style="font-size: 10px; margin: 2px 0;">${JSON.stringify(item.markingCodes[index].kktCheck.machineData, null, 2)}</pre>
+                                            </div>
+                                        ` : '<div style="color: #6c757d; font-style: italic;">Результат проверки будет отображен здесь</div>'}
+                                    </div>
+                                </div>
+                                
+                                <div class="marking-type">
+                                    <div class="marking-type-title">
+                                        Проверка разрешительного режима
+                                        ${item.markingCodes[index].permitCheck && item.markingCodes[index].permitCheck.status ? 
+                                            `<span class="marking-status status-${item.markingCodes[index].permitCheck.status}" style="margin-left: 10px;">
+                                                ${item.markingCodes[index].permitCheck.status === 'not_checked' ? 'Не проверено' : 
+                                                  item.markingCodes[index].permitCheck.status === 'pending' ? 'Проверяется' : 
+                                                  item.markingCodes[index].permitCheck.status === 'success' ? 'Проверено ✓' : 'Ошибка ✗'}
+                                            </span>` : ''}
+                                    </div>
+                                    <div class="marking-type-controls">
+                                        <button class="button small" onclick="checkMarkingPermit('${item.id}', ${index})" ${item.markingCodes[index].permitCheck && item.markingCodes[index].permitCheck.status === 'pending' ? 'disabled' : ''}>
+                                            ${item.markingCodes[index].permitCheck && item.markingCodes[index].permitCheck.status === 'pending' ? 'Проверяется...' : 'Проверить разрешение'}
+                                        </button>
+                                    </div>
+                                    <div class="info-board" style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; min-height: 50px;">
+                                        ${item.markingCodes[index].permitCheck && item.markingCodes[index].permitCheck.userResult ? `
+                                            <div class="user-result">${item.markingCodes[index].permitCheck.userResult}</div>
+                                            <div class="machine-data">
+                                                <strong>Машинные данные:</strong><br>
+                                                <pre style="font-size: 10px; margin: 2px 0;">${JSON.stringify(item.markingCodes[index].permitCheck.machineData, null, 2)}</pre>
+                                            </div>
+                                        ` : '<div style="color: #6c757d; font-style: italic;">Результат проверки будет отображен здесь</div>'}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        `).join('')}
                         
                         <div class="marking-controls">
                             <button class="button secondary small" onclick="toggleMarking('${item.id}')">
-                                Убрать маркировку
+                                Убрать все марки
                             </button>
                         </div>
                     </div>
@@ -672,15 +757,14 @@
             const item = items.find(i => i.id === itemId);
             if (!item) return;
 
-            item.hasMarking = !item.hasMarking;
-            if (!item.hasMarking) {
-                item.markingCode = '';
-                item.kktCheck = { status: null, result: null, userResult: null, machineData: null };
-                item.permitCheck = { status: null, result: null, userResult: null, machineData: null };
+            if (item.hasMarking) {
+                // Убираем все марки
+                item.hasMarking = false;
+                item.markingCodes = [];
             } else {
-                item.markingCode = testItems[0].markingCode; // Устанавливаем тестовый код
-                item.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                item.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                // Добавляем первую марку
+                item.hasMarking = true;
+                item.markingCodes = [testItems[1].markingCode]; // Берем тестовый код
             }
 
             // Перерисовываем позицию
@@ -688,11 +772,18 @@
             updateGlobalCheckStatus();
         }
 
-        async function checkMarkingKKT(itemId) {
+        async function checkMarkingKKT(itemId, markIndex = 0) {
             const item = items.find(i => i.id === itemId);
-            if (!item || !item.markingCode) return;
+            if (!item || !item.markingCodes || !item.markingCodes[markIndex]) return;
 
-            item.kktCheck.status = 'pending';
+            const markingCode = item.markingCodes[markIndex];
+            
+            // Инициализируем структуру проверки для марки, если её нет
+            if (!item.markingCodes[markIndex].kktCheck) {
+                item.markingCodes[markIndex].kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+            }
+            
+            item.markingCodes[markIndex].kktCheck.status = 'pending';
             renderItem(item);
 
             const checkType = document.getElementById('checkType').value;
@@ -704,14 +795,14 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        markingCode: item.markingCode,
+                        markingCode: markingCode,
                         sellOrReturn: checkType
                     })
                 });
                 const data = await response.json();
                 
-                item.kktCheck.status = data.success ? 'success' : 'error';
-                item.kktCheck.result = data;
+                item.markingCodes[markIndex].kktCheck.status = data.success ? 'success' : 'error';
+                item.markingCodes[markIndex].kktCheck.result = data;
                 
                 // Обрабатываем результат для пользователя
                 if (data.success && data.data && data.data.success) {
@@ -719,35 +810,42 @@
                     if (responseData && responseData.itemInfoCheckResult) {
                         const checkResult = responseData.itemInfoCheckResult;
                         if (checkResult.imcCheckResult) {
-                            item.kktCheck.userResult = '[М+] Марка проверена успешно';
+                            item.markingCodes[markIndex].kktCheck.userResult = '[М+] Марка проверена успешно';
                         } else {
-                            item.kktCheck.userResult = '[М-] Марка не прошла проверку';
+                            item.markingCodes[markIndex].kktCheck.userResult = '[М-] Марка не прошла проверку';
                         }
                     } else {
-                        item.kktCheck.userResult = '[М] Марка обработана';
+                        item.markingCodes[markIndex].kktCheck.userResult = '[М] Марка обработана';
                     }
-                    item.kktCheck.machineData = data.data.response;
+                    item.markingCodes[markIndex].kktCheck.machineData = data.data.response;
                 } else {
-                    item.kktCheck.userResult = '[М-] Ошибка проверки марки';
-                    item.kktCheck.machineData = data;
+                    item.markingCodes[markIndex].kktCheck.userResult = '[М-] Ошибка проверки марки';
+                    item.markingCodes[markIndex].kktCheck.machineData = data;
                 }
                 
                 renderItem(item);
                 updateGlobalCheckStatus();
             } catch (error) {
-                item.kktCheck.status = 'error';
-                item.kktCheck.userResult = '[М-] Ошибка: ' + error.message;
-                item.kktCheck.machineData = { error: error.message };
+                item.markingCodes[markIndex].kktCheck.status = 'error';
+                item.markingCodes[markIndex].kktCheck.userResult = '[М-] Ошибка: ' + error.message;
+                item.markingCodes[markIndex].kktCheck.machineData = { error: error.message };
                 renderItem(item);
                 updateGlobalCheckStatus();
             }
         }
 
-        async function checkMarkingPermit(itemId) {
+        async function checkMarkingPermit(itemId, markIndex = 0) {
             const item = items.find(i => i.id === itemId);
-            if (!item || !item.markingCode) return;
+            if (!item || !item.markingCodes || !item.markingCodes[markIndex]) return;
 
-            item.permitCheck.status = 'pending';
+            const markingCode = item.markingCodes[markIndex];
+            
+            // Инициализируем структуру проверки для марки, если её нет
+            if (!item.markingCodes[markIndex].permitCheck) {
+                item.markingCodes[markIndex].permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+            }
+            
+            item.markingCodes[markIndex].permitCheck.status = 'pending';
             renderItem(item);
 
             const checkType = document.getElementById('checkType').value;
@@ -759,33 +857,33 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        permitMark: item.markingCode,
+                        permitMark: markingCode,
                         sellOrReturn: checkType
                     })
                 });
                 const data = await response.json();
                 
-                item.permitCheck.status = data.success ? 'success' : 'error';
-                item.permitCheck.result = data;
+                item.markingCodes[markIndex].permitCheck.status = data.success ? 'success' : 'error';
+                item.markingCodes[markIndex].permitCheck.result = data;
                 
                 // Обрабатываем результат для пользователя
                 if (data.success) {
                     // Для возврата проверка разрешительного режима не требуется
                     if (checkType === 'return') {
-                        item.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
-                        item.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
+                        item.markingCodes[markIndex].permitCheck.userResult = '✓ Проверка не требуется (возврат)';
+                        item.markingCodes[markIndex].permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
                     } else if (data.data && data.data.success) {
                         const responseData = data.data.response;
                         if (responseData && responseData.user_status) {
                             if (responseData.user_status.ok) {
-                                item.permitCheck.userResult = '✓ Разрешено к продаже';
+                                item.markingCodes[markIndex].permitCheck.userResult = '✓ Разрешено к продаже';
                             } else {
-                                item.permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
+                                item.markingCodes[markIndex].permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
                             }
                         } else {
-                            item.permitCheck.userResult = '✓ Разрешено к продаже';
+                            item.markingCodes[markIndex].permitCheck.userResult = '✓ Разрешено к продаже';
                         }
-                        item.permitCheck.machineData = {
+                        item.markingCodes[markIndex].permitCheck.machineData = {
                             code: responseData.machine_data?.code,
                             uuid: responseData.machine_data?.uuid || 'N/A',
                             timeStamp: responseData.machine_data?.timeStamp || 'N/A',
@@ -793,20 +891,20 @@
                             inst: responseData.machine_data?.inst || 'N/A'
                         };
                     } else {
-                        item.permitCheck.userResult = '✓ Разрешено к продаже';
-                        item.permitCheck.machineData = data;
+                        item.markingCodes[markIndex].permitCheck.userResult = '✓ Разрешено к продаже';
+                        item.markingCodes[markIndex].permitCheck.machineData = data;
                     }
                 } else {
-                    item.permitCheck.userResult = '✗ Ошибка проверки разрешения';
-                    item.permitCheck.machineData = data;
+                    item.markingCodes[markIndex].permitCheck.userResult = '✗ Ошибка проверки разрешения';
+                    item.markingCodes[markIndex].permitCheck.machineData = data;
                 }
                 
                 renderItem(item);
                 updateGlobalCheckStatus();
             } catch (error) {
-                item.permitCheck.status = 'error';
-                item.permitCheck.userResult = '✗ Ошибка: ' + error.message;
-                item.permitCheck.machineData = { error: error.message };
+                item.markingCodes[markIndex].permitCheck.status = 'error';
+                item.markingCodes[markIndex].permitCheck.userResult = '✗ Ошибка: ' + error.message;
+                item.markingCodes[markIndex].permitCheck.machineData = { error: error.message };
                 renderItem(item);
                 updateGlobalCheckStatus();
             }
@@ -869,7 +967,7 @@
         }
 
         function updateGlobalCheckStatus() {
-            const markedItems = items.filter(item => item.hasMarking);
+            const markedItems = items.filter(item => item.hasMarking && item.markingCodes.length > 0);
             
             // Проверяем, что элементы существуют
             const globalCheckStatus = document.getElementById('globalCheckStatus');
@@ -890,8 +988,16 @@
                 return;
             }
 
-            // Статус ККТ проверки
-            const kktStatuses = markedItems.map(item => item.kktCheck.status).filter(status => status);
+            // Собираем все статусы ККТ проверки со всех марок
+            const kktStatuses = [];
+            markedItems.forEach(item => {
+                item.markingCodes.forEach(mark => {
+                    if (mark.kktCheck && mark.kktCheck.status) {
+                        kktStatuses.push(mark.kktCheck.status);
+                    }
+                });
+            });
+
             const kktNotChecked = kktStatuses.filter(status => status === 'not_checked').length;
             const kktPending = kktStatuses.filter(status => status === 'pending').length;
             const kktSuccess = kktStatuses.filter(status => status === 'success').length;
@@ -903,7 +1009,7 @@
             } else if (kktError > 0) {
                 kktGlobalStatus.textContent = `Ошибки (${kktError})`;
                 kktGlobalStatus.className = 'marking-status status-error';
-            } else if (kktSuccess === kktStatuses.length) {
+            } else if (kktSuccess === kktStatuses.length && kktStatuses.length > 0) {
                 kktGlobalStatus.textContent = `Проверено (${kktSuccess})`;
                 kktGlobalStatus.className = 'marking-status status-success';
             } else {
@@ -911,8 +1017,16 @@
                 kktGlobalStatus.className = 'marking-status status-not_checked';
             }
 
-            // Статус разрешительного режима
-            const permitStatuses = markedItems.map(item => item.permitCheck.status).filter(status => status);
+            // Собираем все статусы разрешительного режима со всех марок
+            const permitStatuses = [];
+            markedItems.forEach(item => {
+                item.markingCodes.forEach(mark => {
+                    if (mark.permitCheck && mark.permitCheck.status) {
+                        permitStatuses.push(mark.permitCheck.status);
+                    }
+                });
+            });
+
             const permitNotChecked = permitStatuses.filter(status => status === 'not_checked').length;
             const permitPending = permitStatuses.filter(status => status === 'pending').length;
             const permitSuccess = permitStatuses.filter(status => status === 'success').length;
@@ -924,7 +1038,7 @@
             } else if (permitError > 0) {
                 permitGlobalStatus.textContent = `Ошибки (${permitError})`;
                 permitGlobalStatus.className = 'marking-status status-error';
-            } else if (permitSuccess === permitStatuses.length) {
+            } else if (permitSuccess === permitStatuses.length && permitStatuses.length > 0) {
                 permitGlobalStatus.textContent = `Проверено (${permitSuccess})`;
                 permitGlobalStatus.className = 'marking-status status-success';
             } else {
@@ -944,7 +1058,7 @@
             } else if (totalError > 0) {
                 globalCheckStatus.textContent = `Все марки: Ошибки (${totalError})`;
                 globalCheckStatus.className = 'marking-status status-error';
-            } else if (totalSuccess === (kktStatuses.length + permitStatuses.length)) {
+            } else if (totalSuccess === (kktStatuses.length + permitStatuses.length) && (kktStatuses.length + permitStatuses.length) > 0) {
                 globalCheckStatus.textContent = `Все марки: Проверено (${totalSuccess})`;
                 globalCheckStatus.className = 'marking-status status-success';
             } else {
@@ -954,7 +1068,7 @@
         }
 
         async function checkAllMarks() {
-            const markedItems = items.filter(item => item.hasMarking);
+            const markedItems = items.filter(item => item.hasMarking && item.markingCodes.length > 0);
             
             if (markedItems.length === 0) {
                 alert('Нет позиций с маркировкой для проверки');
@@ -971,18 +1085,27 @@
             const allChecks = [];
             
             for (const item of markedItems) {
-                if (item.kktCheck.status === 'not_checked') {
-                    allChecks.push(checkMarkingKKT(item.id));
-                }
-                // Для возврата проверка разрешительного режима не требуется
-                if (checkType === 'sell' && item.permitCheck.status === 'not_checked') {
-                    allChecks.push(checkMarkingPermit(item.id));
-                } else if (checkType === 'return' && item.permitCheck.status === 'not_checked') {
-                    // Для возврата автоматически помечаем как успешную проверку
-                    item.permitCheck.status = 'success';
-                    item.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
-                    item.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
-                    renderItem(item);
+                for (let markIndex = 0; markIndex < item.markingCodes.length; markIndex++) {
+                    const mark = item.markingCodes[markIndex];
+                    
+                    // Проверка ККТ
+                    if (!mark.kktCheck || mark.kktCheck.status === 'not_checked') {
+                        allChecks.push(checkMarkingKKT(item.id, markIndex));
+                    }
+                    
+                    // Проверка разрешительного режима
+                    if (checkType === 'sell' && (!mark.permitCheck || mark.permitCheck.status === 'not_checked')) {
+                        allChecks.push(checkMarkingPermit(item.id, markIndex));
+                    } else if (checkType === 'return' && (!mark.permitCheck || mark.permitCheck.status === 'not_checked')) {
+                        // Для возврата автоматически помечаем как успешную проверку
+                        if (!mark.permitCheck) {
+                            mark.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                        }
+                        mark.permitCheck.status = 'success';
+                        mark.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
+                        mark.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
+                        renderItem(item);
+                    }
                 }
             }
 

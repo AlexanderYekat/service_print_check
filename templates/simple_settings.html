@@ -336,10 +336,8 @@
             const suffixInfo = document.getElementById('suffixInfo');
             const diagnoseButton = document.getElementById('diagnoseButton');
             
-            // Переменные для тестирования сканера
+            // Переменная для тестирования сканера
             let testScanner = null;
-            let currentPort = null;
-            let portReader = null;
 
 
             // Функция для обновления статуса сканера
@@ -400,46 +398,26 @@
             function createTestScanner() {
                 const suffix = getScannerSuffixValue();
                 
-                console.log('=== Создание тестового сканера ===');
-                console.log('Используемый суффикс:', suffix);
-                console.log('Тип суффикса:', typeof suffix);
-                console.log('Длина суффикса:', suffix.length);
-                console.log('Коды символов суффикса:', Array.from(suffix).map(c => c.charCodeAt(0)));
-                
                 return new BarcodeScanner({
                     onScan: (code) => {
-                        console.log('=== ОБРАБОТКА ОТСКАНИРОВАННОГО КОДА ===');
-                        console.log('Получен код:', code);
-                        console.log('Тип кода:', typeof code);
-                        console.log('Длина кода:', code.length);
-                        console.log('Коды символов кода:', Array.from(code).map(c => c.charCodeAt(0)));
-                        
                         addScannedCode(code);
                         updateScannerStatus('✅ Сканер подключен - отсканирован код!', true);
-                        
-                        console.log('Код добавлен в интерфейс');
                     },
                     onConnect: () => {
-                        console.log('=== СКАНЕР ПОДКЛЮЧЕН ===');
-                        console.log('Сканер успешно подключен');
                         updateScannerStatus('✅ Сканер успешно подключен!', true);
                     },
                     onDisconnect: () => {
-                        console.log('=== СКАНЕР ОТКЛЮЧЕН ===');
-                        console.log('Сканер отключен');
                         updateScannerStatus('❌ Сканер отключен', false);
                     },
                     onError: (message, error) => {
-                        console.error('=== ОШИБКА СКАНЕРА ===');
-                        console.error('Сообщение:', message);
-                        console.error('Ошибка:', error);
                         updateScannerStatus(`❌ Ошибка: ${message}`, false);
+                        console.error('Ошибка сканера:', message, error);
                     },
                     terminator: suffix,
                     baudRate: 9600,
-                    debug: true, // Включаем подробное логирование
-                    maxBufferSize: 20480, // 20KB для долгосрочной работы
-                    bufferTimeout: 600000 // 10 минут без данных = очистка буфера
+                    debug: true,
+                    maxBufferSize: 20480,
+                    bufferTimeout: 600000
                 });
             }
             const diagnosticResultsDiv = document.getElementById('diagnosticResults');
@@ -816,109 +794,23 @@
             // Инициализация информации о суффиксе
             showSuffixInfo(parseEscapeSequences(scannerSuffixSelect.value));
 
-            // Функция для сохранения информации о порте на сервере
-            async function savePortInfo(portInfo, comNumber) {
-                const portData = {
-                    scannerUsbVendorId: portInfo.usbVendorId,
-                    scannerUsbProductId: portInfo.usbProductId,
-                    comScanner: comNumber
-                };
-                
-                try {
-                    const response = await fetch('/api/settings', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(portData)
-                    });
-                    
-                    if (response.ok) {
-                        console.log('Информация о порте сохранена на сервере:', portData);
-                        return true;
-                    } else {
-                        console.error('Ошибка при сохранении информации о порте на сервере');
-                        return false;
-                    }
-                } catch (error) {
-                    console.error('Ошибка при сохранении информации о порте:', error);
-                    return false;
-                }
-            }
-
-            // Функция для загрузки информации о порте с сервера
-            async function loadPortInfo() {
-                try {
-                    const response = await fetch('/api/settings');
-                    if (response.ok) {
-                        const settings = await response.json();
-                        if (settings.scannerUsbVendorId && settings.scannerUsbProductId) {
-                            return {
-                                vendorId: settings.scannerUsbVendorId,
-                                productId: settings.scannerUsbProductId,
-                                comNumber: settings.comScanner || 0
-                            };
-                        }
-                    }
-                } catch (error) {
-                    console.error('Ошибка при загрузке настроек с сервера:', error);
-                }
-                return null;
-            }
-
-            // Функция для поиска сохраненного порта среди разрешенных (без подключения)
-            async function tryConnectToSavedPort() {
-                try {
-                    const savedPortInfo = await loadPortInfo();
-                    if (!savedPortInfo) {
-                        console.log('Сохраненная информация о порте не найдена');
-                        return null;
-                    }
-
-                    console.log('Найдена сохраненная информация о порте:', savedPortInfo);
-
-                    // Получаем список разрешенных портов (без подключения к ним)
-                    const ports = await navigator.serial.getPorts();
-                    console.log('Доступные порты:', ports.length);
-                    
-                    // Ищем порт по USB ID среди разрешенных устройств
-                    const savedPort = ports.find(port => {
-                        const info = port.getInfo();
-                        console.log('Проверяем порт:', info.usbVendorId, info.usbProductId, 'vs', savedPortInfo.vendorId, savedPortInfo.productId);
-                        return info.usbVendorId === savedPortInfo.vendorId && 
-                               info.usbProductId === savedPortInfo.productId;
-                    });
-
-                    if (savedPort) {
-                        console.log('Найден сохраненный порт:', savedPort);
-                        // Возвращаем информацию о найденном порте (без подключения)
-                        return {
-                            port: savedPort,
-                            comNumber: savedPortInfo.comNumber
-                        };
-                    } else {
-                        console.log('Сохраненный порт не найден среди доступных');
-                    }
-                } catch (error) {
-                    console.error('Ошибка при поиске сохраненного порта:', error);
-                }
-                return null;
-            }
 
             // Обработчик кнопки выбора COM-порта
             selectPortBtn.addEventListener('click', async function() {
                 try {
-                    // Проверяем поддержку Web Serial API
                     if (!('serial' in navigator)) {
                         alert('Web Serial API не поддерживается в этом браузере. Используйте Chrome/Edge/Opera версии 89+.');
                         return;
                     }
                     
+                    // Создаем временный сканер для работы с портами
+                    const tempScanner = new BarcodeScanner({ debug: false });
+                    
                     // Сначала пробуем найти сохраненный порт
-                    const savedConnection = await tryConnectToSavedPort();
-                    if (savedConnection) {
-                        comScannerInput.value = savedConnection.comNumber;
-                        alert(`✅ Найден сохраненный порт!\n\nCOM-порт: ${savedConnection.comNumber}\n\nПорт найден среди разрешенных устройств. Для тестирования используйте кнопки ниже.\n\nЕсли это не тот порт, выберите новый.`);
+                    const savedPortInfo = await tempScanner.loadSavedPortInfo();
+                    if (savedPortInfo) {
+                        comScannerInput.value = savedPortInfo.comNumber;
+                        alert(`✅ Найден сохраненный порт!\n\nCOM-порт: ${savedPortInfo.comNumber}\n\nДля тестирования используйте кнопки ниже.\n\nЕсли это не тот порт, выберите новый.`);
                         return;
                     }
                     
@@ -938,10 +830,9 @@
                         const comNumber = parseInt(manualInput.trim());
                         if (!isNaN(comNumber) && comNumber > 0) {
                             // Сохраняем информацию о порте на сервере
-                            const saved = await savePortInfo(portInfo, comNumber);
+                            const saved = await tempScanner.savePortInfo(comNumber);
                             
                             if (saved) {
-                                // Заполняем поле
                                 comScannerInput.value = comNumber;
                                 alert(`✅ COM-порт ${comNumber} настроен и сохранен на сервере!\n\nПри следующем запуске порт будет выбран автоматически.`);
                             } else {
@@ -954,8 +845,7 @@
                     
                 } catch (error) {
                     if (error.name === 'NotAllowedError') {
-                        // Пользователь отменил выбор
-                        return;
+                        return; // Пользователь отменил выбор
                     }
                     console.error('Ошибка при выборе порта:', error);
                     alert(`Ошибка при выборе порта: ${error.message}`);
@@ -965,20 +855,12 @@
             // Автоматическое заполнение сохраненного порта при загрузке страницы
             async function initSavedPort() {
                 try {
-                    console.log('=== initSavedPort: проверяем сохраненный порт ===');
-                    const savedConnection = await tryConnectToSavedPort();
-                    if (savedConnection) {
-                        console.log('Найден сохраненный порт, заполняем поле COM-порта');
-                        comScannerInput.value = savedConnection.comNumber;
-                        console.log('Автоматически заполнен сохраненный порт:', savedConnection.comNumber);
-                        console.log('Примечание: это только заполнение поля, реальное подключение не происходит');
-                        
-                        // Показываем пользователю, что порт был автоматически заполнен
-                        if (comScannerInput.value && comScannerInput.value !== '0') {
-                            console.log('Поле COM-порта автоматически заполнено значением:', comScannerInput.value);
-                        }
-                    } else {
-                        console.log('Сохраненный порт не найден или недоступен');
+                    const tempScanner = new BarcodeScanner({ debug: false });
+                    const savedPortInfo = await tempScanner.loadSavedPortInfo();
+                    
+                    if (savedPortInfo) {
+                        comScannerInput.value = savedPortInfo.comNumber;
+                        console.log('Автоматически заполнен сохраненный порт:', savedPortInfo.comNumber);
                     }
                 } catch (error) {
                     console.error('Ошибка при загрузке сохраненного порта:', error);
@@ -989,7 +871,6 @@
             resetPortBtn.addEventListener('click', async function() {
                 if (confirm('Вы уверены, что хотите сбросить сохраненную информацию о порте?')) {
                     try {
-                        // Очищаем настройки на сервере
                         const response = await fetch('/api/settings', {
                             method: 'POST',
                             headers: {
@@ -1004,7 +885,7 @@
                         
                         if (response.ok) {
                             comScannerInput.value = 0;
-                            alert('✅ Сохраненная информация о порте удалена с сервера.\n\nТеперь при следующем выборе порта появится диалог выбора.');
+                            alert('✅ Сохраненная информация о порте удалена с сервера.');
                         } else {
                             alert('❌ Ошибка при удалении настроек с сервера.');
                         }
@@ -1017,59 +898,29 @@
 
             // Обработчики кнопок тестирования сканера
             testConnectBtn.addEventListener('click', async function() {
-                console.log('=== НАЖАТИЕ КНОПКИ ПОДКЛЮЧЕНИЯ ===');
-                
                 try {
                     if (!('serial' in navigator)) {
-                        console.log('Web Serial API не поддерживается');
                         updateScannerStatus('❌ Web Serial API не поддерживается в этом браузере', false);
                         return;
                     }
                     
-                    console.log('Web Serial API поддерживается, начинаем подключение');
                     updateScannerStatus('🔄 Подключение к сканеру...', false);
                     
-                    // Создаем новый экземпляр сканера
-                    console.log('Создаем экземпляр сканера...');
+                    // Создаем экземпляр сканера
                     testScanner = createTestScanner();
-                    console.log('Экземпляр сканера создан:', testScanner);
                     
-                     // Сначала пытаемся подключиться к сохраненному порту
-                    console.log('Пытаемся подключиться к сохраненному порту...');
-                    const savedConnection = await tryConnectToSavedPort();
-                    
-                    if (savedConnection) {
-                        console.log('Найден сохраненный порт, подключаемся к нему:', savedConnection.port);
-                        
-                        // Подключаемся к сохраненному порту без диалога
-                        await savedConnection.port.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' });
-                        console.log('Подключение к сохраненному порту успешно');
-                        
-                        // Используем BarcodeScanner для обработки данных
-                        testScanner = createTestScanner();
-                        testScanner.port = savedConnection.port;
-                        testScanner.isConnected = true;
-                        testScanner.keepReading = true;
-                        
-                        // Запускаем чтение данных
-                        testScanner.startReading();
-                        
-                        // Обновляем статус
-                        updateScannerStatus('✅ Сканер подключен к сохраненному порту!', true);
-                        return;
+                    // Пытаемся подключиться к сохраненному порту
+                    const savedPortInfo = await testScanner.loadSavedPortInfo();
+                    if (savedPortInfo) {
+                        await testScanner.connect({
+                            trySavedPortFirst: true,
+                            savedPortInfo: savedPortInfo
+                        });
+                    } else {
+                        await testScanner.connect();
                     }
                     
-                    // Если сохраненного порта нет, используем обычный диалог выбора
-                    console.log('Сохраненного порта нет, используем диалог выбора...');
-                    await testScanner.connect();
-                    console.log('testScanner.connect() завершен успешно');
-                    
                 } catch (error) {
-                    console.error('=== ОШИБКА ПРИ ПОДКЛЮЧЕНИИ ===');
-                    console.error('Тип ошибки:', error.name);
-                    console.error('Сообщение ошибки:', error.message);
-                    console.error('Полная ошибка:', error);
-                    
                     if (error.name === 'NotAllowedError') {
                         updateScannerStatus('❌ Разрешение на подключение отклонено', false);
                     } else {
@@ -1079,44 +930,24 @@
             });
 
             testDisconnectBtn.addEventListener('click', async function() {
-                console.log('=== НАЖАТИЕ КНОПКИ ОТКЛЮЧЕНИЯ ===');
-                
                 try {
-                    // Отключаем BarcodeScanner если он используется
                     if (testScanner) {
-                        console.log('Отключаем BarcodeScanner...');
                         await testScanner.disconnect();
                         testScanner = null;
-                        console.log('BarcodeScanner отключен');
                     }
-                    
-                    // Очищаем буфер данных сканера при отключении
-                    if (testScanner) {
-                        testScanner.clearBuffer();
-                        console.log('Буфер данных сканера очищен');
-                    }
-                    
                     updateScannerStatus('❌ Сканер отключен', false);
-                    console.log('Статус обновлен: отключен');
-                    
                 } catch (error) {
-                    console.error('=== ОШИБКА ПРИ ОТКЛЮЧЕНИИ ===');
-                    console.error('Ошибка:', error);
                     updateScannerStatus(`❌ Ошибка отключения: ${error.message}`, false);
                 }
             });
 
             testClearBtn.addEventListener('click', function() {
-                // Очищаем отсканированные коды
                 scannedCodes.innerHTML = '<div style="color: var(--md-sys-color-outline); font-style: italic;">Отсканированные коды появятся здесь...</div>';
                 
-                // Очищаем буфер данных сканера
                 if (testScanner) {
                     testScanner.clearBuffer();
-                    console.log('Буфер данных сканера очищен при очистке результатов');
                 }
                 
-                // Сбрасываем статус
                 if (!testScanner || !testScanner.isScannerConnected()) {
                     updateScannerStatus('📱 Готов к тестированию', false);
                 }

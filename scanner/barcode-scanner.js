@@ -50,14 +50,28 @@ class BarcodeScanner {
 
   /**
    * Подключается к сканеру
+   * @param {Object} options - Опции подключения
+   * @param {Object} options.savedPortInfo - Информация о сохраненном порте {vendorId, productId}
+   * @param {boolean} options.trySavedPortFirst - Пытаться ли сначала подключиться к сохраненному порту
    * @returns {Promise<void>}
    * @throws {Error} Если Web Serial API не поддерживается или произошла ошибка подключения
    */
-  async connect() {
+  async connect(options = {}) {
     try {
       // Проверяем поддержку Web Serial API
       if (!('serial' in navigator)) {
         throw new Error('Web Serial API не поддерживается в этом браузере. Используйте Chrome/Edge/Opera версии 89+');
+      }
+      
+      // Пытаемся подключиться к сохраненному порту
+      if (options.trySavedPortFirst && options.savedPortInfo) {
+        const savedPort = await this.tryConnectToSavedPort(options.savedPortInfo);
+        if (savedPort) {
+          this.log('Подключение к сохраненному порту успешно');
+          this.setupPort(savedPort);
+          return;
+        }
+        this.log('Сохраненный порт не найден, используем диалог выбора');
       }
       
       // Запрашиваем порт у пользователя
@@ -71,28 +85,74 @@ class BarcodeScanner {
         parity: 'none' 
       });
       
-      // Устанавливаем флаги
-      this.keepReading = true;
-      this.isConnected = true;
-      
-      // Очищаем буфер данных при новом подключении
-      this.dataBuffer = '';
-      this.lastDataTime = Date.now();
-      this.log('Буфер данных очищен при подключении');
-      
-      // Запускаем таймер для очистки буфера по таймауту
-      this.startBufferTimer();
-      
-      // Вызываем callback подключения
-      this.onConnect();
-      
-      // Запускаем чтение данных
-      this.startReading();
+      // Настраиваем подключенный порт
+      this.setupPort(this.port);
       
     } catch (error) {
       this.onError('Ошибка подключения:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Пытается подключиться к сохраненному порту
+   * @param {Object} savedPortInfo - Информация о сохраненном порте
+   * @returns {Promise<SerialPort|null>} Найденный порт или null
+   * @private
+   */
+  async tryConnectToSavedPort(savedPortInfo) {
+    try {
+      // Получаем список разрешенных портов
+      const ports = await navigator.serial.getPorts();
+      
+      // Ищем порт по USB ID
+      const savedPort = ports.find(port => {
+        const info = port.getInfo();
+        return info.usbVendorId === savedPortInfo.vendorId && 
+               info.usbProductId === savedPortInfo.productId;
+      });
+
+      if (savedPort) {
+        // Открываем найденный порт
+        await savedPort.open({ 
+          baudRate: this.baudRate, 
+          dataBits: 8, 
+          stopBits: 1, 
+          parity: 'none' 
+        });
+        return savedPort;
+      }
+    } catch (error) {
+      this.log(`Ошибка при подключении к сохраненному порту: ${error.message}`);
+    }
+    return null;
+  }
+
+  /**
+   * Настраивает подключенный порт
+   * @param {SerialPort} port - Подключенный порт
+   * @private
+   */
+  setupPort(port) {
+    this.port = port;
+    
+    // Устанавливаем флаги
+    this.keepReading = true;
+    this.isConnected = true;
+    
+    // Очищаем буфер данных при новом подключении
+    this.dataBuffer = '';
+    this.lastDataTime = Date.now();
+    this.log('Буфер данных очищен при подключении');
+    
+    // Запускаем таймер для очистки буфера по таймауту
+    this.startBufferTimer();
+    
+    // Вызываем callback подключения
+    this.onConnect();
+    
+    // Запускаем чтение данных
+    this.startReading();
   }
 
   /**
@@ -333,6 +393,85 @@ class BarcodeScanner {
       isTimerActive: this.bufferTimer !== null,
       isConnected: this.isConnected
     };
+  }
+
+  /**
+   * Получает информацию о текущем порте для сохранения
+   * @returns {Object|null} Информация о порте или null если не подключен
+   */
+  getPortInfoForSaving() {
+    if (!this.port) {
+      return null;
+    }
+    
+    const info = this.port.getInfo();
+    return {
+      vendorId: info.usbVendorId,
+      productId: info.usbProductId
+    };
+  }
+
+  /**
+   * Сохраняет информацию о порте на сервере
+   * @param {number} comNumber - Номер COM-порта
+   * @returns {Promise<boolean>} Успех операции
+   */
+  async savePortInfo(comNumber) {
+    const portInfo = this.getPortInfoForSaving();
+    if (!portInfo) {
+      this.log('Нет информации о порте для сохранения');
+      return false;
+    }
+
+    const portData = {
+      scannerUsbVendorId: portInfo.vendorId,
+      scannerUsbProductId: portInfo.productId,
+      comScanner: comNumber
+    };
+    
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(portData)
+      });
+      
+      if (response.ok) {
+        this.log('Информация о порте сохранена на сервере');
+        return true;
+      } else {
+        this.log('Ошибка при сохранении информации о порте на сервере');
+        return false;
+      }
+    } catch (error) {
+      this.log(`Ошибка при сохранении информации о порте: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Загружает информацию о сохраненном порте с сервера
+   * @returns {Promise<Object|null>} Информация о сохраненном порте или null
+   */
+  async loadSavedPortInfo() {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const settings = await response.json();
+        if (settings.scannerUsbVendorId && settings.scannerUsbProductId) {
+          return {
+            vendorId: settings.scannerUsbVendorId,
+            productId: settings.scannerUsbProductId,
+            comNumber: settings.comScanner || 0
+          };
+        }
+      }
+    } catch (error) {
+      this.log(`Ошибка при загрузке настроек с сервера: ${error.message}`);
+    }
+    return null;
   }
 
   /**

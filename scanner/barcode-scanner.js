@@ -34,12 +34,12 @@ class BarcodeScanner {
     this.onDisconnect = options.onDisconnect || (() => {});
     this.onError = options.onError || console.error;
     
+    // Настройки логирования (устанавливаем ПЕРЕД парсингом терминатора)
+    this.debug = options.debug || false;
+    
     // Настройки
     this.terminator = this.parseTerminator(options.terminator || '\t');
     this.baudRate = options.baudRate || 9600;
-    
-    // Настройки логирования
-    this.debug = options.debug || false;
     
     // Настройки управления буфером
     this.maxBufferSize = options.maxBufferSize || 10240; // 10KB по умолчанию
@@ -485,14 +485,27 @@ class BarcodeScanner {
       return '\t';
     }
     
+    // Добавляем логирование для отладки
+    if (this.debug) {
+      this.log(`Парсинг терминатора: "${terminator}" (коды: [${Array.from(terminator).map(c => c.charCodeAt(0)).join(', ')}])`);
+    }
+    
     // Обрабатываем escape-последовательности
-    return terminator
+    const result = terminator
       .replace(/\\t/g, '\t')      // табуляция
       .replace(/\\r\\n/g, '\r\n') // Windows CRLF
       .replace(/\\n/g, '\n')      // Unix LF
       .replace(/\\r/g, '\r')      // Mac CR
       .replace(/\\0/g, '\0')      // Null символ
-      .replace(/\\\\/g, '\\');    // обратный слеш
+      .replace(/\\\\/g, '\\')     // обратный слеш
+      .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Unicode
+      .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))); // Hex
+    
+    if (this.debug) {
+      this.log(`Результат парсинга: "${result}" (коды: [${Array.from(result).map(c => c.charCodeAt(0)).join(', ')}])`);
+    }
+    
+    return result;
   }
 
   /**

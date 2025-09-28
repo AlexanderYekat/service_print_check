@@ -38,6 +38,13 @@
         <a href="/settings" style="color: #2196F3; text-decoration: none; font-size: 14px;">← Перейти к настройкам сервиса</a>
     </div>
     
+    <!-- Статус сканера -->
+    <div id="scannerStatus" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+        <strong>📱 Сканер штрихкодов:</strong> <span id="scannerStatusText">Загрузка...</span>
+        <button onclick="connectScanner()" style="margin-left: 10px; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Подключить</button>
+        <button onclick="disconnectScanner()" style="margin-left: 5px; padding: 5px 10px; background-color: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; display: none;">Отключить</button>
+    </div>
+    
     <button class="button" onclick="printCheck()">Печать чека</button>
     <button class="button" onclick="closeShift()">Закрыть смену</button>
     <button class="button" onclick="printXReport()">X-отчет</button>
@@ -62,11 +69,16 @@
     <div id="saved_slip_display" class="result" style="background-color: #e0ffe0; border-color: #ccffcc;"><h3>Сохраненный банковский слип:</h3><pre id="slip_content"></pre></div>
     <div id="result" class="result"></div>
 
+    <!-- Подключаем класс BarcodeScanner -->
+    <script src="/scanner/barcode-scanner.js"></script>
+    
     <script>
         //const API_URL = 'http://localhost:8081';
         const API_URL = 'http://localhost:8000';
 
         let savedSlipLines = []; // Глобальная переменная для хранения строк слипа
+        let scanner = null; // Глобальная переменная для сканера
+
 
         function displaySavedSlip() {
             console.log('displaySavedSlip called. Current savedSlipLines:', savedSlipLines);
@@ -79,6 +91,145 @@
             } else {
                 slipContentElement.textContent = 'Нет сохраненного слипа.';
                 savedSlipDisplayElement.style.display = 'none'; // Скрываем блок, если нет слипа
+            }
+        }
+
+        // Функции для работы со сканером
+        function updateScannerStatus(message, isConnected = false) {
+            const statusText = document.getElementById('scannerStatusText');
+            const connectBtn = document.querySelector('button[onclick="connectScanner()"]');
+            const disconnectBtn = document.querySelector('button[onclick="disconnectScanner()"]');
+            
+            statusText.textContent = message;
+            statusText.style.color = isConnected ? 'green' : 'red';
+            
+            connectBtn.style.display = isConnected ? 'none' : 'inline-block';
+            disconnectBtn.style.display = isConnected ? 'inline-block' : 'none';
+        }
+
+        async function connectScanner() {
+            try {
+                // Получаем настройки с сервера
+                const response = await fetch(`${API_URL}/api/settings`);
+                if (!response.ok) {
+                    updateScannerStatus('❌ Не удалось загрузить настройки', false);
+                    return;
+                }
+                
+                const settings = await response.json();
+                await connectScannerWithSettings(settings);
+                
+            } catch (error) {
+                if (error.name === 'NotAllowedError') {
+                    updateScannerStatus('❌ Разрешение на подключение отклонено', false);
+                } else {
+                    updateScannerStatus(`❌ Ошибка подключения: ${error.message}`, false);
+                }
+            }
+        }
+
+        async function disconnectScanner() {
+            try {
+                if (scanner) {
+                    await scanner.disconnect();
+                    scanner = null;
+                }
+                updateScannerStatus('❌ Сканер отключен', false);
+            } catch (error) {
+                updateScannerStatus(`❌ Ошибка отключения: ${error.message}`, false);
+            }
+        }
+
+        // Автоматическое подключение сканера при загрузке страницы
+        async function initScanner() {
+            try {
+                // Получаем настройки с сервера
+                const response = await fetch(`${API_URL}/api/settings`);
+                if (!response.ok) {
+                    updateScannerStatus('📱 Не удалось загрузить настройки', false);
+                    return;
+                }
+                
+                const settings = await response.json();
+                
+                // Проверяем, настроен ли сканер
+                if (settings.comScanner && settings.comScanner > 0) {
+                    console.log('Найден настроенный сканер, подключаемся автоматически');
+                    await connectScannerWithSettings(settings);
+                } else {
+                    updateScannerStatus('📱 Сканер не настроен', false);
+                }
+            } catch (error) {
+                console.error('Ошибка при инициализации сканера:', error);
+                updateScannerStatus('📱 Сканер не настроен', false);
+            }
+        }
+
+        // Подключение сканера с учетом настроек сервера
+        async function connectScannerWithSettings(settings) {
+            try {
+                if (!('serial' in navigator)) {
+                    updateScannerStatus('❌ Web Serial API не поддерживается', false);
+                    return;
+                }
+
+                updateScannerStatus('🔄 Подключение к сканеру...', false);
+
+                // Логируем настройки терминатора для отладки
+                console.log('Настройки терминатора с сервера:', settings.scannerSuffix);
+                console.log('Тип терминатора:', typeof settings.scannerSuffix);
+                console.log('Коды символов терминатора:', Array.from(settings.scannerSuffix || '').map(c => c.charCodeAt(0)));
+
+                // Создаем экземпляр сканера - терминатор обрабатывается внутри класса
+                scanner = new BarcodeScanner({
+                    onScan: (code) => {
+                        // Автоматически заполняем поле марки
+                        const markInput = document.getElementById('markInput');
+                        markInput.value = code;
+                        markInput.style.backgroundColor = '#e8f5e8'; // Подсвечиваем зеленым
+                        
+                        // Убираем подсветку через 2 секунды
+                        setTimeout(() => {
+                            markInput.style.backgroundColor = '';
+                        }, 2000);
+                        
+                        updateScannerStatus('✅ Сканер подключен - отсканирован код!', true);
+                        console.log('Отсканирован код:', code);
+                    },
+                    onConnect: () => {
+                        updateScannerStatus('✅ Сканер подключен', true);
+                    },
+                    onDisconnect: () => {
+                        updateScannerStatus('❌ Сканер отключен', false);
+                    },
+                    onError: (message, error) => {
+                        updateScannerStatus(`❌ Ошибка: ${message}`, false);
+                        console.error('Ошибка сканера:', message, error);
+                    },
+                    terminator: settings.scannerSuffix || '\t', // Передаем сырой терминатор - класс сам его обработает
+                    baudRate: 9600,
+                    debug: true,
+                    maxBufferSize: 20480,
+                    bufferTimeout: 600000
+                });
+
+                // Пытаемся подключиться к сохраненному порту
+                const savedPortInfo = await scanner.loadSavedPortInfo();
+                if (savedPortInfo) {
+                    await scanner.connect({
+                        trySavedPortFirst: true,
+                        savedPortInfo: savedPortInfo
+                    });
+                } else {
+                    await scanner.connect();
+                }
+
+            } catch (error) {
+                if (error.name === 'NotAllowedError') {
+                    updateScannerStatus('❌ Разрешение на подключение отклонено', false);
+                } else {
+                    updateScannerStatus(`❌ Ошибка подключения: ${error.message}`, false);
+                }
             }
         }
 
@@ -441,6 +592,7 @@
         window.onload = function() {
             getProgramVersion();
             displaySavedSlip(); // Скрываем блок при загрузке страницы
+            initScanner(); // Инициализируем сканер
         };
     </script>
 </body>

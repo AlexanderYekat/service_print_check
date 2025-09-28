@@ -612,7 +612,7 @@ class PermitMarkCheckGateway
         $url = rtrim($this->config['lmHost'], '/') . '/api/v1/status';
         $headers = [
             'Authorization: Basic ' . $this->config['lmAuth'],
-            'Content-Type: application\\json'
+            'Content-Type: application/json'
         ];
         
         $this->logger->info("Проверяем готовность ЛМ ЧЗ: " . $url);

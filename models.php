@@ -250,7 +250,18 @@ class Settings {
         // Если часовой пояс не задан в настройках, определяем автоматически
         $this->timeZone = $data['timeZone'] ?? $this->detectTimeZone();
         $this->comScanner = $data['comScanner'] ?? $this->comScanner;
-        $this->scannerSuffix = $data['scannerSuffix'] ?? $this->scannerSuffix;
+        
+        // Специальная обработка для scannerSuffix - убираем лишнее экранирование
+        if (isset($data['scannerSuffix'])) {
+            $suffix = $data['scannerSuffix'];
+            // Если строка содержит двойные обратные слеши, убираем лишнее экранирование
+            if (is_string($suffix)) {
+                // Преобразуем \\t в \t, \\n в \n и т.д.
+                $suffix = str_replace(['\\\\t', '\\\\n', '\\\\r', '\\\\0'], ['\\t', '\\n', '\\r', '\\0'], $suffix);
+            }
+            $this->scannerSuffix = $suffix;
+        }
+        
         $this->scannerUsbVendorId = $data['scannerUsbVendorId'] ?? $this->scannerUsbVendorId;
         $this->scannerUsbProductId = $data['scannerUsbProductId'] ?? $this->scannerUsbProductId;
     }

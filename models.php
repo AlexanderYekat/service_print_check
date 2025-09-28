@@ -99,6 +99,8 @@ class Settings {
     public $permitMarkLmAuth;
     public $testLocalModule;
     public $timeZone;
+    public $comScanner;
+    public $scannerSuffix;
 
     public function __construct(SettingsStorageInterface $storage) {
         $this->storage = $storage;
@@ -195,6 +197,8 @@ class Settings {
         $this->permitMarkLmAuth = "YWRtaW46YWRtaW4="; // admin:admin в base64
         $this->testLocalModule = false;
         $this->timeZone = $this->detectTimeZone(); // Автоматически определяем часовой пояс системы
+        $this->comScanner = 0; // По умолчанию не используется (0 = не настроено)
+        $this->scannerSuffix = '\\t'; // По умолчанию табуляция
     }
 
     public function load(): void {
@@ -241,6 +245,8 @@ class Settings {
         $this->testLocalModule = $data['testLocalModule'] ?? $this->testLocalModule;
         // Если часовой пояс не задан в настройках, определяем автоматически
         $this->timeZone = $data['timeZone'] ?? $this->detectTimeZone();
+        $this->comScanner = $data['comScanner'] ?? $this->comScanner;
+        $this->scannerSuffix = $data['scannerSuffix'] ?? $this->scannerSuffix;
     }
 
     public function toArray(): array {
@@ -277,6 +283,8 @@ class Settings {
             'permitMarkLmAuth' => $this->permitMarkLmAuth,
             'testLocalModule' => $this->testLocalModule,
             'timeZone' => $this->timeZone,
+            'comScanner' => $this->comScanner,
+            'scannerSuffix' => $this->scannerSuffix,
         ];
     }
 

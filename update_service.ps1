@@ -38,7 +38,7 @@ try {
     Write-Host "README.md скопирован (если существует)."
 
     # Копируем содержимое папок с сохранением иерархии
-    $foldersToCopy = @("templates", "settings_storage", "samples", "resource", "bank")
+    $foldersToCopy = @("templates", "settings_storage", "samples", "resource", "bank", "scanner")
     foreach ($folder in $foldersToCopy) {
         $source = Join-Path $ProjectSourcePath $folder
         $destination = $ServiceInstallPath

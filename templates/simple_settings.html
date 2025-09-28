@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Настройки весов Атол Смарт</title>
+    <title>Настройки оборудования - Весы и сканер штрихкодов</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
@@ -141,40 +141,142 @@
 <body>
     <div class="container">
         <header>
-            <h1>Настройки весов Атол Смарт</h1>
-            <p class="description">Здесь вы можете изменить номер COM-порта, к которому подключены ваши весы "Атол Смарт".</p>
+            <h1>Настройки оборудования</h1>
+            <p class="description">Настройте подключение весов "Атол Смарт" и сканера штрихкодов к вашему компьютеру. Укажите номера COM-портов, к которым подключено оборудование.</p>
             <p class="program-version" style="font-size: 14px; color: var(--md-sys-color-outline); margin-top: 16px;">Версия программы: <span id="programVersion">Загрузка...</span></p>
         </header>
         <main>
             <form id="simpleSettingsForm">
-                <div class="form-field">
-                    <label for="comScale">Номер COM-порта для весов "Атол Смарт"</label>
-                    <input type="number" id="comScale" name="comScale" min="-1000" class="text-input" value="-1000">
-                    <span class="helper-text">Укажите номер COM-порта (например, 1, 2, 3), к которому подключены весы. Если не знаете (можно посмостреть в диспетчере устройств, вклдака COM-порты), оставьте значение по умолчанию.</span>
+                <!-- Секция весов -->
+                <div class="settings-section">
+                    <h2 style="font-size: 20px; font-weight: 500; color: var(--md-sys-color-on-surface); margin-bottom: 16px; border-bottom: 2px solid var(--md-sys-color-primary); padding-bottom: 8px;">
+                        ⚖️ Весы "Атол Смарт"
+                    </h2>
+                    
+                    <div class="form-field">
+                        <label for="comScale">Номер COM-порта для весов</label>
+                        <input type="number" id="comScale" name="comScale" min="-1000" class="text-input" value="-1000">
+                        <span class="helper-text">Укажите номер COM-порта (например, 1, 2, 3), к которому подключены весы. Если не знаете, посмотрите в "Диспетчер устройств" → "Порты (COM и LPT)".</span>
+                    </div>
                 </div>
                 
-                <div class="form-field">
-                    <label for="permitMarkEnabled" style="display: inline-block; margin-right: 8px;">Включить разрешительный режим маркировки</label>
-                    <input type="checkbox" id="permitMarkEnabled" name="permitMarkEnabled" style="transform: scale(1.2); vertical-align: middle;">
-                    <span class="helper-text">Если включено, система будет проверять маркировки товаров через разрешительный режим.</span>
+                <!-- Секция сканера штрихкодов -->
+                <div class="settings-section" style="margin-top: 32px;">
+                    <h2 style="font-size: 20px; font-weight: 500; color: var(--md-sys-color-on-surface); margin-bottom: 16px; border-bottom: 2px solid var(--md-sys-color-primary); padding-bottom: 8px;">
+                        📱 Сканер штрихкодов
+                    </h2>
+                    
+                    <div class="form-field">
+                        <label for="comScanner">Номер COM-порта для сканера</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="number" id="comScanner" name="comScanner" min="0" class="text-input" value="0" style="flex: 1;">
+                            <button type="button" id="selectPortBtn" class="button secondary" style="padding: 10px 16px; white-space: nowrap;">Выбрать порт</button>
+                            <button type="button" id="resetPortBtn" class="button secondary" style="padding: 10px 12px; white-space: nowrap; font-size: 12px;" title="Сбросить сохраненный порт">🗑️</button>
+                        </div>
+                        <span class="helper-text">Укажите номер COM-порта или используйте кнопку "Выбрать порт" для автоматического определения. Если сканер не используется, оставьте значение 0.</span>
+                    </div>
+                    
+                    <!-- Кнопки тестирования сканера -->
+                    <div class="form-field" style="margin-top: 16px;">
+                        <label>Тестирование сканера</label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                            <button type="button" id="testConnectBtn" class="button secondary" style="padding: 8px 16px;">🔗 Подключить</button>
+                            <button type="button" id="testDisconnectBtn" class="button secondary" style="padding: 8px 16px; display: none;">❌ Отключить</button>
+                            <button type="button" id="testClearBtn" class="button secondary" style="padding: 8px 16px;">🗑️ Очистить</button>
+                        </div>
+                        <span class="helper-text">Используйте эти кнопки для тестирования подключения и работы сканера.</span>
+                    </div>
+                    
+                    <!-- Область отображения результатов тестирования -->
+                    <div id="scannerTestResults" style="margin-top: 16px; padding: 16px; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; background-color: var(--md-sys-color-surface); display: none;">
+                        <h4 style="margin-top: 0; font-size: 16px; color: var(--md-sys-color-on-surface);">Результаты тестирования сканера:</h4>
+                        <div id="scannerStatus" style="margin-bottom: 12px; font-weight: 500;"></div>
+                        <div id="scannedCodes" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--md-sys-color-outline); border-radius: 4px; padding: 8px; background-color: #f9f9f9;">
+                            <div style="color: var(--md-sys-color-outline); font-style: italic;">Отсканированные коды появятся здесь...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-field">
+                        <label for="scannerSuffix">Настройка завершения сканирования</label>
+                        <select id="scannerSuffix" name="scannerSuffix" class="text-input" style="height: auto; padding: 12px 16px;">
+                            <option value="\\t" selected>Табуляция (\t) - код 9</option>
+                            <option value="\\r\\n">Windows (\r\n) - коды 13,10</option>
+                            <option value="\\n">Unix (\n) - код 10</option>
+                            <option value="\\r">Mac (\r) - код 13</option>
+                            <option value="\\0">Null (\0) - код 0</option>
+                            <option value=" ">Пробел - код 32</option>
+                            <option value=";">Точка с запятой - код 59</option>
+                            <option value="|">Вертикальная черта - код 124</option>
+                            <option value=",">Запятая - код 44</option>
+                            <option value=":">Двоеточие - код 58</option>
+                            <option value="custom">Произвольный...</option>
+                        </select>
+                        <span class="helper-text">Выберите символ-терминатор, который сканер отправляет после каждого отсканированного кода. По умолчанию используется табуляция.</span>
+                    </div>
+                    
+                    <div id="customSuffixDiv" style="margin-bottom: 32px; display: none;">
+                        <div class="form-field">
+                            <label for="customSuffix">Введите произвольный терминатор:</label>
+                            <input type="text" id="customSuffix" name="customSuffix" class="text-input" placeholder="Например: \t или \r\n" style="margin-bottom: 8px;">
+                            <button type="button" id="testSuffixBtn" class="button secondary" style="padding: 6px 12px; margin-left: 8px; font-size: 12px;">Тест</button>
+                            <button type="button" id="insertSpecialBtn" class="button secondary" style="padding: 6px 12px; margin-left: 4px; font-size: 12px;">Вставить спец. символ</button>
+                            <div id="suffixInfo" style="margin-top: 8px; font-size: 14px; color: var(--md-sys-color-outline);"></div>
+                        </div>
+                        
+                        <div style="margin-top: 12px; padding: 12px; background-color: #f9f9f9; border-radius: 8px; border: 1px solid var(--md-sys-color-outline);">
+                            <div style="font-size: 14px; color: var(--md-sys-color-on-surface); font-weight: 500; margin-bottom: 8px;">Способы ввода невидимых символов:</div>
+                            <div style="font-size: 13px; color: var(--md-sys-color-outline); line-height: 1.4;">
+                                • <strong>Escape-последовательности:</strong> \t (табуляция), \r\n (Windows), \n (Unix), \r (Mac), \0 (null)<br>
+                                • <strong>Коды символов:</strong> \u0009 (табуляция), \u000A (LF), \u000D (CR), \u0000 (null)<br>
+                                • <strong>Шестнадцатеричные:</strong> \x09 (табуляция), \x0A (LF), \x0D (CR), \x00 (null)<br>
+                                • <strong>Кнопка "Вставить спец. символ"</strong> для выбора из списка
+                            </div>
+                        </div>
+                        
+                        <!-- Модальное окно для выбора специальных символов -->
+                        <div id="specialCharsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; max-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                                <h3 style="margin-top: 0; color: var(--md-sys-color-on-surface);">Выберите специальный символ</h3>
+                                <div id="specialCharsList" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 15px 0;">
+                                    <!-- Список будет заполнен JavaScript -->
+                                </div>
+                                <div style="text-align: right; margin-top: 15px;">
+                                    <button id="closeSpecialChars" class="button secondary">Закрыть</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="form-field">
-                    <label for="timeZone">Часовой пояс</label>
-                    <select id="timeZone" name="timeZone" class="text-input" style="height: auto; padding: 12px 16px;">
-                        <option value="1">UTC+2 (Калининград, Хельсинки)</option>
-                        <option value="2" selected>UTC+3 (Москва, Санкт-Петербург, Минск)</option>
-                        <option value="3">UTC+4 (Самара, Ижевск, Екатеринбург)</option>
-                        <option value="4">UTC+5 (Челябинск, Уфа, Екатеринбург)</option>
-                        <option value="5">UTC+6 (Омск, Новосибирск)</option>
-                        <option value="6">UTC+7 (Красноярск, Барнаул)</option>
-                        <option value="7">UTC+8 (Иркутск, Улан-Удэ)</option>
-                        <option value="8">UTC+9 (Якутск, Владивосток)</option>
-                        <option value="9">UTC+10 (Магадан, Южно-Сахалинск)</option>
-                        <option value="10">UTC+11 (Петропавловск-Камчатский)</option>
-                        <option value="11">UTC+12 (Анадырь, Магадан)</option>
-                    </select>
-                    <span class="helper-text">Выберите часовой пояс для работы с кассой. По умолчанию установлен UTC+3 (Московское время).</span>
+                <!-- Секция общих настроек -->
+                <div class="settings-section" style="margin-top: 32px;">
+                    <h2 style="font-size: 20px; font-weight: 500; color: var(--md-sys-color-on-surface); margin-bottom: 16px; border-bottom: 2px solid var(--md-sys-color-primary); padding-bottom: 8px;">
+                        ⚙️ Общие настройки
+                    </h2>
+                    
+                    <div class="form-field">
+                        <label for="timeZone">Часовой пояс</label>
+                        <select id="timeZone" name="timeZone" class="text-input" style="height: auto; padding: 12px 16px;">
+                            <option value="1">UTC+2 (Калининград, Хельсинки)</option>
+                            <option value="2" selected>UTC+3 (Москва, Санкт-Петербург, Минск)</option>
+                            <option value="3">UTC+4 (Самара, Ижевск, Екатеринбург)</option>
+                            <option value="4">UTC+5 (Челябинск, Уфа, Екатеринбург)</option>
+                            <option value="5">UTC+6 (Омск, Новосибирск)</option>
+                            <option value="6">UTC+7 (Красноярск, Барнаул)</option>
+                            <option value="7">UTC+8 (Иркутск, Улан-Удэ)</option>
+                            <option value="8">UTC+9 (Якутск, Владивосток)</option>
+                            <option value="9">UTC+10 (Магадан, Южно-Сахалинск)</option>
+                            <option value="10">UTC+11 (Петропавловск-Камчатский)</option>
+                            <option value="11">UTC+12 (Анадырь, Магадан)</option>
+                        </select>
+                        <span class="helper-text">Выберите часовой пояс для работы с кассой. По умолчанию установлен UTC+3 (Московское время).</span>
+                    </div>
+                    
+                    <div class="form-field">
+                        <label for="permitMarkEnabled" style="display: inline-block; margin-right: 8px;">Включить проверку маркировок товаров</label>
+                        <input type="checkbox" id="permitMarkEnabled" name="permitMarkEnabled" style="transform: scale(1.2); vertical-align: middle;">
+                        <span class="helper-text">Если включено, система будет проверять маркировки товаров через разрешительный режим "Честный ЗНАК".</span>
+                    </div>
                 </div>
                 
                 <div class="button-container">
@@ -203,12 +305,211 @@
             </form>
         </main>
     </div>
+    
+    <!-- Подключаем класс BarcodeScanner -->
+    <script src="/scanner/barcode-scanner.js"></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('simpleSettingsForm');
             const comScaleInput = document.getElementById('comScale');
             const timeZoneSelect = document.getElementById('timeZone');
+            const comScannerInput = document.getElementById('comScanner');
+            const scannerSuffixSelect = document.getElementById('scannerSuffix');
+            const customSuffixDiv = document.getElementById('customSuffixDiv');
+            const customSuffixInput = document.getElementById('customSuffix');
+            const selectPortBtn = document.getElementById('selectPortBtn');
+            const resetPortBtn = document.getElementById('resetPortBtn');
+            const testConnectBtn = document.getElementById('testConnectBtn');
+            const testDisconnectBtn = document.getElementById('testDisconnectBtn');
+            const testClearBtn = document.getElementById('testClearBtn');
+            const scannerTestResults = document.getElementById('scannerTestResults');
+            const scannerStatus = document.getElementById('scannerStatus');
+            const scannedCodes = document.getElementById('scannedCodes');
+            const testSuffixBtn = document.getElementById('testSuffixBtn');
+            const insertSpecialBtn = document.getElementById('insertSpecialBtn');
+            const specialCharsModal = document.getElementById('specialCharsModal');
+            const specialCharsList = document.getElementById('specialCharsList');
+            const closeSpecialCharsBtn = document.getElementById('closeSpecialChars');
+            const suffixInfo = document.getElementById('suffixInfo');
             const diagnoseButton = document.getElementById('diagnoseButton');
+            
+            // Переменные для тестирования сканера
+            let testScanner = null;
+            let currentPort = null;
+            let portReader = null;
+
+            // Функция для настройки чтения данных с порта
+            async function setupPortReading(port) {
+                console.log('=== setupPortReading вызвана ===');
+                console.log('Порт:', port);
+                
+                currentPort = port;
+                
+                try {
+                    // Создаем reader для чтения данных
+                    portReader = port.readable.getReader();
+                    console.log('Reader создан');
+                    
+                    // Запускаем чтение данных в цикле
+                    readPortData();
+                    
+                } catch (error) {
+                    console.error('Ошибка при настройке чтения порта:', error);
+                    updateScannerStatus(`❌ Ошибка чтения данных: ${error.message}`, false);
+                }
+            }
+            
+            // Функция для чтения данных с порта
+            async function readPortData() {
+                console.log('=== readPortData запущена ===');
+                
+                try {
+                    while (currentPort && currentPort.readable) {
+                        console.log('Ожидаем данные от порта...');
+                        const { value, done } = await portReader.read();
+                        
+                        if (done) {
+                            console.log('Чтение порта завершено');
+                            break;
+                        }
+                        
+                        if (value) {
+                            console.log('Получены данные от порта:', value);
+                            // Преобразуем Uint8Array в строку
+                            const dataString = new TextDecoder().decode(value);
+                            console.log('Декодированные данные:', dataString);
+                            
+                            // Обрабатываем полученные данные
+                            processScannerData(dataString);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Ошибка при чтении данных с порта:', error);
+                    updateScannerStatus(`❌ Ошибка чтения: ${error.message}`, false);
+                }
+            }
+            
+            // Функция для обработки данных от сканера
+            function processScannerData(data) {
+                console.log('=== processScannerData вызвана ===');
+                console.log('Полученные данные:', data);
+                
+                const suffix = getScannerSuffixValue();
+                console.log('Используемый суффикс для разделения:', suffix);
+                
+                // Разделяем данные по терминатору
+                const codes = data.split(suffix);
+                console.log('Разделенные коды:', codes);
+                
+                // Обрабатываем каждый код
+                codes.forEach((code, index) => {
+                    const trimmedCode = code.trim();
+                    if (trimmedCode) {
+                        console.log(`Обрабатываем код ${index + 1}:`, trimmedCode);
+                        addScannedCode(trimmedCode);
+                        updateScannerStatus('✅ Сканер подключен - отсканирован код!', true);
+                    }
+                });
+            }
+
+            // Функция для обновления статуса сканера
+            function updateScannerStatus(message, isConnected = false) {
+                console.log('=== updateScannerStatus вызвана ===');
+                console.log('Сообщение:', message);
+                console.log('Подключен:', isConnected);
+                
+                scannerStatus.textContent = message;
+                scannerStatus.style.color = isConnected ? 'green' : 'red';
+                console.log('Статус обновлен:', message);
+                
+                testConnectBtn.style.display = isConnected ? 'none' : 'inline-block';
+                testDisconnectBtn.style.display = isConnected ? 'inline-block' : 'none';
+                console.log('Кнопки обновлены. Connect:', testConnectBtn.style.display, 'Disconnect:', testDisconnectBtn.style.display);
+                
+                scannerTestResults.style.display = 'block';
+                console.log('Результаты тестирования показаны');
+            }
+
+            // Функция для добавления отсканированного кода
+            function addScannedCode(code) {
+                console.log('=== addScannedCode вызвана ===');
+                console.log('Переданный код:', code);
+                console.log('Контейнер scannedCodes:', scannedCodes);
+                
+                const placeholder = scannedCodes.querySelector('div[style*="italic"]');
+                console.log('Найденный placeholder:', placeholder);
+                if (placeholder) {
+                    placeholder.remove();
+                    console.log('Placeholder удален');
+                }
+                
+                const codeDiv = document.createElement('div');
+                codeDiv.style.cssText = 'padding: 4px 8px; margin: 2px 0; background: #e3f2fd; border-radius: 4px; font-family: monospace; border-left: 3px solid #2196f3;';
+                codeDiv.textContent = `[${new Date().toLocaleTimeString()}] ${code}`;
+                
+                console.log('Создан codeDiv:', codeDiv);
+                console.log('Текст codeDiv:', codeDiv.textContent);
+                
+                scannedCodes.insertBefore(codeDiv, scannedCodes.firstChild);
+                console.log('codeDiv добавлен в контейнер');
+                
+                // Ограничиваем количество отображаемых кодов
+                const codes = scannedCodes.querySelectorAll('div[style*="monospace"]');
+                console.log('Количество отображаемых кодов:', codes.length);
+                if (codes.length > 10) {
+                    codes[codes.length - 1].remove();
+                    console.log('Удален старый код (лимит 10)');
+                }
+                
+                // Проверяем видимость контейнера
+                console.log('Видимость scannedCodes:', scannedCodes.style.display);
+                console.log('Стили scannedCodes:', window.getComputedStyle(scannedCodes).display);
+            }
+
+            // Функция для создания тестового сканера
+            function createTestScanner() {
+                const suffix = getScannerSuffixValue();
+                
+                console.log('=== Создание тестового сканера ===');
+                console.log('Используемый суффикс:', suffix);
+                console.log('Тип суффикса:', typeof suffix);
+                console.log('Длина суффикса:', suffix.length);
+                console.log('Коды символов суффикса:', Array.from(suffix).map(c => c.charCodeAt(0)));
+                
+                return new BarcodeScanner({
+                    onScan: (code) => {
+                        console.log('=== ОБРАБОТКА ОТСКАНИРОВАННОГО КОДА ===');
+                        console.log('Получен код:', code);
+                        console.log('Тип кода:', typeof code);
+                        console.log('Длина кода:', code.length);
+                        console.log('Коды символов кода:', Array.from(code).map(c => c.charCodeAt(0)));
+                        
+                        addScannedCode(code);
+                        updateScannerStatus('✅ Сканер подключен - отсканирован код!', true);
+                        
+                        console.log('Код добавлен в интерфейс');
+                    },
+                    onConnect: () => {
+                        console.log('=== СКАНЕР ПОДКЛЮЧЕН ===');
+                        console.log('Сканер успешно подключен');
+                        updateScannerStatus('✅ Сканер успешно подключен!', true);
+                    },
+                    onDisconnect: () => {
+                        console.log('=== СКАНЕР ОТКЛЮЧЕН ===');
+                        console.log('Сканер отключен');
+                        updateScannerStatus('❌ Сканер отключен', false);
+                    },
+                    onError: (message, error) => {
+                        console.error('=== ОШИБКА СКАНЕРА ===');
+                        console.error('Сообщение:', message);
+                        console.error('Ошибка:', error);
+                        updateScannerStatus(`❌ Ошибка: ${message}`, false);
+                    },
+                    terminator: suffix,
+                    baudRate: 9600
+                });
+            }
             const diagnosticResultsDiv = document.getElementById('diagnosticResults');
             const diagnosticOutputDiv = document.getElementById('diagnosticOutput');
             const sendLogsButton = document.getElementById('sendLogsButton');
@@ -234,11 +535,32 @@
                     if (timeZoneSelect) {
                         timeZoneSelect.value = settings.timeZone || 2;
                     }
+                    // COM-порт сканера (заполняется из настроек сервера, но может быть перезаписан сохраненным портом)
+                    if (comScannerInput) {
+                        comScannerInput.value = settings.comScanner || 0;
+                    }
+                    // Суффикс сканера
+                    if (scannerSuffixSelect) {
+                        scannerSuffixSelect.value = settings.scannerSuffix || '\\t';
+                        // Показываем поле для произвольного суффикса если выбрано
+                        if (scannerSuffixSelect.value === 'custom') {
+                            customSuffixDiv.style.display = 'block';
+                        }
+                    }
+                    
+                    // После загрузки настроек пытаемся заполнить сохраненный порт
+                    initSavedPort();
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке настроек:', error);
                     // В случае ошибки, убедимся, что значение по умолчанию установлено
                     comScaleInput.value = -1000;
+                    if (comScannerInput) {
+                        comScannerInput.value = 0;
+                    }
+                    
+                    // Все равно пытаемся заполнить сохраненный порт даже при ошибке загрузки настроек
+                    initSavedPort();
                 });
 
             // Загрузка версии программы
@@ -264,6 +586,8 @@
                 const comScaleValue = Number(comScaleInput.value);
                 const permitCheckbox = document.getElementById('permitMarkEnabled');
                 const timeZoneValue = Number(timeZoneSelect.value);
+                const comScannerValue = Number(comScannerInput.value);
+                const scannerSuffixValue = getScannerSuffixValue();
                 
                 let valueToSend;
                 if (comScaleValue === -1000) {
@@ -271,6 +595,8 @@
                 } else {
                     valueToSend = comScaleValue + 1000;
                 }
+                
+                const scannerValueToSend = comScannerValue;
 
                 fetch('/api/settings', {
                     method: 'POST',
@@ -280,7 +606,9 @@
                     body: JSON.stringify({ 
                         comScale: valueToSend,
                         permitMarkEnabled: permitCheckbox ? !!permitCheckbox.checked : undefined,
-                        timeZone: timeZoneValue
+                        timeZone: timeZoneValue,
+                        comScanner: scannerValueToSend,
+                        scannerSuffix: scannerSuffixValue
                     }),
                 })
                 .then(response => response.json())
@@ -371,6 +699,433 @@
                         sendLogsOutputDiv.innerHTML = '<p style="color: red;">Не удалось получить email для отправки логов из настроек.</p>';
                     });
             });
+
+            // Функция парсинга escape-последовательностей (аналогично BarcodeScanner)
+            function parseEscapeSequences(str) {
+                if (typeof str !== 'string') return str;
+                
+                return str
+                    .replace(/\\t/g, '\t')      // табуляция
+                    .replace(/\\r\\n/g, '\r\n') // Windows CRLF
+                    .replace(/\\n/g, '\n')      // Unix LF
+                    .replace(/\\r/g, '\r')      // Mac CR
+                    .replace(/\\0/g, '\0')      // Null символ
+                    .replace(/\\\\/g, '\\')     // обратный слеш
+                    .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Unicode
+                    .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))); // Hex
+            }
+
+            // Функция для получения значения суффикса сканера
+            function getScannerSuffixValue() {
+                console.log('=== getScannerSuffixValue вызвана ===');
+                console.log('scannerSuffixSelect.value:', scannerSuffixSelect.value);
+                
+                if (scannerSuffixSelect.value === 'custom') {
+                    const rawValue = customSuffixInput.value || '\\t';
+                    console.log('Произвольный суффикс. rawValue:', rawValue);
+                    const parsed = parseEscapeSequences(rawValue);
+                    console.log('Парсированный суффикс:', parsed);
+                    return parsed;
+                }
+                
+                const directValue = scannerSuffixSelect.value;
+                console.log('Прямое значение суффикса:', directValue);
+                return directValue;
+            }
+
+            // Функция отображения информации о терминаторе
+            function showSuffixInfo(terminator) {
+                if (!terminator) {
+                    suffixInfo.textContent = '';
+                    return;
+                }
+                
+                const codes = [];
+                for (let i = 0; i < terminator.length; i++) {
+                    const char = terminator[i];
+                    const code = char.charCodeAt(0);
+                    if (code < 32 || code === 127) {
+                        // Управляющие символы
+                        switch (code) {
+                            case 0: codes.push('NUL(0)'); break;
+                            case 9: codes.push('TAB(9)'); break;
+                            case 10: codes.push('LF(10)'); break;
+                            case 13: codes.push('CR(13)'); break;
+                            case 27: codes.push('ESC(27)'); break;
+                            case 127: codes.push('DEL(127)'); break;
+                            default: codes.push(`CTRL(${code})`); break;
+                        }
+                    } else {
+                        codes.push(`${char}(${code})`);
+                    }
+                }
+                
+                suffixInfo.textContent = `Коды символов: ${codes.join(', ')}`;
+            }
+
+            // Обработчик изменения выбора суффикса сканера
+            scannerSuffixSelect.addEventListener('change', function() {
+                if (scannerSuffixSelect.value === 'custom') {
+                    customSuffixDiv.style.display = 'block';
+                    customSuffixInput.focus();
+                } else {
+                    customSuffixDiv.style.display = 'none';
+                    showSuffixInfo(parseEscapeSequences(scannerSuffixSelect.value));
+                }
+                
+                if (testScanner && testScanner.isScannerConnected()) {
+                    console.log('Внимание: Изменение терминатора требует переподключения сканера!');
+                }
+            });
+
+            // Обработчик ввода в поле произвольного суффикса
+            customSuffixInput.addEventListener('input', function() {
+                showSuffixInfo(parseEscapeSequences(customSuffixInput.value));
+            });
+
+            // Список специальных символов
+            const specialChars = [
+                { name: 'Табуляция', value: '\\t', char: '\t', code: 9 },
+                { name: 'Перевод строки (LF)', value: '\\n', char: '\n', code: 10 },
+                { name: 'Возврат каретки (CR)', value: '\\r', char: '\r', code: 13 },
+                { name: 'Windows (CRLF)', value: '\\r\\n', char: '\r\n', code: '13,10' },
+                { name: 'Null символ', value: '\\0', char: '\0', code: 0 },
+                { name: 'Пробел', value: ' ', char: ' ', code: 32 },
+                { name: 'Точка с запятой', value: ';', char: ';', code: 59 },
+                { name: 'Вертикальная черта', value: '|', char: '|', code: 124 },
+                { name: 'Запятая', value: ',', char: ',', code: 44 },
+                { name: 'Двоеточие', value: ':', char: ':', code: 58 },
+                { name: 'Unicode табуляция', value: '\\u0009', char: '\u0009', code: 9 },
+                { name: 'Unicode LF', value: '\\u000A', char: '\u000A', code: 10 },
+                { name: 'Unicode CR', value: '\\u000D', char: '\u000D', code: 13 },
+                { name: 'Hex табуляция', value: '\\x09', char: '\x09', code: 9 },
+                { name: 'Hex LF', value: '\\x0A', char: '\x0A', code: 10 },
+                { name: 'Hex CR', value: '\\x0D', char: '\x0D', code: 13 }
+            ];
+
+            // Функция создания списка специальных символов
+            function createSpecialCharsList() {
+                specialCharsList.innerHTML = '';
+                
+                specialChars.forEach(item => {
+                    const button = document.createElement('button');
+                    button.style.cssText = 'padding: 8px; margin: 2px; border: 1px solid #ddd; background: #f8f9fa; cursor: pointer; border-radius: 4px; text-align: left;';
+                    button.innerHTML = `
+                        <div style="font-weight: bold;">${item.name}</div>
+                        <div style="font-size: 0.8em; color: #666;">${item.value} (код ${item.code})</div>
+                    `;
+                    
+                    button.addEventListener('click', () => {
+                        customSuffixInput.value = item.value;
+                        showSuffixInfo(parseEscapeSequences(item.value));
+                        specialCharsModal.style.display = 'none';
+                    });
+                    
+                    specialCharsList.appendChild(button);
+                });
+            }
+
+            // Обработчики для модального окна
+            insertSpecialBtn.addEventListener('click', () => {
+                createSpecialCharsList();
+                specialCharsModal.style.display = 'block';
+            });
+
+            closeSpecialCharsBtn.addEventListener('click', () => {
+                specialCharsModal.style.display = 'none';
+            });
+
+            // Закрытие модального окна по клику вне его
+            specialCharsModal.addEventListener('click', (e) => {
+                if (e.target === specialCharsModal) {
+                    specialCharsModal.style.display = 'none';
+                }
+            });
+
+            // Обработчик кнопки тестирования суффикса
+            testSuffixBtn.addEventListener('click', () => {
+                const terminator = customSuffixInput.value;
+                if (!terminator) {
+                    alert('Введите терминатор для тестирования');
+                    return;
+                }
+                
+                const parsedTerminator = parseEscapeSequences(terminator);
+                
+                // Тестируем терминатор на примере
+                const testData = `1234567890${parsedTerminator}0987654321${parsedTerminator}1111111111`;
+                const parts = testData.split(parsedTerminator);
+                
+                let message = `Тест терминатора "${terminator}":\n\n`;
+                message += `Исходные данные: "${testData}"\n`;
+                message += `Разделено на ${parts.length} части:\n`;
+                parts.forEach((part, index) => {
+                    message += `  ${index + 1}. "${part}"\n`;
+                });
+                
+                alert(message);
+            });
+
+            // Инициализация состояния поля произвольного суффикса
+            if (scannerSuffixSelect.value === 'custom') {
+                customSuffixDiv.style.display = 'block';
+            }
+            
+            // Инициализация информации о суффиксе
+            showSuffixInfo(parseEscapeSequences(scannerSuffixSelect.value));
+
+            // Функция для сохранения информации о порте
+            function savePortInfo(portInfo, comNumber) {
+                const portData = {
+                    vendorId: portInfo.usbVendorId,
+                    productId: portInfo.usbProductId,
+                    comNumber: comNumber,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('scannerPortInfo', JSON.stringify(portData));
+                console.log('Информация о порте сохранена:', portData);
+            }
+
+            // Функция для загрузки информации о порте
+            function loadPortInfo() {
+                const saved = localStorage.getItem('scannerPortInfo');
+                if (saved) {
+                    try {
+                        return JSON.parse(saved);
+                    } catch (e) {
+                        console.error('Ошибка при загрузке сохраненной информации о порте:', e);
+                    }
+                }
+                return null;
+            }
+
+            // Функция для поиска сохраненного порта среди разрешенных (без подключения)
+            async function tryConnectToSavedPort() {
+                try {
+                    const savedPortInfo = loadPortInfo();
+                    if (!savedPortInfo) {
+                        return null;
+                    }
+
+                    // Получаем список разрешенных портов (без подключения к ним)
+                    const ports = await navigator.serial.getPorts();
+                    
+                    // Ищем порт по USB ID среди разрешенных устройств
+                    const savedPort = ports.find(port => {
+                        const info = port.getInfo();
+                        return info.usbVendorId === savedPortInfo.vendorId && 
+                               info.usbProductId === savedPortInfo.productId;
+                    });
+
+                    if (savedPort) {
+                        // Возвращаем информацию о найденном порте (без подключения)
+                        return {
+                            port: savedPort,
+                            comNumber: savedPortInfo.comNumber
+                        };
+                    }
+                } catch (error) {
+                    console.error('Ошибка при поиске сохраненного порта:', error);
+                }
+                return null;
+            }
+
+            // Обработчик кнопки выбора COM-порта
+            selectPortBtn.addEventListener('click', async function() {
+                try {
+                    // Проверяем поддержку Web Serial API
+                    if (!('serial' in navigator)) {
+                        alert('Web Serial API не поддерживается в этом браузере. Используйте Chrome/Edge/Opera версии 89+.');
+                        return;
+                    }
+                    
+                    // Сначала пробуем найти сохраненный порт
+                    const savedConnection = await tryConnectToSavedPort();
+                    if (savedConnection) {
+                        comScannerInput.value = savedConnection.comNumber;
+                        alert(`✅ Найден сохраненный порт!\n\nCOM-порт: ${savedConnection.comNumber}\n\nПорт найден среди разрешенных устройств. Для тестирования используйте кнопки ниже.\n\nЕсли это не тот порт, выберите новый.`);
+                        return;
+                    }
+                    
+                    // Если сохраненного порта нет, запрашиваем новый
+                    const port = await navigator.serial.requestPort();
+                    const portInfo = port.getInfo();
+                    
+                    // Просим пользователя ввести номер COM-порта
+                    const manualInput = prompt(
+                        `✅ Устройство выбрано!\n\n` +
+                        `USB устройство (ID: ${portInfo.usbProductId}:${portInfo.usbVendorId})\n\n` +
+                        `📋 В окне выбора порта был показан номер COM-порта (например, COM3).\n` +
+                        `Введите этот номер без "COM" (например, 3):`
+                    );
+                    
+                    if (manualInput !== null && manualInput.trim() !== '') {
+                        const comNumber = parseInt(manualInput.trim());
+                        if (!isNaN(comNumber) && comNumber > 0) {
+                            // Сохраняем информацию о порте
+                            savePortInfo(portInfo, comNumber);
+                            
+                            // Заполняем поле
+                            comScannerInput.value = comNumber;
+                            alert(`✅ COM-порт ${comNumber} настроен и сохранен!\n\nПри следующем запуске порт будет выбран автоматически.`);
+                        } else {
+                            alert('❌ Введено некорректное значение. Номер порта должен быть положительным числом.');
+                        }
+                    }
+                    
+                } catch (error) {
+                    if (error.name === 'NotAllowedError') {
+                        // Пользователь отменил выбор
+                        return;
+                    }
+                    console.error('Ошибка при выборе порта:', error);
+                    alert(`Ошибка при выборе порта: ${error.message}`);
+                }
+            });
+
+            // Автоматическое заполнение сохраненного порта при загрузке страницы
+            async function initSavedPort() {
+                try {
+                    const savedConnection = await tryConnectToSavedPort();
+                    if (savedConnection) {
+                        comScannerInput.value = savedConnection.comNumber;
+                        console.log('Автоматически заполнен сохраненный порт:', savedConnection.comNumber);
+                        console.log('Примечание: это только заполнение поля, реальное подключение не происходит');
+                        
+                        // Показываем пользователю, что порт был автоматически заполнен
+                        if (comScannerInput.value && comScannerInput.value !== '0') {
+                            console.log('Поле COM-порта автоматически заполнено значением:', comScannerInput.value);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Ошибка при загрузке сохраненного порта:', error);
+                }
+            }
+
+            // Обработчик кнопки сброса сохраненного порта
+            resetPortBtn.addEventListener('click', function() {
+                if (confirm('Вы уверены, что хотите сбросить сохраненную информацию о порте?')) {
+                    localStorage.removeItem('scannerPortInfo');
+                    comScannerInput.value = 0;
+                    alert('✅ Сохраненная информация о порте удалена.\n\nТеперь при следующем выборе порта появится диалог выбора.');
+                }
+            });
+
+            // Обработчики кнопок тестирования сканера
+            testConnectBtn.addEventListener('click', async function() {
+                console.log('=== НАЖАТИЕ КНОПКИ ПОДКЛЮЧЕНИЯ ===');
+                
+                try {
+                    if (!('serial' in navigator)) {
+                        console.log('Web Serial API не поддерживается');
+                        updateScannerStatus('❌ Web Serial API не поддерживается в этом браузере', false);
+                        return;
+                    }
+                    
+                    console.log('Web Serial API поддерживается, начинаем подключение');
+                    updateScannerStatus('🔄 Подключение к сканеру...', false);
+                    
+                    // Создаем новый экземпляр сканера
+                    console.log('Создаем экземпляр сканера...');
+                    testScanner = createTestScanner();
+                    console.log('Экземпляр сканера создан:', testScanner);
+                    
+                     // Сначала пытаемся подключиться к сохраненному порту
+                    console.log('Пытаемся подключиться к сохраненному порту...');
+                    const savedConnection = await tryConnectToSavedPort();
+                    
+                    if (savedConnection) {
+                        console.log('Найден сохраненный порт, подключаемся к нему:', savedConnection.port);
+                        // Подключаемся к сохраненному порту без диалога
+                        await savedConnection.port.open({ baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' });
+                        console.log('Подключение к сохраненному порту успешно');
+                        
+                        // Настраиваем чтение данных для сохраненного порта
+                        setupPortReading(savedConnection.port);
+                        
+                        // Обновляем статус
+                        updateScannerStatus('✅ Сканер подключен к сохраненному порту!', true);
+                        return;
+                    }
+                    
+                    // Если сохраненного порта нет, используем обычный диалог выбора
+                    console.log('Сохраненного порта нет, используем диалог выбора...');
+                    await testScanner.connect();
+                    console.log('testScanner.connect() завершен успешно');
+                    
+                } catch (error) {
+                    console.error('=== ОШИБКА ПРИ ПОДКЛЮЧЕНИИ ===');
+                    console.error('Тип ошибки:', error.name);
+                    console.error('Сообщение ошибки:', error.message);
+                    console.error('Полная ошибка:', error);
+                    
+                    if (error.name === 'NotAllowedError') {
+                        updateScannerStatus('❌ Разрешение на подключение отклонено', false);
+                    } else {
+                        updateScannerStatus(`❌ Ошибка подключения: ${error.message}`, false);
+                    }
+                }
+            });
+
+            testDisconnectBtn.addEventListener('click', async function() {
+                console.log('=== НАЖАТИЕ КНОПКИ ОТКЛЮЧЕНИЯ ===');
+                
+                try {
+                    // Отключаем BarcodeScanner если он используется
+                    if (testScanner) {
+                        console.log('Отключаем BarcodeScanner...');
+                        await testScanner.disconnect();
+                        testScanner = null;
+                        console.log('BarcodeScanner отключен');
+                    }
+                    
+                    // Отключаем прямое подключение к порту если оно используется
+                    if (currentPort) {
+                        console.log('Отключаем прямое подключение к порту...');
+                        
+                        // Закрываем reader
+                        if (portReader) {
+                            try {
+                                await portReader.cancel();
+                                await portReader.releaseLock();
+                                console.log('Reader закрыт');
+                            } catch (e) {
+                                console.log('Ошибка при закрытии reader:', e);
+                            }
+                            portReader = null;
+                        }
+                        
+                        // Закрываем порт
+                        if (currentPort.readable) {
+                            await currentPort.close();
+                            console.log('Порт закрыт');
+                        }
+                        
+                        currentPort = null;
+                        console.log('Прямое подключение к порту отключено');
+                    }
+                    
+                    updateScannerStatus('❌ Сканер отключен', false);
+                    console.log('Статус обновлен: отключен');
+                    
+                } catch (error) {
+                    console.error('=== ОШИБКА ПРИ ОТКЛЮЧЕНИИ ===');
+                    console.error('Ошибка:', error);
+                    updateScannerStatus(`❌ Ошибка отключения: ${error.message}`, false);
+                }
+            });
+
+            testClearBtn.addEventListener('click', function() {
+                // Очищаем отсканированные коды
+                scannedCodes.innerHTML = '<div style="color: var(--md-sys-color-outline); font-style: italic;">Отсканированные коды появятся здесь...</div>';
+                
+                // Сбрасываем статус
+                if (!testScanner || !testScanner.isScannerConnected()) {
+                    updateScannerStatus('📱 Готов к тестированию', false);
+                }
+            });
+
+            // initSavedPort() теперь вызывается после загрузки настроек выше
         });
     </script>
 </body>

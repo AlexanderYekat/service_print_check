@@ -53,6 +53,8 @@ Source: "samples\*"; DestDir: "{app}\app\samples"; Flags: recursesubdirs createa
 Source: "resource\*"; DestDir: "{app}\app\resource"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки bank в {app}\app\bank
 Source: "bank\*"; DestDir: "{app}\app\bank"; Flags: recursesubdirs createallsubdirs
+; Копируем файлы из папки scanner в {app}\app\scanner
+Source: "scanner\*"; DestDir: "{app}\app\scanner"; Flags: recursesubdirs createallsubdirs
 ; Копируем все powershell скрипты из корневой папки приложения в {app}\app
 Source: "*.ps1"; DestDir: "{app}\app"; Flags: 
 

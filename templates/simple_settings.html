@@ -342,56 +342,33 @@
 
             // Функция для обновления статуса сканера
             function updateScannerStatus(message, isConnected = false) {
-                console.log('=== updateScannerStatus вызвана ===');
-                console.log('Сообщение:', message);
-                console.log('Подключен:', isConnected);
-                
                 scannerStatus.textContent = message;
                 scannerStatus.style.color = isConnected ? 'green' : 'red';
-                console.log('Статус обновлен:', message);
                 
                 testConnectBtn.style.display = isConnected ? 'none' : 'inline-block';
                 testDisconnectBtn.style.display = isConnected ? 'inline-block' : 'none';
-                console.log('Кнопки обновлены. Connect:', testConnectBtn.style.display, 'Disconnect:', testDisconnectBtn.style.display);
                 
                 scannerTestResults.style.display = 'block';
-                console.log('Результаты тестирования показаны');
             }
 
             // Функция для добавления отсканированного кода
             function addScannedCode(code) {
-                console.log('=== addScannedCode вызвана ===');
-                console.log('Переданный код:', code);
-                console.log('Контейнер scannedCodes:', scannedCodes);
-                
                 const placeholder = scannedCodes.querySelector('div[style*="italic"]');
-                console.log('Найденный placeholder:', placeholder);
                 if (placeholder) {
                     placeholder.remove();
-                    console.log('Placeholder удален');
                 }
                 
                 const codeDiv = document.createElement('div');
                 codeDiv.style.cssText = 'padding: 4px 8px; margin: 2px 0; background: #e3f2fd; border-radius: 4px; font-family: monospace; border-left: 3px solid #2196f3;';
                 codeDiv.textContent = `[${new Date().toLocaleTimeString()}] ${code}`;
                 
-                console.log('Создан codeDiv:', codeDiv);
-                console.log('Текст codeDiv:', codeDiv.textContent);
-                
                 scannedCodes.insertBefore(codeDiv, scannedCodes.firstChild);
-                console.log('codeDiv добавлен в контейнер');
                 
                 // Ограничиваем количество отображаемых кодов
                 const codes = scannedCodes.querySelectorAll('div[style*="monospace"]');
-                console.log('Количество отображаемых кодов:', codes.length);
                 if (codes.length > 10) {
                     codes[codes.length - 1].remove();
-                    console.log('Удален старый код (лимит 10)');
                 }
-                
-                // Проверяем видимость контейнера
-                console.log('Видимость scannedCodes:', scannedCodes.style.display);
-                console.log('Стили scannedCodes:', window.getComputedStyle(scannedCodes).display);
             }
 
             // Функция для создания тестового сканера
@@ -415,7 +392,7 @@
                     },
                     terminator: suffix,
                     baudRate: 9600,
-                    debug: true,
+                    debug: false, // Отключаем избыточное логирование
                     maxBufferSize: 20480,
                     bufferTimeout: 600000
                 });
@@ -610,14 +587,11 @@
                     });
             });
 
-            // Функция парсинга escape-последовательностей (аналогично BarcodeScanner)
+            // Функция парсинга escape-последовательностей
             function parseEscapeSequences(str) {
                 if (typeof str !== 'string') return str;
                 
-                console.log('parseEscapeSequences input:', str);
-                console.log('parseEscapeSequences input codes:', Array.from(str).map(c => c.charCodeAt(0)));
-                
-                const result = str
+                return str
                     .replace(/\\t/g, '\t')      // табуляция
                     .replace(/\\r\\n/g, '\r\n') // Windows CRLF
                     .replace(/\\n/g, '\n')      // Unix LF
@@ -626,31 +600,16 @@
                     .replace(/\\\\/g, '\\')     // обратный слеш
                     .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))) // Unicode
                     .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => String.fromCharCode(parseInt(hex, 16))); // Hex
-                
-                console.log('parseEscapeSequences output:', result);
-                console.log('parseEscapeSequences output codes:', Array.from(result).map(c => c.charCodeAt(0)));
-                
-                return result;
             }
 
             // Функция для получения значения суффикса сканера
             function getScannerSuffixValue() {
-                console.log('=== getScannerSuffixValue вызвана ===');
-                console.log('scannerSuffixSelect.value:', scannerSuffixSelect.value);
-                
                 if (scannerSuffixSelect.value === 'custom') {
                     const rawValue = customSuffixInput.value || '\t';
-                    console.log('Произвольный суффикс. rawValue:', rawValue);
-                    const parsed = parseEscapeSequences(rawValue);
-                    console.log('Парсированный суффикс:', parsed);
-                    return parsed;
+                    return parseEscapeSequences(rawValue);
                 }
                 
-                const directValue = scannerSuffixSelect.value;
-                console.log('Прямое значение суффикса:', directValue);
-                console.log('Коды символов суффикса:', Array.from(directValue).map(c => c.charCodeAt(0)));
-                
-                return directValue;
+                return scannerSuffixSelect.value;
             }
 
             // Функция отображения информации о терминаторе
@@ -660,25 +619,17 @@
                     return;
                 }
                 
-                const codes = [];
-                for (let i = 0; i < terminator.length; i++) {
-                    const char = terminator[i];
+                const codes = Array.from(terminator).map(char => {
                     const code = char.charCodeAt(0);
+                    const names = {
+                        0: 'NUL', 9: 'TAB', 10: 'LF', 13: 'CR', 27: 'ESC', 127: 'DEL'
+                    };
+                    
                     if (code < 32 || code === 127) {
-                        // Управляющие символы
-                        switch (code) {
-                            case 0: codes.push('NUL(0)'); break;
-                            case 9: codes.push('TAB(9)'); break;
-                            case 10: codes.push('LF(10)'); break;
-                            case 13: codes.push('CR(13)'); break;
-                            case 27: codes.push('ESC(27)'); break;
-                            case 127: codes.push('DEL(127)'); break;
-                            default: codes.push(`CTRL(${code})`); break;
-                        }
-                    } else {
-                        codes.push(`${char}(${code})`);
+                        return `${names[code] || 'CTRL'}(${code})`;
                     }
-                }
+                    return `${char}(${code})`;
+                });
                 
                 suffixInfo.textContent = `Коды символов: ${codes.join(', ')}`;
             }
@@ -921,11 +872,10 @@
                     }
                     
                 } catch (error) {
-                    if (error.name === 'NotAllowedError') {
-                        updateScannerStatus('❌ Разрешение на подключение отклонено', false);
-                    } else {
-                        updateScannerStatus(`❌ Ошибка подключения: ${error.message}`, false);
-                    }
+                    const message = error.name === 'NotAllowedError' 
+                        ? '❌ Разрешение на подключение отклонено' 
+                        : `❌ Ошибка подключения: ${error.message}`;
+                    updateScannerStatus(message, false);
                 }
             });
 
@@ -960,20 +910,17 @@
                 }
                 
                 const stats = testScanner.getBufferStats();
+                const bufferContent = stats.bufferSize > 0 
+                    ? `"${stats.bufferSize > 50 ? testScanner.dataBuffer.substring(0, 50) + '...' : testScanner.dataBuffer}"`
+                    : 'пуст';
                 
-                let message = '📊 Статистика буфера сканера:\n\n';
-                message += `📦 Размер буфера: ${stats.bufferSize} / ${stats.maxBufferSize} байт (${stats.bufferUsagePercent}%)\n`;
-                message += `⏱️ Время с последних данных: ${stats.timeSinceLastDataSeconds} сек\n`;
-                message += `⏰ Таймаут очистки: ${Math.round(stats.bufferTimeout / 1000)} сек\n`;
-                message += `🔗 Статус подключения: ${stats.isConnected ? 'Подключен' : 'Отключен'}\n`;
-                message += `⏲️ Таймер активен: ${stats.isTimerActive ? 'Да' : 'Нет'}\n\n`;
-                
-                if (stats.bufferSize > 0) {
-                    message += `📝 Содержимое буфера: "${stats.bufferSize > 50 ? testScanner.dataBuffer.substring(0, 50) + '...' : testScanner.dataBuffer}"\n`;
-                    message += `🔢 Коды символов: [${Array.from(testScanner.dataBuffer.substring(0, 20)).map(c => c.charCodeAt(0)).join(', ')}${testScanner.dataBuffer.length > 20 ? '...' : ''}]`;
-                } else {
-                    message += '📝 Буфер пуст';
-                }
+                const message = `📊 Статистика буфера сканера:\n\n` +
+                    `📦 Размер: ${stats.bufferSize}/${stats.maxBufferSize} байт (${stats.bufferUsagePercent}%)\n` +
+                    `⏱️ Время с последних данных: ${stats.timeSinceLastDataSeconds} сек\n` +
+                    `⏰ Таймаут: ${Math.round(stats.bufferTimeout / 1000)} сек\n` +
+                    `🔗 Статус: ${stats.isConnected ? 'Подключен' : 'Отключен'}\n` +
+                    `⏲️ Таймер: ${stats.isTimerActive ? 'Активен' : 'Неактивен'}\n\n` +
+                    `📝 Буфер: ${bufferContent}`;
                 
                 alert(message);
             });

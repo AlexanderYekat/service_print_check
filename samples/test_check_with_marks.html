@@ -418,7 +418,7 @@
             
             for (let item of items) {
                 if (item.hasMarking) {
-                    const markIndex = item.markingCodes.findIndex(code => code === markingCode);
+                    const markIndex = item.markingCodes.findIndex(mark => mark.code === markingCode);
                     if (markIndex !== -1) {
                         existingItem = item;
                         existingMarkIndex = markIndex;
@@ -453,7 +453,14 @@
                         targetItem.markingCodes = [];
                     }
                     
-                    targetItem.markingCodes.push(markingCode);
+                    // Создаем объект марки с инициализированными структурами проверки
+                    const markObject = {
+                        code: markingCode,
+                        kktCheck: { status: 'not_checked', result: null, userResult: null, machineData: null },
+                        permitCheck: { status: 'not_checked', result: null, userResult: null, machineData: null }
+                    };
+                    
+                    targetItem.markingCodes.push(markObject);
                     
                     // Синхронизируем количество с количеством марок
                     targetItem.quantity = targetItem.markingCodes.length;
@@ -569,13 +576,25 @@
                 const item = items.find(i => i.id === itemId);
                 if (item) {
                     // Проверяем, нет ли уже такой марки
-                    if (!item.markingCodes.includes(markingCode.trim())) {
-                        item.markingCodes.push(markingCode.trim());
+                    const existingMark = item.markingCodes.find(mark => mark.code === markingCode.trim());
+                    if (!existingMark) {
+                        // Создаем объект марки с инициализированными структурами проверки
+                        const markObject = {
+                            code: markingCode.trim(),
+                            kktCheck: { status: 'not_checked', result: null, userResult: null, machineData: null },
+                            permitCheck: { status: 'not_checked', result: null, userResult: null, machineData: null }
+                        };
+                        
+                        item.markingCodes.push(markObject);
                         item.hasMarking = true;
-                        renderItem(item);
+                        
+                        // Синхронизируем количество с количеством марок
+                        item.quantity = item.markingCodes.length;
+                        
+                        updateAllItemsDisplay();
                         updateSummary();
                         updateGlobalCheckStatus();
-                        showNotification(`✅ Марка добавлена к позиции "${item.name}"`, 'success');
+                        showNotification(`✅ Марка добавлена к позиции "${item.name}". Количество: ${item.quantity}`, 'success');
                     } else {
                         showNotification(`⚠️ Марка уже существует в позиции "${item.name}"`, 'warning');
                     }
@@ -614,14 +633,10 @@
         function updateMarkingCode(itemId, markIndex, newCode) {
             const item = items.find(i => i.id === itemId);
             if (item && item.markingCodes[markIndex]) {
-                item.markingCodes[markIndex] = newCode;
+                item.markingCodes[markIndex].code = newCode;
                 // Сбрасываем результаты проверки при изменении кода
-                if (item.markingCodes[markIndex].kktCheck) {
-                    item.markingCodes[markIndex].kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                }
-                if (item.markingCodes[markIndex].permitCheck) {
-                    item.markingCodes[markIndex].permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
-                }
+                item.markingCodes[markIndex].kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+                item.markingCodes[markIndex].permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
                 renderItem(item);
                 updateGlobalCheckStatus();
             }
@@ -629,12 +644,24 @@
 
         function addItemToContainer(name, price, quantity, markingCode, hasMarking) {
             const itemId = `item_${itemCounter++}`;
+            
+            // Создаем массив марок с правильной структурой
+            let markingCodes = [];
+            if (hasMarking && markingCode) {
+                const markObject = {
+                    code: markingCode,
+                    kktCheck: { status: 'not_checked', result: null, userResult: null, machineData: null },
+                    permitCheck: { status: 'not_checked', result: null, userResult: null, machineData: null }
+                };
+                markingCodes = [markObject];
+            }
+            
             const item = {
                 id: itemId,
                 name: name,
                 price: parseFloat(price),
                 quantity: parseInt(quantity),
-                markingCodes: hasMarking && markingCode ? [markingCode] : [], // Массив марок
+                markingCodes: markingCodes,
                 hasMarking: hasMarking,
                 // Убираем глобальные проверки - теперь они будут для каждой марки отдельно
             };
@@ -705,17 +732,17 @@
                             Марки товара (${item.markingCodes.length} шт.)
                             <button class="button small" onclick="addManualMark('${item.id}')" style="margin-left: 10px; background-color: #4CAF50;">+ Добавить марку</button>
                         </div>
-                        ${item.markingCodes.map((markingCode, index) => `
+                        ${item.markingCodes.map((mark, index) => `
                             <div class="marking-type" style="margin-bottom: 15px; border-left: 3px solid #2196F3;">
                                 <div class="marking-type-title" style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span>Марка ${index + 1}: ${markingCode.substring(0, 20)}${markingCode.length > 20 ? '...' : ''}</span>
+                                    <span>Марка ${index + 1}: ${mark.code.substring(0, 20)}${mark.code.length > 20 ? '...' : ''}</span>
                                     <div>
                                         <button class="button danger small" onclick="removeMark('${item.id}', ${index})" style="padding: 2px 6px; font-size: 10px;">🗑️</button>
                                     </div>
                                 </div>
                                 <div class="form-group" style="margin-top: 8px;">
                                     <label>Код маркировки</label>
-                                    <input type="text" value="${markingCode}" onchange="updateMarkingCode('${item.id}', ${index}, this.value)" placeholder="Введите код маркировки" style="font-family: monospace; font-size: 12px;">
+                                    <input type="text" value="${mark.code}" onchange="updateMarkingCode('${item.id}', ${index}, this.value)" placeholder="Введите код маркировки" style="font-family: monospace; font-size: 12px;">
                                 </div>
                                 
                                 <div class="marking-type">
@@ -824,9 +851,15 @@
                 item.markingCodes = [];
                 item.quantity = 1; // Минимальное количество
             } else {
-                // Добавляем первую марку
+                // Добавляем первую марку с правильной структурой
+                const markObject = {
+                    code: testItems[1].markingCode,
+                    kktCheck: { status: 'not_checked', result: null, userResult: null, machineData: null },
+                    permitCheck: { status: 'not_checked', result: null, userResult: null, machineData: null }
+                };
+                
                 item.hasMarking = true;
-                item.markingCodes = [testItems[1].markingCode]; // Берем тестовый код
+                item.markingCodes = [markObject];
                 item.quantity = 1; // Синхронизируем количество
             }
 
@@ -839,14 +872,15 @@
             const item = items.find(i => i.id === itemId);
             if (!item || !item.markingCodes || !item.markingCodes[markIndex]) return;
 
-            const markingCode = item.markingCodes[markIndex];
+            const mark = item.markingCodes[markIndex];
+            const markingCode = mark.code;
             
             // Инициализируем структуру проверки для марки, если её нет
-            if (!item.markingCodes[markIndex].kktCheck) {
-                item.markingCodes[markIndex].kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+            if (!mark.kktCheck) {
+                mark.kktCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
             }
             
-            item.markingCodes[markIndex].kktCheck.status = 'pending';
+            mark.kktCheck.status = 'pending';
             renderItem(item);
 
             const checkType = document.getElementById('checkType').value;
@@ -864,8 +898,8 @@
                 });
                 const data = await response.json();
                 
-                item.markingCodes[markIndex].kktCheck.status = data.success ? 'success' : 'error';
-                item.markingCodes[markIndex].kktCheck.result = data;
+                mark.kktCheck.status = data.success ? 'success' : 'error';
+                mark.kktCheck.result = data;
                 
                 // Обрабатываем результат для пользователя
                 if (data.success && data.data && data.data.success) {
@@ -873,25 +907,25 @@
                     if (responseData && responseData.itemInfoCheckResult) {
                         const checkResult = responseData.itemInfoCheckResult;
                         if (checkResult.imcCheckResult) {
-                            item.markingCodes[markIndex].kktCheck.userResult = '[М+] Марка проверена успешно';
+                            mark.kktCheck.userResult = '[М+] Марка проверена успешно';
                         } else {
-                            item.markingCodes[markIndex].kktCheck.userResult = '[М-] Марка не прошла проверку';
+                            mark.kktCheck.userResult = '[М-] Марка не прошла проверку';
                         }
                     } else {
-                        item.markingCodes[markIndex].kktCheck.userResult = '[М] Марка обработана';
+                        mark.kktCheck.userResult = '[М] Марка обработана';
                     }
-                    item.markingCodes[markIndex].kktCheck.machineData = data.data.response;
+                    mark.kktCheck.machineData = data.data.response;
                 } else {
-                    item.markingCodes[markIndex].kktCheck.userResult = '[М-] Ошибка проверки марки';
-                    item.markingCodes[markIndex].kktCheck.machineData = data;
+                    mark.kktCheck.userResult = '[М-] Ошибка проверки марки';
+                    mark.kktCheck.machineData = data;
                 }
                 
                 renderItem(item);
                 updateGlobalCheckStatus();
             } catch (error) {
-                item.markingCodes[markIndex].kktCheck.status = 'error';
-                item.markingCodes[markIndex].kktCheck.userResult = '[М-] Ошибка: ' + error.message;
-                item.markingCodes[markIndex].kktCheck.machineData = { error: error.message };
+                mark.kktCheck.status = 'error';
+                mark.kktCheck.userResult = '[М-] Ошибка: ' + error.message;
+                mark.kktCheck.machineData = { error: error.message };
                 renderItem(item);
                 updateGlobalCheckStatus();
             }
@@ -901,14 +935,15 @@
             const item = items.find(i => i.id === itemId);
             if (!item || !item.markingCodes || !item.markingCodes[markIndex]) return;
 
-            const markingCode = item.markingCodes[markIndex];
+            const mark = item.markingCodes[markIndex];
+            const markingCode = mark.code;
             
             // Инициализируем структуру проверки для марки, если её нет
-            if (!item.markingCodes[markIndex].permitCheck) {
-                item.markingCodes[markIndex].permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
+            if (!mark.permitCheck) {
+                mark.permitCheck = { status: 'not_checked', result: null, userResult: null, machineData: null };
             }
             
-            item.markingCodes[markIndex].permitCheck.status = 'pending';
+            mark.permitCheck.status = 'pending';
             renderItem(item);
 
             const checkType = document.getElementById('checkType').value;
@@ -926,27 +961,27 @@
                 });
                 const data = await response.json();
                 
-                item.markingCodes[markIndex].permitCheck.status = data.success ? 'success' : 'error';
-                item.markingCodes[markIndex].permitCheck.result = data;
+                mark.permitCheck.status = data.success ? 'success' : 'error';
+                mark.permitCheck.result = data;
                 
                 // Обрабатываем результат для пользователя
                 if (data.success) {
                     // Для возврата проверка разрешительного режима не требуется
                     if (checkType === 'return') {
-                        item.markingCodes[markIndex].permitCheck.userResult = '✓ Проверка не требуется (возврат)';
-                        item.markingCodes[markIndex].permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
+                        mark.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
+                        mark.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
                     } else if (data.data && data.data.success) {
                         const responseData = data.data.response;
                         if (responseData && responseData.user_status) {
                             if (responseData.user_status.ok) {
-                                item.markingCodes[markIndex].permitCheck.userResult = '✓ Разрешено к продаже';
+                                mark.permitCheck.userResult = '✓ Разрешено к продаже';
                             } else {
-                                item.markingCodes[markIndex].permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
+                                mark.permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
                             }
                         } else {
-                            item.markingCodes[markIndex].permitCheck.userResult = '✓ Разрешено к продаже';
+                            mark.permitCheck.userResult = '✓ Разрешено к продаже';
                         }
-                        item.markingCodes[markIndex].permitCheck.machineData = {
+                        mark.permitCheck.machineData = {
                             code: responseData.machine_data?.code,
                             uuid: responseData.machine_data?.uuid || 'N/A',
                             timeStamp: responseData.machine_data?.timeStamp || 'N/A',
@@ -954,20 +989,20 @@
                             inst: responseData.machine_data?.inst || 'N/A'
                         };
                     } else {
-                        item.markingCodes[markIndex].permitCheck.userResult = '✓ Разрешено к продаже';
-                        item.markingCodes[markIndex].permitCheck.machineData = data;
+                        mark.permitCheck.userResult = '✓ Разрешено к продаже';
+                        mark.permitCheck.machineData = data;
                     }
                 } else {
-                    item.markingCodes[markIndex].permitCheck.userResult = '✗ Ошибка проверки разрешения';
-                    item.markingCodes[markIndex].permitCheck.machineData = data;
+                    mark.permitCheck.userResult = '✗ Ошибка проверки разрешения';
+                    mark.permitCheck.machineData = data;
                 }
                 
                 renderItem(item);
                 updateGlobalCheckStatus();
             } catch (error) {
-                item.markingCodes[markIndex].permitCheck.status = 'error';
-                item.markingCodes[markIndex].permitCheck.userResult = '✗ Ошибка: ' + error.message;
-                item.markingCodes[markIndex].permitCheck.machineData = { error: error.message };
+                mark.permitCheck.status = 'error';
+                mark.permitCheck.userResult = '✗ Ошибка: ' + error.message;
+                mark.permitCheck.machineData = { error: error.message };
                 renderItem(item);
                 updateGlobalCheckStatus();
             }
@@ -1246,13 +1281,12 @@
             items.forEach(item => {
                 if (item.hasMarking && item.markingCodes.length > 0) {
                     // Для позиций с марками - создаем строку для каждой марки
-                    item.markingCodes.forEach((markingCode, index) => {
-                        const mark = item.markingCodes[index];
+                    item.markingCodes.forEach((mark, index) => {
                         const rowData = {
                             name: item.name,
                             quantity: "1", // Каждая марка = 1 штука
                             price: item.price.toFixed(2),
-                            markingCode: markingCode,
+                            markingCode: mark.code,
                             itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn'
                         };
                         

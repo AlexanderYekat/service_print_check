@@ -209,17 +209,31 @@ class CheckService {
 
             $this->logger->debug("checkResult = " . json_encode($checkResult));
             
+            // Безопасно извлекаем данные из ответа
+            $userResult = $checkResult['message'];
+            $machineData = null;
+            
+            if ($checkResult['success'] && 
+                isset($checkResult['data']['response']['user_status']['text'])) {
+                $userResult = $checkResult['data']['response']['user_status']['text'];
+            }
+            
+            if ($checkResult['success'] && 
+                isset($checkResult['data']['response']['machine_data'])) {
+                $machineData = $checkResult['data']['response']['machine_data'];
+            }
+            
             $results[$mark['index']] = [
                 'status' => $checkResult['success'] ? 'success' : 'error',
-                'userResult' => $checkResult['data']['response']['user_status']['text'],
-                'machineData' => $checkResult['data']['response']['machine_data'],
+                'userResult' => $userResult,
+                'machineData' => $machineData,
                 //'result' => $checkResult['data'],
                 'markingCode' => $mark['markingCode']
             ];
             
             if (!$checkResult['success']) {
                 $allSuccess = false;
-                $this->logger->error("Ошибка проверки марки в разрешительном режиме: {$mark['markingCode']} - {$checkResult['message']}");
+                $this->logger->error("Ошибка проверки марки в разрешительном режиме: {$mark['markingCode']} - {$userResult}");
             } else {
                 $this->logger->info("Марка успешно проверена в разрешительном режиме: {$mark['markingCode']}");
             }

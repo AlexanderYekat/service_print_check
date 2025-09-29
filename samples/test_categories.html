@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест категорий товаров</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест категорий товаров для маркировки</h1>
+    
+    <div class="test-section">
+        <h2>Тест 1: Корректные данные с категориями</h2>
+        <p>Отправка чека с маркированными товарами и указанными категориями</p>
+        <button onclick="testValidCategories()">Запустить тест</button>
+        <div id="result1"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Тест 2: Ошибка - отсутствует категория</h2>
+        <p>Отправка чека с маркированным товаром без указания категории</p>
+        <button onclick="testMissingCategory()">Запустить тест</button>
+        <div id="result2"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Тест 3: Смешанный чек</h2>
+        <p>Чек с маркированными и немаркированными товарами</p>
+        <button onclick="testMixedCheck()">Запустить тест</button>
+        <div id="result3"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+
+        async function sendRequest(data, resultElementId) {
+            const resultElement = document.getElementById(resultElementId);
+            resultElement.innerHTML = '<p>Отправка запроса...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/print-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                resultElement.innerHTML = `
+                    <div class="${result.success ? 'success' : 'error'}">
+                        <h3>Результат: ${result.success ? 'Успех' : 'Ошибка'}</h3>
+                        <p><strong>Сообщение:</strong> ${result.message || 'Нет сообщения'}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultElement.innerHTML = `
+                    <div class="error">
+                        <h3>Ошибка сети</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function testValidCategories() {
+            const data = {
+                tableData: [
+                    {
+                        name: "Молоко 3.2%",
+                        quantity: "1",
+                        price: "50.00",
+                        taxNDS: "vat20",
+                        markingCode: "01046040600017\u001d21ABC123",
+                        category: "dairy"
+                    },
+                    {
+                        name: "Сок яблочный",
+                        quantity: "2",
+                        price: "80.00",
+                        taxNDS: "vat20",
+                        markingCode: "01046040600017\u001d21XYZ789",
+                        category: "beverages"
+                    }
+                ],
+                cashier: "Тестовый кассир",
+                payments: [
+                    {
+                        type: "cash",
+                        amount: 210.00
+                    }
+                ],
+                type: "sell"
+            };
+            sendRequest(data, 'result1');
+        }
+
+        function testMissingCategory() {
+            const data = {
+                tableData: [
+                    {
+                        name: "Маркированный товар без категории",
+                        quantity: "1",
+                        price: "100.00",
+                        taxNDS: "vat20",
+                        markingCode: "01046040600017\u001d21ERROR123"
+                        // category отсутствует - должна быть ошибка
+                    }
+                ],
+                cashier: "Тестовый кассир",
+                payments: [
+                    {
+                        type: "cash",
+                        amount: 100.00
+                    }
+                ],
+                type: "sell"
+            };
+            sendRequest(data, 'result2');
+        }
+
+        function testMixedCheck() {
+            const data = {
+                tableData: [
+                    {
+                        name: "Маркированное молоко",
+                        quantity: "1",
+                        price: "50.00",
+                        taxNDS: "vat20",
+                        markingCode: "01046040600017\u001d21MILK123",
+                        category: "dairy"
+                    },
+                    {
+                        name: "Обычный хлеб",
+                        quantity: "1",
+                        price: "30.00",
+                        taxNDS: "vat20"
+                        // category не требуется для немаркированного товара
+                    }
+                ],
+                cashier: "Тестовый кассир",
+                payments: [
+                    {
+                        type: "cash",
+                        amount: 80.00
+                    }
+                ],
+                type: "sell"
+            };
+            sendRequest(data, 'result3');
+        }
+    </script>
+</body>
+</html>

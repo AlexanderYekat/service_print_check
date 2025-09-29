@@ -9,6 +9,7 @@ class CheckItem {
     public $quantity;
     public $price;
     public $taxNDS;
+    public $category; // Категория товара для определения FOIS
 
     public function __construct($data = null) {
         if ($data) {
@@ -16,6 +17,7 @@ class CheckItem {
             $this->quantity = $data['quantity'] ?? '';
             $this->price = $data['price'] ?? '';
             $this->taxNDS = $data['taxNDS'] ?? null;
+            $this->category = $data['category'] ?? '';
         }
     }
 }

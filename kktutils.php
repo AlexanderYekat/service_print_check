@@ -731,16 +731,18 @@ class TFptr10Driver {
                             $industryDetails .= "&Ver=" . $ver;
                         }
                         
-                        // Определяем тип документа
-                        $fois = "030"; // для кормов
-                        $documentDate = "2024.05.27";
-                        $documentNumber = "674";
+                        // Определяем тип документа на основе категории товара
+                        $category = $item['category'] ?? '';
+                        $categoryInfo = $this->getCategoryDocumentInfo($category);
+                        $fois = $categoryInfo['fois'];
+                        $documentDate = $categoryInfo['date'];
+                        $documentNumber = $categoryInfo['number'];
                         
-                        // Проверяем, является ли марка ветеринарным препаратом
-                        if (isset($item['isVetDrug']) && $item['isVetDrug']) {
-                            $documentNumber = "675"; // для вет препаратов
+                        // Логируем информацию о категории и документе
+                        if ($this->logger) {
+                            $this->logger->debug("Категория товара: '{$category}', FOIS: {$fois}, Дата: {$documentDate}, Номер: {$documentNumber}");
                         }
-                        
+                                                
                         // Формируем industryInfo
                         $positionItem['industryInfo'] = [
                             "fois" => $fois,
@@ -813,5 +815,57 @@ class TFptr10Driver {
             $commandErrorDesc = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription  ?? '');
         }
         return [$success, $commandErrorDesc];
+    }
+
+    /**
+     * Определяет FOIS, дату и номер документа на основе категории товара
+     * 
+     * @param string $category Категория товара
+     * @return array Массив с ключами: fois, date, number
+     */
+    private function getCategoryDocumentInfo($category) {
+        // Маппинг категорий товаров на соответствующие документы
+        $categoryMapping = [
+            'dairy' => [ // Молочные продукты
+                'fois' => '030',
+                'date' => '2020.12.15',
+                'number' => '2099'
+            ],
+            'beverages' => [ // Газированные напитки, соки, компоты, упакованная вода
+                'fois' => '030',
+                'date' => '2023.05.31',
+                'number' => '887'
+            ],
+            'canned_food' => [ // Консервы (рыбные, мясные, овощные)
+                'fois' => '030',
+                'date' => '2024.05.27',
+                'number' => '677'
+            ],
+            'vegetable_oils' => [ // Растительные масла
+                'fois' => '030',
+                'date' => '2024.05.27',
+                'number' => '676'
+            ],
+            'seafood_caviar' => [ // Морепродукты (икра)
+                'fois' => '030',
+                'date' => '2023.11.29',
+                'number' => '2028'
+            ],
+        ];
+
+        // Если категория не найдена, используем значения по умолчанию (корма)
+        $defaultCategory = '';
+        $selectedCategory = isset($categoryMapping[$category]) ? $category : $defaultCategory;
+        
+
+        if (empty($selectedCategory)) {
+            $this->logger->error("Категория товара не найдена: " . $category);
+            return [
+                'fois' => '030',
+                'date' => '2024.05.27',
+                'number' => '674'
+            ];
+        }
+        return $categoryMapping[$selectedCategory];
     }
 }

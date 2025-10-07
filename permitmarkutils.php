@@ -337,8 +337,85 @@ class PermitMarkCheckGateway
                 $message = 'Марка заблокирована по решению органов государственной власти';
             }
             
-            if (isset($mark['expireDate']) && $mark['expireDate']) {
-                $message = 'У товара истёк срок годности';
+            // Проверяем вариативные сроки годности для молочной продукции
+            if (isset($mark['variableExpirations']) && is_array($mark['variableExpirations']) && !empty($mark['variableExpirations'])) {
+                try {
+                    // Используем UTC для текущего времени, чтобы корректно сравнивать с датами из API
+                    $currentDateTime = new DateTime('now', new DateTimeZone('UTC'));
+                    $expirationDates = [];
+                    
+                    // Собираем все даты истечения срока годности
+                    foreach ($mark['variableExpirations'] as $key => $dateStr) {
+                        if (!empty($dateStr)) {
+                            try {
+                                // Парсим дату с автоматическим определением часового пояса из строки
+                                $date = new DateTime($dateStr);
+                                // Конвертируем в UTC для корректного сравнения
+                                $date->setTimezone(new DateTimeZone('UTC'));
+                                $expirationDates[$key] = $date;
+                            } catch (Exception $e) {
+                                $this->logger->warning("Не удалось распарсить дату variableExpirations[{$key}]: {$dateStr} - " . $e->getMessage());
+                            }
+                        }
+                    }
+                    
+                    if (!empty($expirationDates)) {
+                        // Находим минимальную и максимальную даты
+                        $minDate = min($expirationDates);
+                        $maxDate = max($expirationDates);
+                        
+                        $this->logger->debug("Вариативные сроки годности (молочная продукция): минимальная дата=" . $minDate->format('Y-m-d H:i:s T') . 
+                                           ", максимальная дата=" . $maxDate->format('Y-m-d H:i:s T') . 
+                                           ", текущее время: " . $currentDateTime->format('Y-m-d H:i:s T'));
+                        
+                        // Проверяем минимальную дату (логируем, если истекла)
+                        if ($minDate < $currentDateTime) {
+                            $this->logger->warning("Минимальный срок годности истёк для марки (молочная продукция). " . 
+                                                 "Минимальная дата: " . $minDate->format('Y-m-d H:i:s') . 
+                                                 ", текущая дата: " . $currentDateTime->format('Y-m-d H:i:s'));
+                        }
+                        
+                        // Проверяем максимальную дату (отклоняем товар, если истекла)
+                        if ($maxDate < $currentDateTime) {
+                            $message = 'У товара истёк срок годности (максимальная дата истекает: ' . $maxDate->format('d.m.Y H:i') . ')';
+                            $this->logger->warning("Максимальный срок годности истёк для марки (молочная продукция). " . 
+                                                 "Максимальная дата: " . $maxDate->format('Y-m-d H:i:s') . 
+                                                 ", текущая дата: " . $currentDateTime->format('Y-m-d H:i:s'));
+                        } else {
+                            $this->logger->debug("Срок годности в порядке (молочная продукция). Максимальная дата истекает: " . $maxDate->format('d.m.Y H:i') . 
+                                               " (осталось " . $currentDateTime->diff($maxDate)->days . " дней)");
+                        }
+                    }
+                } catch (Exception $e) {
+                    $this->logger->warning("Ошибка обработки variableExpirations: " . $e->getMessage());
+                }
+            }
+            // Проверяем обычный срок годности (формат: yyyy-MM-dd'T'HH:mm:ss.SSSz)
+            else if (isset($mark['expireDate']) && $mark['expireDate']) {
+                try {
+                    // Парсим дату в формате ISO 8601 с автоматическим определением часового пояса
+                    $expireDateTime = new DateTime($mark['expireDate']);
+                    // Конвертируем в UTC для корректного сравнения
+                    $expireDateTime->setTimezone(new DateTimeZone('UTC'));
+                    // Используем UTC для текущего времени
+                    $currentDateTime = new DateTime('now', new DateTimeZone('UTC'));
+                    
+                    $this->logger->debug("Проверка срока годности: expireDate=" . $mark['expireDate'] . 
+                                       ", распарсено как: " . $expireDateTime->format('Y-m-d H:i:s T') . 
+                                       ", текущее время: " . $currentDateTime->format('Y-m-d H:i:s T'));
+                    
+                    // Проверяем, истёк ли срок годности
+                    if ($expireDateTime < $currentDateTime) {
+                        $message = 'У товара истёк срок годности (истекает: ' . $expireDateTime->format('d.m.Y H:i') . ')';
+                        $this->logger->warning("Срок годности истёк для марки. expireDate: " . $expireDateTime->format('Y-m-d H:i:s') . 
+                                              ", текущая дата: " . $currentDateTime->format('Y-m-d H:i:s'));
+                    } else {
+                        $this->logger->debug("Срок годности в порядке. Истекает: " . $expireDateTime->format('d.m.Y H:i') . 
+                                           " (осталось " . $currentDateTime->diff($expireDateTime)->days . " дней)");
+                    }
+                } catch (Exception $e) {
+                    $this->logger->warning("Не удалось распарсить дату expireDate: " . $mark['expireDate'] . " - " . $e->getMessage());
+                }
             }
             
             if ($mark['sold'] ?? false) {

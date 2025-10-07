@@ -145,6 +145,7 @@ class CheckService {
         
         $results = [];
         $allSuccess = true;
+        $errorMessages = [];
 
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkAllMarksOnKKT_IsShiftOpened', false);
         $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
@@ -172,16 +173,24 @@ class CheckService {
             
             if (!$checkResult['success']) {
                 $allSuccess = false;
-                $this->logger->error("Ошибка проверки марки на ККТ: {$mark['markingCode']} - {$checkResult['message']}");
+                $positionNumber = $mark['index'] + 1; // Нумерация с 1 для пользователя
+                $errorMsg = "Позиция №{$positionNumber} ({$mark['name']}): {$checkResult['message']}";
+                $errorMessages[] = $errorMsg;
+                $this->logger->error("Ошибка проверки марки на ККТ в позиции №{$positionNumber}: {$mark['markingCode']} - {$checkResult['message']}");
             } else {
                 $this->logger->info("Марка успешно проверена на ККТ: {$mark['markingCode']}");
             }
         }
         
+        $finalMessage = $allSuccess 
+            ? 'Все марки успешно проверены на ККТ' 
+            : 'Ошибки при проверке марок на ККТ: ' . implode('; ', $errorMessages);
+        
         return [
             'success' => $allSuccess,
             'results' => $results,
-            'message' => $allSuccess ? 'Все марки успешно проверены на ККТ' : 'Ошибки при проверке марок на ККТ'
+            'message' => $finalMessage,
+            'errorDetails' => $errorMessages
         ];
     }
 
@@ -196,6 +205,7 @@ class CheckService {
         
         $results = [];
         $allSuccess = true;
+        $errorMessages = [];
         
         foreach ($marks as $mark) {
             if (!$mark['needsPermitCheck']) {
@@ -233,16 +243,24 @@ class CheckService {
             
             if (!$checkResult['success']) {
                 $allSuccess = false;
-                $this->logger->error("Ошибка проверки марки в разрешительном режиме: {$mark['markingCode']} - {$userResult}");
+                $positionNumber = $mark['index'] + 1; // Нумерация с 1 для пользователя
+                $errorMsg = "Позиция №{$positionNumber} ({$mark['name']}): {$userResult}";
+                $errorMessages[] = $errorMsg;
+                $this->logger->error("Ошибка проверки марки в разрешительном режиме в позиции №{$positionNumber}: {$mark['markingCode']} - {$userResult}");
             } else {
                 $this->logger->info("Марка успешно проверена в разрешительном режиме: {$mark['markingCode']}");
             }
         }
         
+        $finalMessage = $allSuccess 
+            ? 'Все марки успешно проверены в разрешительном режиме' 
+            : 'Ошибки при проверке марок в разрешительном режиме: ' . implode('; ', $errorMessages);
+        
         return [
             'success' => $allSuccess,
             'results' => $results,
-            'message' => $allSuccess ? 'Все марки успешно проверены в разрешительном режиме' : 'Ошибки при проверке марок в разрешительном режиме'
+            'message' => $finalMessage,
+            'errorDetails' => $errorMessages
         ];
     }
 

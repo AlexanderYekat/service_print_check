@@ -347,6 +347,21 @@
                     <span class="helper-text">Если включено, система будет использовать локальный модуль для проверки маркировки вместо онлайн API</span>
                 </div>
 
+                <div class="form-field">
+                    <label for="asyncCDNHealthCheck" class="switch">
+                        <input type="checkbox" id="asyncCDNHealthCheck" name="asyncCDNHealthCheck">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Асинхронная проверка здоровья CDN</span>
+                    <span class="helper-text">Если включено, проверка CDN не блокирует проверку марок (быстро). Если выключено, CDN проверяются синхронно (медленнее, но реже)</span>
+                </div>
+
+                <div class="form-field">
+                    <label for="cdnCacheUpdateIntervalDays">Интервал обновления кэша CDN (дни)</label>
+                    <input type="number" id="cdnCacheUpdateIntervalDays" name="cdnCacheUpdateIntervalDays" class="text-input" placeholder="7" min="1" max="365">
+                    <span class="helper-text">Как часто обновлять информацию о доступных CDN серверах (1-365 дней). Применяется к выбранному режиму выше. Рекомендуется: асинхронный режим - 7 дней, синхронный режим - 30 дней</span>
+                </div>
+
                 <div class="button-container">
                     <button type="button" id="getStatusButton" class="button secondary">Получить статус локального модуля</button>
                     <button type="button" id="initModuleButton" class="button secondary">Инициализировать локальный модуль</button>
@@ -374,6 +389,8 @@
             const cdnInfoUrlInput = document.getElementById('cdnInfoUrl');
             const permitMarkEmulationInput = document.getElementById('permitMarkEmulation');
             const testLocalModuleInput = document.getElementById('testLocalModule');
+            const asyncCDNHealthCheckInput = document.getElementById('asyncCDNHealthCheck');
+            const cdnCacheUpdateIntervalDaysInput = document.getElementById('cdnCacheUpdateIntervalDays');
             const getStatusButton = document.getElementById('getStatusButton');
             const initModuleButton = document.getElementById('initModuleButton');
             const initModuleButton2 = document.getElementById('initModuleButton2');
@@ -410,6 +427,12 @@
                     if (settings.testLocalModule !== undefined) {
                         testLocalModuleInput.checked = settings.testLocalModule;
                     }
+                    if (settings.permitMarkAsyncCDNHealthCheck !== undefined) {
+                        asyncCDNHealthCheckInput.checked = settings.permitMarkAsyncCDNHealthCheck;
+                    }
+                    if (settings.permitMarkCDNCacheUpdateIntervalDays) {
+                        cdnCacheUpdateIntervalDaysInput.value = settings.permitMarkCDNCacheUpdateIntervalDays;
+                    }
                 })
                 .catch(error => {
                     console.error('Ошибка при загрузке настроек:', error);
@@ -426,6 +449,8 @@
                 const cdnInfoUrl = cdnInfoUrlInput.value.trim();
                 const permitMarkEmulation = permitMarkEmulationInput.checked;
                 const testLocalModule = testLocalModuleInput.checked;
+                const asyncCDNHealthCheck = asyncCDNHealthCheckInput.checked;
+                const cdnCacheUpdateIntervalDays = parseInt(cdnCacheUpdateIntervalDaysInput.value) || 7;
 
                 // Convert minutes to seconds for storage
                 const cdnUnavailableTimeSeconds = cdnUnavailableTimeMinutes * 60;
@@ -443,7 +468,9 @@
                         permitMarkCdnUnavailableTime: cdnUnavailableTimeSeconds,
                         permitMarkCdnInfoUrl: cdnInfoUrl,
                         permitMarkEmulation: permitMarkEmulation,
-                        testLocalModule: testLocalModule
+                        testLocalModule: testLocalModule,
+                        permitMarkAsyncCDNHealthCheck: asyncCDNHealthCheck,
+                        permitMarkCDNCacheUpdateIntervalDays: cdnCacheUpdateIntervalDays
                     }),
                 })
                 .then(response => response.json())

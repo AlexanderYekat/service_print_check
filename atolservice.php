@@ -93,17 +93,36 @@ function runServer() {
         $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
     }
 
+    // Преобразуем дни в секунды для конфигурации
+    $cdnCacheIntervalDays = $currentSettings->permitMarkCDNCacheUpdateIntervalDays ?? 7;
+    $cdnCacheIntervalSeconds = $cdnCacheIntervalDays * 86400; // дни в секунды
+    
+    // Определяем интервалы для разных режимов
+    $isAsyncMode = $currentSettings->permitMarkAsyncCDNHealthCheck ?? true;
+    if ($isAsyncMode) {
+        // Асинхронный режим - используем настройку пользователя (по умолчанию 7 дней)
+        $asyncInterval = $cdnCacheIntervalSeconds;
+        $syncInterval = 2592000; // 30 дней (не используется в асинхронном режиме)
+    } else {
+        // Синхронный режим - используем настройку пользователя (по умолчанию 7 дней, но можно увеличить до 30)
+        $asyncInterval = 604800; // 7 дней (не используется в синхронном режиме)
+        $syncInterval = $cdnCacheIntervalSeconds;
+    }
+    
     $permitMark = new PermitMarkCheckGateway(
         $currentSettings->permitMarkXApiKey, 
         $currentSettings->permitMarkTimeout, 
         $logger,
         [
-            'permitMarkEnabled' => $currentSettings->permitMarkEnabled ?? false, //
+            'permitMarkEnabled' => $currentSettings->permitMarkEnabled ?? false,
             'lmHost' => $currentSettings->permitMarkLmHost ?? 'http://127.0.0.1:5995',
             'lmAuth' => $currentSettings->permitMarkLmAuth ?? 'YWRtaW46YWRtaW4=',
             'verifySSL' => true,
             'emulation' => $currentSettings->permitMarkEmulation ?? false,
-            'testLocalModule' => $currentSettings->testLocalModule ?? false
+            'testLocalModule' => $currentSettings->testLocalModule ?? false,
+            'asyncCDNHealthCheck' => $isAsyncMode,
+            'cdnCacheUpdateIntervalAsync' => $asyncInterval,
+            'cdnCacheUpdateIntervalSync' => $syncInterval
         ]
     );
     

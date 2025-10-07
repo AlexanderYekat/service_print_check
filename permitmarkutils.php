@@ -36,7 +36,10 @@ class PermitMarkCheckGateway
             'sandboxUrl' => 'https://markirovka.sandbox.crptech.ru',
             'verifySSL' => true, // проверка SSL сертификатов
             'emulation' => false,
-            'testLocalModule' => false
+            'testLocalModule' => false,
+            'asyncCDNHealthCheck' => true, // true = асинхронная (неделя), false = синхронная (месяц)
+            'cdnCacheUpdateIntervalAsync' => 604800, // 1 неделя в секундах для асинхронной проверки
+            'cdnCacheUpdateIntervalSync' => 2592000 // 1 месяц (30 дней) в секундах для синхронной проверки
         ], $config);
         
         $this->cdnCachePath = $this->config['cdnCachePath'];
@@ -57,6 +60,9 @@ class PermitMarkCheckGateway
     public function checkPermit(string $code, array $context = []): array
     {
         $this->logger->info("Начинаем проверку маркировки: " . $code);
+
+        // Запускаем фоновое обновление кэша CDN (не блокирующее)
+        $this->updateCDNCacheInBackground();
 
         // Сначала пробуем онлайн проверку
         if (!$this->getTestLocalModule()) {
@@ -100,33 +106,25 @@ class PermitMarkCheckGateway
             ];
         }
 
-        // 1. Получаем кэш CDN и очищаем недоступные
-        $this->clearUnavailableCDN();
+        // 1. Быстро загружаем кэш CDN без обновления
         $cdnCache = $this->loadCDNCache();
         
-        // Проверяем необходимость обновления кэша (не более 6 часов)
-        if ($this->needUpdateCache($cdnCache)) {
-            $this->logger->info("Обновляем кэш CDN площадок");
-            $updateResult = $this->updateCDNCache();
-            if (!$updateResult['success']) {
-                $this->logger->warning("Ошибка обновления кэша CDN: " . $updateResult['message']);
-                return ['success' => false, 'message' => 'Не удалось получить список CDN площадок'];
-            }
-            $cdnCache = $this->loadCDNCache();
-        }
-        
-        // 2. Фильтруем доступные CDN
+        // 2. Фильтруем доступные CDN из кэша
         $availableCDN = $this->filterAvailableCDN($cdnCache);
         
-        // Если все CDN недоступны, сбрасываем недоступность
+        // 3. Если кэш пуст или все CDN недоступны, делаем быструю проверку
         if (empty($availableCDN)) {
-            $this->logger->info("Все CDN недоступны, сбрасываем недоступность");
-            $this->clearUnavailableCDN();
-            $cdnCache = $this->loadCDNCache();
-            $availableCDN = $cdnCache;
+            $this->logger->info("CDN кэш пуст или все недоступны, делаем быструю проверку");
+            $quickCDN = $this->getQuickCDNList();
+            if (!empty($quickCDN)) {
+                $availableCDN = $quickCDN;
+            } else {
+                $this->logger->warning("Не удалось получить быстрый список CDN, переходим к офлайн проверке");
+                return ['success' => false, 'message' => 'CDN недоступны, переходим к офлайн проверке'];
+            }
         }
         
-        // Сортируем CDN по задержке
+        // 4. Сортируем CDN по задержке (если есть данные о задержке)
         $this->sortCDNByLatency($availableCDN);
         
         // 3. Формируем тело запроса
@@ -138,8 +136,10 @@ class PermitMarkCheckGateway
             $requestData['fiscalDriveNumber'] = $context['fiscalDriveNumber'];
         }
         
-        // 4. Обходим CDN площадки
+        // 4. Обходим CDN площадки с быстрым переключением на офлайн
         $headers = $this->buildAPIHeaders();
+        $networkErrorCount = 0;
+        $maxNetworkErrors = 2; // Максимум 2 сетевые ошибки подряд
         
         foreach ($availableCDN as $cdn) {
             $host = $cdn['host'];
@@ -153,22 +153,59 @@ class PermitMarkCheckGateway
             
             $latency = $endTime - $startTime;
             
-            // Проверяем таймаут 1.5 сек согласно ППРФ 1944 п. 17
-            if (!$result['success'] && ($latency > 2 || ($result['timeout'] ?? false))) {
-                $this->logger->warning("CDN таймаут более 1.5 сек: " . $host . ", задержка=" . $latency . "с");
+            // Проверяем на сетевые ошибки (быстрое переключение на офлайн)
+            if (!$result['success']) {
+                $isNetworkError = ($result['httpCode'] === 0 || 
+                                 strpos($result['message'], 'cURL') !== false ||
+                                 strpos($result['message'], 'timeout') !== false ||
+                                 strpos($result['message'], 'connection') !== false);
+                
+                if ($isNetworkError) {
+                    $networkErrorCount++;
+                    $this->logger->warning("Сетевая ошибка #{$networkErrorCount} при обращении к CDN " . $host . ": " . $result['message']);
+                    
+                    // Если много сетевых ошибок подряд - быстро переключаемся на офлайн
+                    if ($networkErrorCount >= $maxNetworkErrors) {
+                        $this->logger->warning("Обнаружены множественные сетевые ошибки ({$networkErrorCount}), переключаемся на офлайн проверку");
+                        return ['success' => false, 'message' => 'Сетевые проблемы, переходим к офлайн проверке'];
+                    }
+                } else {
+                    // Сбрасываем счётчик при не сетевых ошибках
+                    $networkErrorCount = 0;
+                }
+                
                 $this->markCDNUnavailable($host);
                 continue;
             }
             
-            // Проверяем успешность запроса
-            if (!$result['success']) {
-                $this->logger->warning("Ошибка запроса к CDN " . $host . ": " . $result['message']);
+            // Проверяем таймаут 1.5 сек согласно ППРФ 1944 п. 17
+            if ($latency > 2 || ($result['timeout'] ?? false)) {
+                $this->logger->warning("CDN таймаут более 1.5 сек: " . $host . ", задержка=" . $latency . "с");
                 $this->markCDNUnavailable($host);
                 continue;
             }
             
             // Обработка ошибок по HTTP кодам
             $httpCode = $result['httpCode'] ?? 0;
+            
+            // 203 - аварийная ситуация, переключаемся на офлайн на день
+            if ($httpCode === 203) {
+                $this->logger->error("АВАРИЙНАЯ СИТУАЦИЯ! CDN " . $host . " вернул HTTP 203 (Non-Authoritative Information). Переключаемся на офлайн режим на 24 часа.");
+                
+                // Помечаем ВСЕ CDN как недоступные на 24 часа (аварийная ситуация)
+                $cdnCache = $this->loadCDNCache();
+                $currentTime = time();
+                foreach ($cdnCache as &$cdn) {
+                    $cdn['unavailableUntil'] = $currentTime + 86400; // 24 часа
+                    $this->logger->error("CDN " . $cdn['host'] . " помечен как недоступный на 24 часа из-за HTTP 203");
+                }
+                $this->saveCDNCache($cdnCache);
+                
+                return [
+                    'success' => false,
+                    'message' => 'Аварийная ситуация (HTTP 203), переходим к офлайн проверке'
+                ];
+            }
             
             // 4xx ошибки (кроме 401 и 429) - возвращаем ошибку
             if ($httpCode >= 400 && $httpCode < 500 && $httpCode !== 401 && $httpCode !== 429) {
@@ -488,6 +525,48 @@ class PermitMarkCheckGateway
         }
         
         return $result;
+    }
+
+    /**
+     * Быстрое получение списка CDN без проверки здоровья
+     */
+    private function getQuickCDNList(): array
+    {
+        $baseUrl = $this->config['cdnBaseUrl'];
+        $url = $baseUrl . '/api/v4/true-api/cdn/info';
+        $headers = $this->buildAPIHeaders();
+        
+        $this->logger->info("Быстро запрашиваем список CDN площадок: " . $url);
+        
+        // Короткий таймаут для быстрой проверки
+        $result = $this->performJSONRequest($url, $headers, '', 5);
+        
+        if (!$result['success']) {
+            $this->logger->warning("Быстрая проверка CDN не удалась: " . $result['message']);
+            return [];
+        }
+        
+        if (!isset($result['data']['hosts'])) {
+            $this->logger->warning("Некорректная структура ответа API при быстрой проверке");
+            return [];
+        }
+        
+        $hosts = $result['data']['hosts'];
+        $this->logger->info("Быстро получено CDN площадок: " . count($hosts));
+        
+        // Возвращаем простой список без проверки здоровья
+        $quickCDN = [];
+        foreach ($hosts as $host) {
+            $hostName = $host['host'] ?? $host;
+            $quickCDN[] = [
+                'host' => $hostName,
+                'latency' => 0, // Неизвестна, будет определена при использовании
+                'available' => true,
+                'updatedAt' => time()
+            ];
+        }
+        
+        return $quickCDN;
     }
 
     /**
@@ -1059,6 +1138,35 @@ class PermitMarkCheckGateway
     }
 
     /**
+     * Пометка CDN площадки как недоступной на длительный срок (для аварийных ситуаций)
+     */
+    private function markCDNUnavailableForLongTime(string $host, int $seconds): void
+    {
+        $cache = $this->loadCDNCache();
+        if (empty($cache)) {
+            return;
+        }
+        
+        $currentTime = time();
+        $changed = false;
+        
+        foreach ($cache as &$cdn) {
+            if ($cdn['host'] === $host) {
+                $cdn['unavailableUntil'] = $currentTime + $seconds;
+                $changed = true;
+                $untilDate = date('Y-m-d H:i:s', $cdn['unavailableUntil']);
+                $hours = round($seconds / 3600, 1);
+                $this->logger->error("CDN помечен как недоступный на {$hours} часов: " . $host . " до " . $untilDate);
+                break;
+            }
+        }
+        
+        if ($changed) {
+            $this->saveCDNCache($cache);
+        }
+    }
+
+    /**
      * Фильтрация доступных CDN площадок
      */
     private function filterAvailableCDN(array $cache): array
@@ -1099,8 +1207,15 @@ class PermitMarkCheckGateway
             $currentTime = time();
             $timeDiff = $currentTime - $updateTime;
             
-            // Обновляем если прошло более 6 часов
-            return $timeDiff > 6 * 3600;
+            // Выбираем интервал обновления в зависимости от режима
+            $updateInterval = $this->config['asyncCDNHealthCheck'] 
+                ? $this->config['cdnCacheUpdateIntervalAsync']  // 1 неделя для асинхронного
+                : $this->config['cdnCacheUpdateIntervalSync'];   // 1 месяц для синхронного
+            
+            $intervalDays = round($updateInterval / 86400);
+            $this->logger->debug("Проверка необходимости обновления кэша CDN: прошло дней=" . round($timeDiff / 86400) . ", требуется=" . $intervalDays);
+            
+            return $timeDiff > $updateInterval;
         }
         
         return true;
@@ -1115,6 +1230,147 @@ class PermitMarkCheckGateway
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
+    }
+
+    /**
+     * Периодическое обновление кэша CDN в фоновом режиме (неблокирующее или синхронное)
+     */
+    public function updateCDNCacheInBackground(): void
+    {
+        // Проверяем, нужно ли обновлять кэш
+        $cdnCache = $this->loadCDNCache();
+        if (!$this->needUpdateCache($cdnCache)) {
+            return;
+        }
+        
+        // Выбираем режим обновления в зависимости от флага
+        if ($this->config['asyncCDNHealthCheck']) {
+            // АСИНХРОННЫЙ режим (неблокирующий, обновление раз в неделю)
+            $this->logger->info("Запускаем неблокирующее обновление кэша CDN (асинхронный режим, раз в неделю)");
+            
+            // Простое решение: помечаем кэш как устаревший, но не обновляем сейчас
+            $this->markCacheAsStale();
+            $this->logger->info("Кэш CDN помечен как устаревший, будет обновлён при следующей проверке");
+            
+            // Альтернативно: запускаем обновление через планировщик задач Windows (как в установщике)
+            // Раскомментируйте следующую строку, если хотите использовать планировщик задач:
+            // $this->scheduleCDNUpdate();
+        } else {
+            // СИНХРОННЫЙ режим (блокирующий, обновление раз в месяц)
+            $this->logger->info("Запускаем синхронное обновление кэша CDN (блокирующий режим, раз в месяц)");
+            
+            try {
+                $updateResult = $this->updateCDNCache();
+                if ($updateResult['success']) {
+                    $this->logger->info("Синхронное обновление кэша CDN завершено успешно");
+                } else {
+                    $this->logger->warning("Ошибка синхронного обновления кэша CDN: " . $updateResult['message']);
+                }
+            } catch (Exception $e) {
+                $this->logger->error("Исключение при синхронном обновлении кэша CDN: " . $e->getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Помечает кэш как устаревший (неблокирующий способ)
+     */
+    private function markCacheAsStale(): void
+    {
+        $cdnCache = $this->loadCDNCache();
+        if (!empty($cdnCache)) {
+            // Помечаем кэш как устаревший, уменьшив время обновления
+            foreach ($cdnCache as &$cdn) {
+                $cdn['updatedAt'] = time() - 3600; // Помечаем как устаревший час назад
+            }
+            $this->saveCDNCache($cdnCache);
+        }
+    }
+
+    /**
+     * Планирует обновление кэша CDN через планировщик задач Windows
+     */
+    private function scheduleCDNUpdate(): void
+    {
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $this->logger->warning("Планировщик задач доступен только на Windows");
+            return;
+        }
+        
+        $scriptPath = __DIR__ . '/update_cdn_cache.php';
+        $this->createUpdateScript($scriptPath);
+        
+        // Создаём задание в планировщике задач (как в установщике)
+        $taskName = 'CloudPosBridgeCDNUpdate';
+        $command = 'schtasks.exe /create /tn "' . $taskName . '" /tr "php \\"' . $scriptPath . '\\"" /sc ONCE /st ' . date('H:i:s', time() + 60) . ' /f';
+        
+        $this->logger->info("Создаём задание планировщика: " . $command);
+        
+        $output = [];
+        $returnCode = 0;
+        exec($command, $output, $returnCode);
+        
+        if ($returnCode === 0) {
+            $this->logger->info("Задание планировщика создано успешно: " . implode(' ', $output));
+        } else {
+            $this->logger->warning("Ошибка создания задания планировщика (код: $returnCode): " . implode(' ', $output));
+        }
+    }
+
+    /**
+     * Создаёт скрипт для обновления кэша CDN
+     */
+    private function createUpdateScript(string $scriptPath): void
+    {
+        $scriptContent = '<?php
+// Скрипт для обновления кэша CDN в фоновом режиме
+// Работает в контексте Windows планировщика задач
+
+// Определяем правильные пути для Windows
+$appDir = dirname(__DIR__);
+$logsDir = $appDir . "\\logs";
+
+// Создаём директорию логов если не существует
+if (!is_dir($logsDir)) {
+    mkdir($logsDir, 0755, true);
+}
+
+require_once $appDir . "\\permitmarkutils.php";
+require_once $appDir . "\\logger.php";
+
+// Создаём минимальную конфигурацию
+$config = [
+    "permitMarkEnabled" => true,
+    "lmHost" => "http://127.0.0.1:5995",
+    "lmAuth" => "YWRtaW46YWRtaW4=",
+    "verifySSL" => true,
+    "emulation" => false,
+    "testLocalModule" => false
+];
+
+$logger = Logger::getInstance($logsDir, 3, true);
+$gateway = new PermitMarkCheckGateway("", 30, $logger, $config);
+
+try {
+    $logger->info("Запуск фонового обновления кэша CDN");
+    $updateResult = $gateway->updateCDNCache();
+    if ($updateResult["success"]) {
+        $logger->info("Фоновое обновление кэша CDN завершено успешно");
+    } else {
+        $logger->warning("Ошибка фонового обновления кэша CDN: " . $updateResult["message"]);
+    }
+} catch (Exception $e) {
+    $logger->error("Исключение при фоновом обновлении кэша CDN: " . $e->getMessage());
+}
+
+// Удаляем задание планировщика после выполнения
+$taskName = "CloudPosBridgeCDNUpdate";
+$deleteCommand = "schtasks.exe /delete /tn \"" . $taskName . "\" /f";
+exec($deleteCommand);
+$logger->info("Задание планировщика удалено после выполнения");
+?>';
+        
+        file_put_contents($scriptPath, $scriptContent);
     }
 
     /**

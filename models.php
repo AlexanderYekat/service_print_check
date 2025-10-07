@@ -100,6 +100,8 @@ class Settings {
     public $permitMarkLmHost;
     public $permitMarkLmAuth;
     public $testLocalModule;
+    public $permitMarkAsyncCDNHealthCheck;
+    public $permitMarkCDNCacheUpdateIntervalDays;
     public $timeZone;
     public $comScanner;
     public $scannerSuffix;
@@ -200,6 +202,8 @@ class Settings {
         $this->permitMarkLmHost = "http://127.0.0.1:5995";
         $this->permitMarkLmAuth = "YWRtaW46YWRtaW4="; // admin:admin в base64
         $this->testLocalModule = false;
+        $this->permitMarkAsyncCDNHealthCheck = true; // true = асинхронная проверка, false = синхронная
+        $this->permitMarkCDNCacheUpdateIntervalDays = 7; // По умолчанию 7 дней (неделя)
         $this->timeZone = $this->detectTimeZone(); // Автоматически определяем часовой пояс системы
         $this->comScanner = 0; // По умолчанию не используется (0 = не настроено)
         $this->scannerSuffix = '\t'; // По умолчанию табуляция
@@ -249,6 +253,8 @@ class Settings {
         $this->permitMarkLmHost = $data['permitMarkLmHost'] ?? $this->permitMarkLmHost;
         $this->permitMarkLmAuth = $data['permitMarkLmAuth'] ?? $this->permitMarkLmAuth;
         $this->testLocalModule = $data['testLocalModule'] ?? $this->testLocalModule;
+        $this->permitMarkAsyncCDNHealthCheck = $data['permitMarkAsyncCDNHealthCheck'] ?? $this->permitMarkAsyncCDNHealthCheck;
+        $this->permitMarkCDNCacheUpdateIntervalDays = $data['permitMarkCDNCacheUpdateIntervalDays'] ?? $this->permitMarkCDNCacheUpdateIntervalDays;
         // Если часовой пояс не задан в настройках, определяем автоматически
         $this->timeZone = $data['timeZone'] ?? $this->detectTimeZone();
         $this->comScanner = $data['comScanner'] ?? $this->comScanner;
@@ -301,6 +307,8 @@ class Settings {
             'permitMarkLmHost' => $this->permitMarkLmHost,
             'permitMarkLmAuth' => $this->permitMarkLmAuth,
             'testLocalModule' => $this->testLocalModule,
+            'permitMarkAsyncCDNHealthCheck' => $this->permitMarkAsyncCDNHealthCheck,
+            'permitMarkCDNCacheUpdateIntervalDays' => $this->permitMarkCDNCacheUpdateIntervalDays,
             'timeZone' => $this->timeZone,
             'comScanner' => $this->comScanner,
             'scannerSuffix' => $this->scannerSuffix,

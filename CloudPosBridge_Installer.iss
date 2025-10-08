@@ -47,8 +47,8 @@ Source: "README.md"; DestDir: "{app}\app"; Flags:
 Source: "templates\*"; DestDir: "{app}\app\templates"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки settings_storage в {app}\app\settings_storage
 Source: "settings_storage\*"; DestDir: "{app}\app\settings_storage"; Flags: recursesubdirs createallsubdirs
-; Копируем файлы из папки samples в {app}\app\samples
-Source: "samples\*"; DestDir: "{app}\app\samples"; Flags: recursesubdirs createallsubdirs
+; Копируем файлы из папки tests в {app}\app\tests
+Source: "tests\*"; DestDir: "{app}\app\tests"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки resource в {app}\app\resource
 Source: "resource\*"; DestDir: "{app}\app\resource"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки bank в {app}\app\bank

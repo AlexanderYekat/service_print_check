@@ -1,7 +1,7 @@
 # Бинарные файлы
 *.exe
 *.exe.manifest
-samples/screenshots/
+tests/screenshots/
 .gigaide/
 _temp_update/
 

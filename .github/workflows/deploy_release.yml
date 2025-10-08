@@ -39,7 +39,7 @@ jobs:
         set -e
         cp -R templates temp_release_contents/
         cp -R settings_storage temp_release_contents/
-        cp -R samples temp_release_contents/
+        cp -R tests temp_release_contents/
         cp -R resource temp_release_contents/
         cp -R bank temp_release_contents/
 

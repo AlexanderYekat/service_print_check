@@ -12,6 +12,10 @@ _temp_update/
 logs/*.txt
 backup/
 
+# Задачи (асинхронные операции)
+tasks/
+tasks/*.json
+
 # Директории сборки
 bin/
 build/

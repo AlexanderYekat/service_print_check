@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест асинхронной проверки маркировки</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .button.secondary {
+            background-color: #2196F3;
+        }
+        .button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            min-height: 50px;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .status.pending {
+            background-color: #FFC107;
+            color: #000;
+        }
+        .status.processing {
+            background-color: #2196F3;
+            color: white;
+        }
+        .status.completed {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status.error {
+            background-color: #f44336;
+            color: white;
+        }
+        .log {
+            background-color: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        .log-time {
+            color: #78909c;
+        }
+        .log-success {
+            color: #4CAF50;
+        }
+        .log-error {
+            color: #f44336;
+        }
+        .log-info {
+            color: #2196F3;
+        }
+        .badge {
+            background-color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .link {
+            color: #2196F3;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Тест асинхронной проверки маркировки</h1>
+        
+        <div style="margin-bottom: 20px;">
+            <a href="/tests/test_fetchs.html" class="link">← Вернуться к основным тестам</a>
+            <a href="/settings" class="link" style="margin-left: 20px;">⚙️ Настройки</a>
+        </div>
+        
+        <h2>Запуск проверки</h2>
+        
+        <div class="input-group">
+            <label for="markingCode">Код маркировки:</label>
+            <input type="text" id="markingCode" placeholder="0104607008480429215KpOL.jHnx6Xm93kl/E" value="0104607008480429215KpOL.jHnx6Xm93kl/E">
+        </div>
+        
+        <div class="input-group">
+            <label for="operation">Тип операции:</label>
+            <select id="operation">
+                <option value="sell">Продажа (sell)</option>
+                <option value="return">Возврат продажи (return)</option>
+                <option value="buyReturn">Возврат закупки (buyReturn)</option>
+            </select>
+        </div>
+        
+        <button class="button" onclick="startCheck()" id="startBtn">🚀 Запустить проверку</button>
+        <button class="button secondary" onclick="clearLog()">🗑️ Очистить лог</button>
+        
+        <div id="currentTask" style="display: none; margin-top: 20px; padding: 15px; background-color: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
+            <strong>Текущая задача:</strong>
+            <span id="currentTaskId" style="font-family: monospace; margin-left: 10px;"></span>
+            <span class="status" id="currentTaskStatus"></span>
+        </div>
+        
+        <h2>Результат</h2>
+        <div id="result" class="result">
+            <em style="color: #999;">Запустите проверку для просмотра результатов...</em>
+        </div>
+        
+        <h2>Лог операций</h2>
+        <div id="log" class="log">
+            <div class="log-entry log-info">[INFO] Готов к работе. API URL: <span id="apiUrl"></span></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        document.getElementById('apiUrl').textContent = API_URL;
+        
+        let currentTaskId = null;
+        let pollInterval = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const typeClass = type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : 'log-info';
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="${typeClass}">[${type.toUpperCase()}]</span> ${message}`;
+            
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML = '<div class="log-entry log-info">[INFO] Лог очищен</div>';
+            log('Готов к работе. API URL: ' + API_URL, 'info');
+        }
+
+        function updateTaskInfo(taskId, status) {
+            const taskDiv = document.getElementById('currentTask');
+            const taskIdSpan = document.getElementById('currentTaskId');
+            const statusSpan = document.getElementById('currentTaskStatus');
+            
+            if (taskId) {
+                taskDiv.style.display = 'block';
+                taskIdSpan.textContent = taskId;
+                statusSpan.textContent = status.toUpperCase();
+                statusSpan.className = 'status ' + status;
+            } else {
+                taskDiv.style.display = 'none';
+            }
+        }
+
+        function displayResult(data) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<pre style="margin: 0; white-space: pre-wrap;">' + 
+                JSON.stringify(data, null, 2) + '</pre>';
+        }
+
+        async function startCheck() {
+            const markingCode = document.getElementById('markingCode').value.trim();
+            const operation = document.getElementById('operation').value;
+            const startBtn = document.getElementById('startBtn');
+            
+            if (!markingCode) {
+                alert('Введите код маркировки!');
+                return;
+            }
+            
+            // Останавливаем предыдущий опрос, если есть
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            
+            startBtn.disabled = true;
+            log(`Запускаем проверку марки: ${markingCode}`, 'info');
+            
+            try {
+                // Шаг 1: Запускаем проверку
+                const startResponse = await fetch(`${API_URL}/api/check-marking-code-async`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        markingCode: markingCode,
+                        sellOrReturn: operation
+                    })
+                });
+                
+                const startData = await startResponse.json();
+                
+                if (!startData.success) {
+                    log(`Ошибка запуска: ${startData.message}`, 'error');
+                    displayResult(startData);
+                    startBtn.disabled = false;
+                    return;
+                }
+                
+                currentTaskId = startData.data.taskId;
+                log(`✓ Задача создана. ID: ${currentTaskId}`, 'success');
+                updateTaskInfo(currentTaskId, 'pending');
+                displayResult(startData);
+                
+                // Шаг 2: Начинаем опрос статуса
+                let attempts = 0;
+                const maxAttempts = 60; // Максимум 60 попыток (60 секунд)
+                
+                pollInterval = setInterval(async () => {
+                    attempts++;
+                    
+                    if (attempts > maxAttempts) {
+                        clearInterval(pollInterval);
+                        log(`⏱ Превышено время ожидания (${maxAttempts} секунд)`, 'error');
+                        startBtn.disabled = false;
+                        updateTaskInfo(null);
+                        return;
+                    }
+                    
+                    try {
+                        const resultResponse = await fetch(`${API_URL}/api/check-marking-result/${currentTaskId}`);
+                        const resultData = await resultResponse.json();
+                        
+                        if (!resultData.success) {
+                            clearInterval(pollInterval);
+                            log(`Ошибка получения результата: ${resultData.message}`, 'error');
+                            displayResult(resultData);
+                            startBtn.disabled = false;
+                            updateTaskInfo(null);
+                            return;
+                        }
+                        
+                        const status = resultData.data.status;
+                        updateTaskInfo(currentTaskId, status);
+                        
+                        if (status === 'completed') {
+                            clearInterval(pollInterval);
+                            log(`✓ Проверка завершена успешно! (попытка ${attempts})`, 'success');
+                            displayResult(resultData.data);
+                            startBtn.disabled = false;
+                            
+                            // Показываем детали результата
+                            if (resultData.data.result && resultData.data.result.success) {
+                                log('✓ Марка проверена на ККТ успешно!', 'success');
+                            } else {
+                                log('⚠ Марка не прошла проверку на ККТ', 'error');
+                            }
+                            
+                            setTimeout(() => updateTaskInfo(null), 5000);
+                            
+                        } else if (status === 'error') {
+                            clearInterval(pollInterval);
+                            log(`✗ Ошибка проверки: ${resultData.data.error}`, 'error');
+                            displayResult(resultData.data);
+                            startBtn.disabled = false;
+                            setTimeout(() => updateTaskInfo(null), 5000);
+                            
+                        } else {
+                            // pending или processing
+                            log(`⏳ Проверка в процессе... (попытка ${attempts}/${maxAttempts})`, 'info');
+                        }
+                        
+                    } catch (error) {
+                        clearInterval(pollInterval);
+                        log(`Ошибка запроса: ${error.message}`, 'error');
+                        startBtn.disabled = false;
+                        updateTaskInfo(null);
+                    }
+                    
+                }, 10000); // Опрашиваем каждую секунду
+                
+            } catch (error) {
+                log(`Ошибка при запуске проверки: ${error.message}`, 'error');
+                startBtn.disabled = false;
+                updateTaskInfo(null);
+            }
+        }
+        
+        // Обработка Enter в поле ввода
+        document.getElementById('markingCode').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                startCheck();
+            }
+        });
+    </script>
+</body>
+</html>
+

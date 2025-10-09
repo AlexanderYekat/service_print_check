@@ -5,17 +5,19 @@ require_once 'models.php';   // Здесь структура CheckData и ApiRe
 require_once 'validators.php'; // Новый валидатор
 require_once 'CheckService.php'; // Новый сервис
 require_once 'logger.php'; // Подключаем логгер
+require_once 'TaskManager.php'; // Подключаем менеджер задач
 
 class Handler {
     private $checkService;
     private $logger; // Добавляем свойство для логгера
-
     private $permitMark;
+    private $taskManager; // Добавляем менеджер задач
 
-    public function __construct(CheckService $checkService, Logger $logger, $permitMark) {
+    public function __construct(CheckService $checkService, Logger $logger, $permitMark, ?TaskManager $taskManager = null) {
         $this->checkService = $checkService;
         $this->logger = $logger; // Инициализируем логгер
         $this->permitMark = $permitMark;
+        $this->taskManager = $taskManager ?? new TaskManager($logger); // Инициализируем менеджер задач
     }
 
     public function HandlePrintCheck() {
@@ -94,6 +96,157 @@ class Handler {
         }
         $this->logger->info("HandleCheckMarkingCode: Код маркировки проверен.");
         $this->sendHandlerResponse("success", "Код маркировки проверен", $result['data']);
+    }
+
+    public function HandleCheckMarkingCodeAsync() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->logger->warning("HandleCheckMarkingCodeAsync: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+        $markingCode = $data['markingCode'] ?? '';
+        $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
+        $itemEstimatedStatus = $data['itemEstimatedStatus'] ?? '';
+        
+        if (empty($markingCode)) {
+            $this->logger->error("HandleCheckMarkingCodeAsync: Отсутствует или пустое значение markingCode.");
+            http_response_code(400);
+            $this->sendHandlerResponse("error", 'Код маркировки не может быть пустым.');
+            return;
+        }
+        
+        // Создаем задачу
+        $taskResult = $this->taskManager->createTask('check_marking_code', [
+            'markingCode' => $markingCode,
+            'sellOrReturn' => $sellOrReturn,
+            'itemEstimatedStatus' => $itemEstimatedStatus
+        ]);
+        
+        if (!$taskResult['success']) {
+            $this->logger->error("HandleCheckMarkingCodeAsync: Ошибка создания задачи: " . $taskResult['message']);
+            http_response_code(500);
+            $this->sendHandlerResponse("error", $taskResult['message']);
+            return;
+        }
+        
+        $taskId = $taskResult['taskId'];
+        $this->logger->info("HandleCheckMarkingCodeAsync: Задача создана с ID: {$taskId}");
+        
+        // Возвращаем ID задачи клиенту немедленно
+        $this->sendHandlerResponse("success", "Задача принята в обработку", ['taskId' => $taskId]);
+        
+        // Запускаем обработку задачи в ОТДЕЛЬНОМ процессе (настоящая асинхронность!)
+        $phpPath = PHP_BINARY; // Путь к php.exe
+        $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'process_async_task.php';
+        
+        // Запускаем процесс в фоне БЕЗ ОЖИДАНИЯ
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows: используем start /B для запуска в фоне
+            $command = sprintf(
+                'start /B "" "%s" "%s" "%s"',
+                $phpPath,
+                $scriptPath,
+                $taskId
+            );
+            $this->logger->info("HandleCheckMarkingCodeAsync: Запускаем фоновый процесс для задачи {$taskId}: {$command}");
+            
+            // Запускаем процесс через popen (не ждет завершения)
+            $handle = popen($command, 'r');
+            if ($handle === false) {
+                $this->logger->error("HandleCheckMarkingCodeAsync: Не удалось запустить фоновый процесс для задачи {$taskId}");
+            } else {
+                // НЕ закрываем handle - процесс будет работать независимо
+                $this->logger->info("HandleCheckMarkingCodeAsync: Фоновый процесс запущен для задачи {$taskId}");
+            }
+            
+            $debugLogPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'async_task_debug.log';
+            $this->logger->info("HandleCheckMarkingCodeAsync: Отладочный лог: {$debugLogPath}");
+            
+        } else {
+            // Unix/Linux
+            $command = sprintf(
+                '"%s" "%s" "%s" > /dev/null 2>&1 &',
+                $phpPath,
+                $scriptPath,
+                $taskId
+            );
+            $this->logger->info("HandleCheckMarkingCodeAsync: Запускаем фоновый процесс для задачи {$taskId}: {$command}");
+            exec($command);
+            $this->logger->info("HandleCheckMarkingCodeAsync: Фоновый процесс запущен для задачи {$taskId}");
+        }
+    }
+    
+    public function HandleGetMarkingResult() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+            $this->logger->warning("HandleGetMarkingResult: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+        
+        // Получаем taskId из URI (формат: /api/check-marking-result/{taskId})
+        $uri = $_SERVER['REQUEST_URI'];
+        $parts = explode('/', trim($uri, '/'));
+        
+        if (count($parts) < 3) {
+            $this->logger->error("HandleGetMarkingResult: Не указан ID задачи в URI");
+            http_response_code(400);
+            $this->sendHandlerResponse("error", 'Не указан ID задачи');
+            return;
+        }
+        
+        $taskId = end($parts);
+        $this->logger->info("HandleGetMarkingResult: Запрос результата для задачи {$taskId}");
+        
+        // Получаем задачу
+        $task = $this->taskManager->getTask($taskId);
+        
+        if ($task === null) {
+            $this->logger->error("HandleGetMarkingResult: Задача {$taskId} не найдена");
+            http_response_code(404);
+            $this->sendHandlerResponse("error", 'Задача не найдена');
+            return;
+        }
+        
+        // Формируем ответ в зависимости от статуса
+        switch ($task['status']) {
+            case 'pending':
+            case 'processing':
+                $this->sendHandlerResponse("success", "Задача выполняется", [
+                    'status' => $task['status'],
+                    'taskId' => $taskId,
+                    'createdAt' => $task['createdAt']
+                ]);
+                break;
+                
+            case 'completed':
+                $this->sendHandlerResponse("success", "Проверка завершена", [
+                    'status' => 'completed',
+                    'taskId' => $taskId,
+                    'result' => $task['result'],
+                    'completedAt' => $task['updatedAt']
+                ]);
+                break;
+                
+            case 'error':
+                $this->sendHandlerResponse("success", "Ошибка при проверке", [
+                    'status' => 'error',
+                    'taskId' => $taskId,
+                    'error' => $task['error'],
+                    'errorAt' => $task['updatedAt']
+                ]);
+                break;
+                
+            default:
+                $this->logger->error("HandleGetMarkingResult: Неизвестный статус задачи {$taskId}: {$task['status']}");
+                http_response_code(500);
+                $this->sendHandlerResponse("error", 'Неизвестный статус задачи');
+                break;
+        }
     }
 
     public function HandleCheckPermitMark() {

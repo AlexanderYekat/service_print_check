@@ -38,6 +38,7 @@ require_once 'models.php';
 require_once 'settings_storage/JsonFileSettingsStorage.php';
 require_once 'logger.php'; // Подключаем наш новый логгер
 require_once 'bank/bankutils.php'; // Подключаем утилиты для работы с банком
+require_once 'TaskManager.php'; // Подключаем менеджер задач
 
 // Глобальные переменные (эти строки будут удалены или закомментированы)
 // $glFptrDriver = new TFptr10Driver();
@@ -128,10 +129,18 @@ function runServer() {
     
     $checkService = new CheckService($FptrDriver, $logger, $bankObject, $scaleObject, $permitMark, $currentSettings);
 
+    // Создаем менеджер задач и очищаем старые задачи (старше 24 часов)
+    $taskManager = new TaskManager($logger);
+    $deletedCount = $taskManager->cleanupOldTasks(86400); // 24 часа
+    if ($deletedCount > 0) {
+        $logger->info("Очищено старых задач при запуске: {$deletedCount}");
+    }
+
     $fetchHandler = new Handler(
         $checkService, 
         $logger,
-        $currentSettings->permitMarkXApiKey
+        $currentSettings->permitMarkXApiKey,
+        $taskManager
     );
 
     $uri = $_SERVER['REQUEST_URI'];
@@ -503,6 +512,10 @@ function runServer() {
         $fetchHandler->HandlePrintCheck();
     } elseif ($uri === '/api/check-marking-code' && $method === 'POST') {
         $fetchHandler->HandleCheckMarkingCode();
+    } elseif ($uri === '/api/check-marking-code-async' && $method === 'POST') {
+        $fetchHandler->HandleCheckMarkingCodeAsync();
+    } elseif (preg_match('#^/api/check-marking-result/([a-f0-9\-]+)$#', $uri, $matches) && $method === 'GET') {
+        $fetchHandler->HandleGetMarkingResult();
     } elseif ($uri === '/api/clear-marking-codes' && $method === 'GET') {
         $fetchHandler->HandleClearMarkingCodes();
     } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {

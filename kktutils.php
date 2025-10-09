@@ -411,7 +411,7 @@ class TFptr10Driver {
         // В режиме эмуляции возвращаем мок-ответ
         if ($this->emulation) {
             $this->logger->info("Эмуляция задержки 60 секунд...");
-            sleep(60);
+            sleep(5);
             $this->logger->info("Эмуляция задержки 60 секунд завершена...");
             $mockResponse = [
                 "ready" => true,

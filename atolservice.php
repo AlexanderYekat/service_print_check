@@ -72,27 +72,9 @@ function runServer() {
     }
 
     // Создаем экземпляр CheckService, передавая ему FptrDriver и логгер
+    // Банк и весы создаются позже, только если нужны
     $bankObject = null;
-    try {
-        $bankObject = new TBankDriver($currentSettings->bankEmulation, $logger);
-        $logger->info("Экземпляр TBankDriver успешно создан.");
-    } catch (Exception $e) {
-        $logger->warning("Не удалось создать экземпляр TBankDriver: " . $e->getMessage());
-    }
-
     $scaleObject = null;
-    try {
-        $scaleObject = new TScale8Driver(
-            $currentSettings->comScale, // Используем comScale из настроек
-            $currentSettings->baudRateScale, // Используем baudRateScale из настроек
-            $currentSettings->modelScale, // Используем modelScale из настроек
-            $currentSettings->emulationScale, // Используем emulationScale из настроек
-            $logger
-        );
-        $logger->info("Экземпляр TScale8Driver успешно создан.");
-    } catch (Exception $e) {
-        $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
-    }
 
     // Преобразуем дни в секунды для конфигурации
     $cdnCacheIntervalDays = $currentSettings->permitMarkCDNCacheUpdateIntervalDays ?? 7;
@@ -145,6 +127,55 @@ function runServer() {
 
     $uri = $_SERVER['REQUEST_URI'];
     $method = $_SERVER['REQUEST_METHOD'];
+
+    // Определяем, нужны ли банк и весы для этого эндпоинта
+    // По умолчанию НЕ нужны (оптимизация!)
+    $needsBankAndScale = false;
+    
+    // Эндпоинты, которым НУЖНЫ банк или весы
+    $bankEndpoints = [
+        '/api/bank-operation',      // Банковские операции
+        '/api/print-bank-slip',     // Печать слипа
+    ];
+    
+    $scaleEndpoints = [
+        '/api/get-weight',          // Получение веса
+    ];
+    
+    // Проверяем, нужен ли банк
+    if (in_array($uri, $bankEndpoints)) {
+        $needsBankAndScale = true;
+    }
+    
+    // Проверяем, нужны ли весы
+    if (in_array($uri, $scaleEndpoints)) {
+        $needsBankAndScale = true;
+    }
+    
+    // Создаем банк и весы ТОЛЬКО если они нужны для этого эндпоинта
+    if ($needsBankAndScale) {
+        try {
+            $bankObject = new TBankDriver($currentSettings->bankEmulation, $logger);
+            $logger->info("Экземпляр TBankDriver успешно создан.");
+        } catch (Exception $e) {
+            $logger->warning("Не удалось создать экземпляр TBankDriver: " . $e->getMessage());
+        }
+
+        try {
+            $scaleObject = new TScale8Driver(
+                $currentSettings->comScale,
+                $currentSettings->baudRateScale,
+                $currentSettings->modelScale,
+                $currentSettings->emulationScale,
+                $logger
+            );
+            $logger->info("Экземпляр TScale8Driver успешно создан.");
+        } catch (Exception $e) {
+            $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
+        }
+    } else {
+        $logger->debug("Банк и весы не требуются для эндпоинта: {$uri}");
+    }
 
     // Handle root / -> simple settings
     if ($uri === '/' && $method === 'GET') {

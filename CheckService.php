@@ -114,17 +114,47 @@ class CheckService {
         
         foreach ($checkData['tableData'] as $index => $item) {
             if (!empty($item['markingCode'])) {
+                $this->logger->info("Обработка маркированного товара: " . $item['markingCode']);
+                $this->logger->info("itemEstimatedStatus: " . ($item['itemEstimatedStatus'] ?? 'не задан'));
+                
+                // Проверяем наличие результатов проверки КМ в ККТ
+                $needsKktCheck = !isset($item['kktCheckResult']) || 
+                                     !isset($item['kktCheckResult']['data']) ||
+                                     !isset($item['kktCheckResult']['data']['response']) ||
+                                     !isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult']);
+                
+                $this->logger->info("Нужна проверка КМ в ККТ: " . ($needsKktCheck ? 'да' : 'нет'));
+                
+                if (isset($item['kktCheckResult'])) {
+                    $this->logger->info("kktCheckResult: " . json_encode($item['kktCheckResult'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                }
+                if (isset($item['permitCheckResult'])) {
+                    $this->logger->info("permitCheckResult: " . json_encode($item['permitCheckResult'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                }
+                $this->logger->info('isset($item[permitCheckResult]) = ' . (isset($item['permitCheckResult']) ? 'true' : 'false'));
+                $this->logger->info('isset($item[permitCheckResult][data]) = ' . (isset($item['permitCheckResult']['data']) ? 'true' : 'false'));
+                $this->logger->info('isset($item[permitCheckResult][data][response]) = ' . (isset($item['permitCheckResult']['data']['response']) ? 'true' : 'false'));
+                //$this->logger->info("isset($item['permitCheckResult']['data']) = " . (isset($item['permitCheckResult']['data']) ? 'true' : 'false'));
+                //$this->logger->info("isset($item['kktCheckResult']['data']['response']) = " . (isset($item['kktCheckResult']['data']['response']) ? 'true' : 'false'));
+                //$this->logger->info("isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult']) = " . (isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult']) ? 'true' : 'false'));
+                //$this->logger->info("isset($item['permitCheckResult']['success']) = " . (isset($item['permitCheckResult']['success']) ? 'true' : 'false'));
+                //$this->logger->info("isset($item['permitCheckResult']['success']) = " . (isset($item['permitCheckResult']['success']) ? 'true' : 'false'));
+                $needsPermitCheck = !isset($item['permitCheckResult']) || 
+                                     !isset($item['permitCheckResult']['data']) ||
+                                     !isset($item['kktCheckResult']['data']['response']) || 
+                                     $item['permitCheckResult']['success'] === false && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled();
+                $this->logger->info("needsPermitCheck = " . ($needsPermitCheck ? 'true' : 'false'));
                 $mark = [
                     'index' => $index,
                     'markingCode' => $item['markingCode'],
                     'name' => $item['name'] ?? 'Товар',
                     'itemEstimatedStatus' => $item['itemEstimatedStatus'] ?? '',
-                    'needsKktCheck' => !isset($item['kktCheckResult']) || 
-                                     !isset($item['kktCheckResult']['machineData']) ||
-                                     !isset($item['kktCheckResult']['machineData']['itemInfoCheckResult']),
-                    'needsPermitCheck' => (!isset($item['permitCheckResult']) || 
-                                           !isset($item['permitCheckResult']['status']) ||
-                                           $item['permitCheckResult']['status'] !== 'success') && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled()
+                    'needsKktCheck' => $needsKktCheck,
+                    'needsPermitCheck' => $needsPermitCheck
+                    //'needsPermitCheck' => (!isset($item['permitCheckResult']) || 
+                    //                       !isset($item['permitCheckResult']['status']) ||
+                    //                       $item['permitCheckResult']['status'] !== 'success') && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled()
+
                 ];
                 $marks[] = $mark;
             }
@@ -147,6 +177,17 @@ class CheckService {
         $allSuccess = true;
         $errorMessages = [];
 
+        $existMarksForCheck = false;
+        foreach ($marks as $mark) {
+            if ($mark['needsKktCheck']) {
+                $existMarksForCheck = true;
+                break;
+            }
+        }
+        if (!$existMarksForCheck) {
+            return ['success' => true, 'message' => 'Нет марок для проверки на ККТ'];
+        }
+        
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkAllMarksOnKKT_IsShiftOpened', false);
         $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
 
@@ -155,6 +196,7 @@ class CheckService {
         }
         
         foreach ($marks as $mark) {
+            $this->logger->info("needsKktCheck: " . ($mark['needsKktCheck'] ? 'да' : 'нет'));
             if (!$mark['needsKktCheck']) {
                 $this->logger->info("Марка '{$mark['name']}' уже проверена на ККТ, пропускаем");
                 continue;
@@ -669,5 +711,33 @@ class CheckService {
 
     public function printBankSlip(array $slipLines) {
         return $this->_executeFptrOperation([$this->FptrDriver, 'PrintSlip'], [$slipLines], 'PrintSlip');
+    }
+
+    public function updateConfig(array $configData) {
+        try {
+            $this->logger->info("Обновление конфигурации: " . json_encode($configData));
+            
+            // Обновляем конфигурацию в PermitMarkCheckGateway
+            if (isset($configData['testExpiredMarks'])) {
+                if ($this->permitMarkCheckGateway) {
+                    $this->permitMarkCheckGateway->config['testExpiredMarks'] = (bool)$configData['testExpiredMarks'];
+                    $this->logger->info("testExpiredMarks установлен в: " . ($configData['testExpiredMarks'] ? 'true' : 'false'));
+                } else {
+                    $this->logger->warning("PermitMarkCheckGateway не инициализирован, конфигурация не обновлена");
+                }
+            }
+            
+            return [
+                'success' => true, 
+                'message' => 'Конфигурация успешно обновлена',
+                'data' => $configData
+            ];
+        } catch (Exception $e) {
+            $this->logger->error("Ошибка обновления конфигурации: " . $e->getMessage());
+            return [
+                'success' => false, 
+                'message' => 'Ошибка обновления конфигурации: ' . $e->getMessage()
+            ];
+        }
     }
 }

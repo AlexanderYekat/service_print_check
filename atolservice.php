@@ -571,6 +571,8 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
+    } elseif ($uri === '/api/update-config' && $method === 'POST') {
+        $fetchHandler->HandleUpdateConfig();
     } elseif ((strpos($uri, '/static/') === 0 || strpos($uri, '/tests/') === 0 || strpos($uri, '/scanner/') === 0) && $method === 'GET') {
         // Обработка статических файлов (CSS, JS), файлов тестирования и файлов сканера
         $filePath = __DIR__ . $uri;

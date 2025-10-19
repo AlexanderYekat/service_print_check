@@ -80,6 +80,8 @@ class Handler {
         $markingCode = $data['markingCode'] ?? '';
         $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
         $itemEstimatedStatus = $data['itemEstimatedStatus'] ?? '';
+        
+        $this->logger->info("HandleCheckMarkingCode: markingCode: " . $markingCode . " (длина: " . strlen($markingCode) . ")");
 
         if (empty($markingCode)) {
             $this->logger->error("HandleCheckMarkingCode: Отсутствует или пустое значение markingCode.");
@@ -266,7 +268,7 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $permitMark = $data['permitMark'] ?? '';
-        $this->logger->info("HandleCheckPermitMark: permitMark: " . $permitMark);
+        $this->logger->info("HandleCheckPermitMark: permitMark: " . $permitMark . " (длина: " . strlen($permitMark) . ")");
         $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
 
         if ($sellOrReturn != 'sell' && $sellOrReturn != 'buyReturn') {
@@ -522,6 +524,36 @@ class Handler {
         }
         $this->logger->info("HandleGetWeight: Вес получен.");
         $this->sendHandlerResponse("success", "Вес получен", $result['data']);
+    }
+
+    public function HandleUpdateConfig() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->logger->warning("HandleUpdateConfig: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            http_response_code(405);
+            $this->sendHandlerResponse("error", 'Метод не поддерживается');
+            return;
+        }
+
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        if (!$data) {
+            $this->logger->error("HandleUpdateConfig: Ошибка декодирования JSON");
+            http_response_code(400);
+            $this->sendHandlerResponse("error", 'Ошибка декодирования JSON');
+            return;
+        }
+
+        $result = $this->checkService->updateConfig($data);
+        if (!$result['success']) {
+            $this->logger->error("HandleUpdateConfig: Ошибка обновления конфигурации: " . $result['message']);
+            http_response_code(500);
+            $this->sendHandlerResponse("error", $result['message']);
+            return;
+        }
+
+        $this->logger->info("HandleUpdateConfig: Конфигурация успешно обновлена.");
+        $this->sendHandlerResponse("success", $result['message'], $result['data']);
     }
 
     private function sendHandlerResponse($type, $message, $data = [], $id = "") {

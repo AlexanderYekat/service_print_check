@@ -108,6 +108,7 @@
             padding: 10px;
             max-height: 400px;
             overflow-y: auto;
+            overflow-x: auto;
         }
         .item-card {
             background-color: white;
@@ -142,7 +143,11 @@
             border-radius: 3px;
             margin: 3px 0;
             word-break: break-all;
+            white-space: nowrap;
+            overflow-x: auto;
             border-left: 3px solid #2196F3;
+            max-width: 100%;
+            display: block;
         }
         .check-status {
             display: inline-block;
@@ -242,6 +247,7 @@
     <div class="form-section">
         <h3>Готовые сценарии</h3>
         <div class="preset-buttons">
+            <button class="button" onclick="loadPreset('milk_1')">🥛 Молоко (1 марка)</button>
             <button class="button" onclick="loadPreset('milk_3')">🥛 Молоко (3 марки)</button>
             <button class="button" onclick="loadPreset('milk_10')">🥛 Молоко (10 марок)</button>
             <button class="button" onclick="loadPreset('mixed_5')">🛒 Смешанный (5 марок + товары)</button>
@@ -249,19 +255,15 @@
             <button class="button secondary" onclick="loadPreset('milk_50')">🥛 Молоко (50 марок)</button>
         </div>
         
-        <h4 style="margin-top: 20px; color: #666;">Тестирование ошибок:</h4>
-        <div class="preset-buttons">
+        <div class="preset-buttons" style="margin-top: 15px;">
             <button class="button danger" onclick="loadPreset('invalid_marks')">❌ Невалидные марки</button>
-            <button class="button danger" onclick="loadPreset('expired_marks')">⏰ Просроченные марки</button>
-            <button class="button danger" onclick="loadPreset('no_internet')">🌐 Нет интернета</button>
-            <button class="button danger" onclick="loadPreset('honest_sign_down')">🚫 Честный знак недоступен</button>
-            <button class="button warning" onclick="loadPreset('mixed_errors')">🔀 Смешанные ошибки</button>
+            <button class="button secondary" onclick="loadPreset('mixed_invalid')">🔀 Смешанный (валидные + невалидные)</button>
         </div>
     </div>
 
     <div class="form-section">
         <h3>Параметры чека</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px;">
             <div class="form-group">
                 <label for="cashier">Кассир:</label>
                 <input type="text" id="cashier" value="Иванова А.С." style="width: 100%;">
@@ -280,6 +282,16 @@
                     <option value="card">Карта</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="productCategory">Категория товара:</label>
+                <select id="productCategory" style="width: 100%;">
+                    <option value="dairy">🥛 Молочные продукты</option>
+                    <option value="beverages">🥤 Напитки</option>
+                    <option value="canned_food">🥫 Консервы</option>
+                    <option value="vegetable_oils">🫒 Растительные масла</option>
+                    <option value="seafood_caviar">🐟 Морепродукты (икра)</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -294,6 +306,9 @@
             </button>
             <button class="button secondary" onclick="loadMarksFromCSV()" style="margin-left: 10px;">
                 🔄 Перезагрузить марки
+            </button>
+            <button class="button warning" onclick="toggleExpiredMarksMode()" style="margin-left: 10px;" id="expiredModeBtn">
+                ⏰ Режим просрочки: ВЫКЛ
             </button>
             <span id="checkStatus" style="margin-left: 15px; font-size: 14px;"></span>
         </div>
@@ -342,13 +357,9 @@
                 
                 const csvText = await response.text();
                 // Разбиваем по строкам и убираем пустые
-                const lines = csvText.split('\n').filter(line => line.trim());
-                
-                // Очищаем каждую строку от невидимых символов
-                realMarks = lines.map(line => {
-                    // Убираем BOM, пробелы, табы, переносы строк
-                    return line.replace(/^\uFEFF/, '').trim().replace(/[\r\n\t]/g, '');
-                }).filter(mark => mark.length > 0);
+                realMarks = csvText.split('\n')
+                    .map(line => line.trim())
+                    .filter(mark => mark.length > 0);
                 
                 console.log(`Загружено ${realMarks.length} марок из CSV файла`);
                 
@@ -373,6 +384,9 @@
             const checkType = document.getElementById('checkType').value;
             
             switch(type) {
+                case 'milk_1':
+                    currentData = createMilkCheck(1, checkType);
+                    break;
                 case 'milk_3':
                     currentData = createMilkCheck(3, checkType);
                     break;
@@ -389,19 +403,10 @@
                     currentData = createMixedCheck(5, checkType);
                     break;
                 case 'invalid_marks':
-                    currentData = createInvalidMarksCheck(checkType);
+                    currentData = createInvalidMarksCheck(5, checkType);
                     break;
-                case 'expired_marks':
-                    currentData = createExpiredMarksCheck(checkType);
-                    break;
-                case 'no_internet':
-                    currentData = createNoInternetCheck(checkType);
-                    break;
-                case 'honest_sign_down':
-                    currentData = createHonestSignDownCheck(checkType);
-                    break;
-                case 'mixed_errors':
-                    currentData = createMixedErrorsCheck(checkType);
+                case 'mixed_invalid':
+                    currentData = createMixedInvalidCheck(5, checkType);
                     break;
             }
             
@@ -411,6 +416,7 @@
         function createMilkCheck(marksCount, checkType) {
             const tableData = [];
             const marks = realMarks.slice(0, marksCount);
+            const selectedCategory = document.getElementById('productCategory').value;
             
             marks.forEach((mark, index) => {
                 tableData.push({
@@ -419,6 +425,7 @@
                     price: "89.50",
                     markingCode: mark,
                     itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
+                    category: selectedCategory,
                     checkResults: {
                         kkt: { status: 'not_checked' },
                         permit: { status: 'not_checked' }
@@ -432,6 +439,7 @@
         function createMixedCheck(marksCount, checkType) {
             const tableData = [];
             const marks = realMarks.slice(0, marksCount);
+            const selectedCategory = document.getElementById('productCategory').value;
             
             // Добавляем маркированные товары
             marks.forEach((mark, index) => {
@@ -441,6 +449,7 @@
                     price: "89.50",
                     markingCode: mark,
                     itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
+                    category: selectedCategory,
                     checkResults: {
                         kkt: { status: 'not_checked' },
                         permit: { status: 'not_checked' }
@@ -456,6 +465,90 @@
             );
             
             return { tableData };
+        }
+
+        function createInvalidMarksCheck(marksCount, checkType) {
+            const tableData = [];
+            const selectedCategory = document.getElementById('productCategory').value;
+            
+            // Генерируем невалидные марки
+            for (let i = 0; i < marksCount; i++) {
+                const invalidMark = generateInvalidMark(i + 1);
+                tableData.push({
+                    name: `Молоко «Простоквашино» 3.2% 0.93л (НЕВАЛИДНАЯ)`,
+                    quantity: "1",
+                    price: "89.50",
+                    markingCode: invalidMark,
+                    itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
+                    category: selectedCategory,
+                    checkResults: {
+                        kkt: { status: 'not_checked' },
+                        permit: { status: 'not_checked' }
+                    }
+                });
+            }
+            
+            return { tableData };
+        }
+
+        function createMixedInvalidCheck(marksCount, checkType) {
+            const tableData = [];
+            const validMarks = realMarks.slice(0, Math.ceil(marksCount / 2));
+            const invalidCount = marksCount - validMarks.length;
+            const selectedCategory = document.getElementById('productCategory').value;
+            
+            // Добавляем валидные марки
+            validMarks.forEach((mark, index) => {
+                tableData.push({
+                    name: `Молоко «Простоквашино» 3.2% 0.93л`,
+                    quantity: "1",
+                    price: "89.50",
+                    markingCode: mark,
+                    itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
+                    category: selectedCategory,
+                    checkResults: {
+                        kkt: { status: 'not_checked' },
+                        permit: { status: 'not_checked' }
+                    }
+                });
+            });
+            
+            // Добавляем невалидные марки
+            for (let i = 0; i < invalidCount; i++) {
+                const invalidMark = generateInvalidMark(i + 1);
+                tableData.push({
+                    name: `Молоко «Простоквашино» 3.2% 0.93л (НЕВАЛИДНАЯ)`,
+                    quantity: "1",
+                    price: "89.50",
+                    markingCode: invalidMark,
+                    itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
+                    category: selectedCategory,
+                    checkResults: {
+                        kkt: { status: 'not_checked' },
+                        permit: { status: 'not_checked' }
+                    }
+                });
+            }
+            
+            return { tableData };
+        }
+
+        function generateInvalidMark(index) {
+            // Генерируем различные типы невалидных марок
+            const invalidTypes = [
+                // Слишком короткая марка
+                `0102900361700015215kW5N:H<?F%Q-91EE10922lrLybbYVXrqjXkDebP/DgSpg8TmWbN92+sB1VseIuE`,
+                // Неправильный GTIN
+                `9999999999999999kW5N:H<?F%Q-\u001d91EE10\u001d922lrLybbYVXrqjXkDebP/DgSpg8TmWbN\u001d92+sB1VseIuE=`,
+                // Поврежденная подпись
+                `0102900361700015215kW5N:H<?F%Q-\u001d91EE10\u001d922lrLybbYVXrqjXkDebP/DgSpg8TmWbN\u001d92+sB1VseIuE`,
+                // Неправильный формат
+                `INVALID_MARK_${index}_TEST_123456789`,
+                // Пустая марка
+                ``
+            ];
+            
+            return invalidTypes[index % invalidTypes.length];
         }
 
         function updatePreview() {
@@ -476,6 +569,7 @@
                     </div>
                     <div style="font-size: 14px; color: #666; margin-bottom: 5px;">
                         Количество: ${item.quantity} × ${parseFloat(item.price).toFixed(2)} ₽
+                        ${item.category ? `<br>Категория: ${getCategoryDisplayName(item.category)}` : ''}
                     </div>`;
                 
                 if (item.markingCode) {
@@ -486,7 +580,7 @@
                     itemsHtml += `
                         <div style="margin-top: 10px;">
                             <strong>🏷️ Марка:</strong>
-                            <div class="mark-code">${item.markingCode}</div>
+                            <div class="mark-code" title="Полная марка: ${item.markingCode}">${item.markingCode}</div>
                             <div style="margin-top: 5px; font-size: 13px;">
                                 ККТ: <span class="check-status status-${kktStatus}" ${getStatusDetails(item.checkResults?.kkt)} style="cursor: ${kktStatus === 'error' ? 'pointer' : 'help'};" data-type="ККТ" data-result="${encodeURIComponent(JSON.stringify(item.checkResults?.kkt || {}))}" onclick="showErrorDetailsFromElement(this)">${getStatusText(kktStatus)}</span>
                                 Разрешение: <span class="check-status status-${permitStatus}" ${getStatusDetails(item.checkResults?.permit)} style="cursor: ${permitStatus === 'error' ? 'pointer' : 'help'};" data-type="Разрешение" data-result="${encodeURIComponent(JSON.stringify(item.checkResults?.permit || {}))}" onclick="showErrorDetailsFromElement(this)">${getStatusText(permitStatus)}</span>
@@ -509,6 +603,17 @@
                 'error': '❌ Ошибка'
             };
             return texts[status] || status;
+        }
+        
+        function getCategoryDisplayName(categoryCode) {
+            const categories = {
+                'dairy': '🥛 Молочные продукты',
+                'beverages': '🥤 Напитки',
+                'canned_food': '🥫 Консервы',
+                'vegetable_oils': '🫒 Растительные масла',
+                'seafood_caviar': '🐟 Морепродукты (икра)'
+            };
+            return categories[categoryCode] || categoryCode;
         }
         
         function getStatusDetails(checkResult) {
@@ -644,6 +749,7 @@
                 if (item.markingCode) {
                     rowData.markingCode = item.markingCode;
                     rowData.itemEstimatedStatus = item.itemEstimatedStatus;
+                    rowData.category = item.category;
                     
                     // Добавить результаты проверок, если они есть
                     if (item.checkResults?.kkt?.status === 'success') {
@@ -778,6 +884,51 @@
                 }
             };
             showErrorDetails('Тест', testError);
+        }
+
+        // Переменная для отслеживания режима просроченных марок
+        let expiredMarksMode = false;
+
+        // Функция переключения режима просроченных марок
+        function toggleExpiredMarksMode() {
+            expiredMarksMode = !expiredMarksMode;
+            const btn = document.getElementById('expiredModeBtn');
+            
+            if (expiredMarksMode) {
+                btn.textContent = '⏰ Режим просрочки: ВКЛ';
+                btn.classList.remove('warning');
+                btn.classList.add('danger');
+            } else {
+                btn.textContent = '⏰ Режим просрочки: ВЫКЛ';
+                btn.classList.remove('danger');
+                btn.classList.add('warning');
+            }
+            
+            // Отправляем настройку на сервер
+            updateServerConfig();
+        }
+
+        // Функция обновления конфигурации сервера
+        async function updateServerConfig() {
+            try {
+                const response = await fetch(`${API_URL}/api/update-config`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        testExpiredMarks: expiredMarksMode
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('Конфигурация сервера обновлена: testExpiredMarks =', expiredMarksMode);
+                } else {
+                    console.error('Ошибка обновления конфигурации сервера');
+                }
+            } catch (error) {
+                console.error('Ошибка сети при обновлении конфигурации:', error);
+            }
         }
 
         // Закрыть модальное окно при клике вне его

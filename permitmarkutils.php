@@ -13,7 +13,7 @@ class PermitMarkCheckGateway
     private string $apiKey;
     private int $timeout;
     private Logger $logger;
-    private array $config;
+    public array $config;
     private string $cdnCachePath;
 
     public function __construct(string $apiKey, int $timeout, Logger $logger, array $config = [])
@@ -37,6 +37,7 @@ class PermitMarkCheckGateway
             'verifySSL' => true, // проверка SSL сертификатов
             'emulation' => false,
             'testLocalModule' => false,
+            'testExpiredMarks' => false, // тестирование просроченных марок
             'asyncCDNHealthCheck' => true, // true = асинхронная (неделя), false = синхронная (месяц)
             'cdnCacheUpdateIntervalAsync' => 604800, // 1 неделя в секундах для асинхронной проверки
             'cdnCacheUpdateIntervalSync' => 2592000 // 1 месяц (30 дней) в секундах для синхронной проверки
@@ -52,6 +53,10 @@ class PermitMarkCheckGateway
 
     public function getTestLocalModule() {
         return $this->config['testLocalModule'];
+    }
+
+    public function getTestExpiredMarks() {
+        return $this->config['testExpiredMarks'];
     }   
 
     /**
@@ -427,9 +432,20 @@ class PermitMarkCheckGateway
                     $this->logger->warning("Ошибка обработки variableExpirations: " . $e->getMessage());
                 }
             }
+            
+            // Если включен режим тестирования просроченных марок, устанавливаем просроченную дату
+            $this->logger->info("Режим тестирования просроченных марок: " . $this->config['testExpiredMarks']);
+            if ($this->config['testExpiredMarks']) {
+                // Устанавливаем просроченную дату (вчера)
+                $yesterday = new DateTime('yesterday', new DateTimeZone('UTC'));
+                $mark['expireDate'] = $yesterday->format('Y-m-d\TH:i:s.000\Z');
+                $this->logger->info("Режим тестирования просроченных марок: expireDate установлен на " . $mark['expireDate']);
+            }
+            
             // Проверяем обычный срок годности (формат: yyyy-MM-dd'T'HH:mm:ss.SSSz)
-            else if (isset($mark['expireDate']) && $mark['expireDate']) {
+            if (isset($mark['expireDate']) && $mark['expireDate']) {
                 try {
+                    
                     // Парсим дату в формате ISO 8601 с автоматическим определением часового пояса
                     $expireDateTime = new DateTime($mark['expireDate']);
                     // Конвертируем в UTC для корректного сравнения

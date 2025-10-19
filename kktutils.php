@@ -10,14 +10,16 @@ class TFptr10Driver {
     private $portIpKkt;
     private $ipServKkt;
     private $emulation;
+    private $emulationwait;
     private $logger;
 
-    public function __construct($comport = 0, $ipKkt = "", $portIpKkt = 0, $ipServKkt = "", $logger = null, $emulation = false) {
+    public function __construct($comport = 0, $ipKkt = "", $portIpKkt = 0, $ipServKkt = "", $logger = null, $emulation = false, $emulationwait = false) {
         $this->comport = $comport;
         $this->ipKkt = $ipKkt;
         $this->portIpKkt = $portIpKkt;
         $this->ipServKkt = $ipServKkt;
         $this->emulation = $emulation;
+        $this->emulationwait = $emulationwait;
         $this->logger = $logger;
     }
 
@@ -410,9 +412,12 @@ class TFptr10Driver {
 
         // В режиме эмуляции возвращаем мок-ответ
         if ($this->emulation) {
-            $this->logger->info("Эмуляция задержки 60 секунд...");
-            sleep(5);
-            $this->logger->info("Эмуляция задержки 60 секунд завершена...");
+            $this->logger->info("Эмуляция checkMarkingCodeValidation...");
+            if ($this->emulationwait) {
+                $this->logger->info("Эмуляция задержки 60 секунд...");
+                sleep(5);
+                $this->logger->info("Эмуляция задержки 60 секунд завершена...");                
+            }
             $mockResponse = [
                 "ready" => true,
                 "sentImcRequest" => true,

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест 3: Много чеков подряд</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-description {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .button.secondary {
+            background-color: #2196F3;
+        }
+        .button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .button.danger {
+            background-color: #f44336;
+        }
+        .button.danger:hover {
+            background-color: #da190b;
+        }
+        .form-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input, .form-group select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .progress-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background-color: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .stat-card.error {
+            border-left-color: #f44336;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .log-section {
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            padding: 5px;
+            margin-bottom: 3px;
+            border-radius: 3px;
+        }
+        .log-entry.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .log-entry.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .log-entry.info {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 Тест 3: Много чеков подряд</h1>
+    
+    <div class="test-description">
+        <strong>Цель теста:</strong> Проверить стабильность работы системы при печати большого количества чеков подряд.<br>
+        <strong>Что проверяем:</strong> 
+        <ul>
+            <li>Непрерывная печать чеков (10, 50, 100 шт.)</li>
+            <li>Стабильность работы без сбоев</li>
+            <li>Время обработки каждого чека</li>
+            <li>Утечки памяти</li>
+        </ul>
+    </div>
+
+    <div class="form-section">
+        <h3>Параметры теста</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+                <label for="checksCount">Количество чеков:</label>
+                <input type="number" id="checksCount" min="1" max="1000" value="10" style="width: 150px;">
+            </div>
+            <div class="form-group">
+                <label for="itemsPerCheck">Позиций в каждом чеке:</label>
+                <input type="number" id="itemsPerCheck" min="1" max="100" value="5" style="width: 150px;">
+            </div>
+            <div class="form-group">
+                <label for="delayBetween">Задержка между чеками (мс):</label>
+                <input type="number" id="delayBetween" min="0" max="10000" value="500" style="width: 150px;">
+            </div>
+            <div class="form-group">
+                <label for="cashier">Кассир:</label>
+                <input type="text" id="cashier" value="Сидорова М.П." style="width: 250px;">
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 20px;">
+        <button class="button" id="startBtn" onclick="startTest()" style="font-size: 18px; padding: 15px 40px;">
+            ▶️ Запустить тест
+        </button>
+        <button class="button danger" id="stopBtn" onclick="stopTest()" disabled style="font-size: 18px; padding: 15px 40px;">
+            ⏹️ Остановить
+        </button>
+        <button class="button secondary" onclick="clearLog()">🗑️ Очистить лог</button>
+    </div>
+
+    <div class="progress-section">
+        <h3>Прогресс</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%;">0%</div>
+        </div>
+        <div style="text-align: center; color: #666;">
+            Обработано чеков: <span id="processedCount">0</span> из <span id="totalCount">0</span>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">✅ Успешно</div>
+                <div class="stat-value" id="successCount">0</div>
+            </div>
+            <div class="stat-card error">
+                <div class="stat-label">❌ Ошибок</div>
+                <div class="stat-value" id="errorCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⏱️ Среднее время (сек)</div>
+                <div class="stat-value" id="avgTime">0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🔄 Статус</div>
+                <div class="stat-value" id="status" style="font-size: 16px;">Ожидание</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Журнал выполнения</h3>
+        <div class="log-section" id="logSection">
+            <div class="log-entry info">Готов к запуску теста...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let isRunning = false;
+        let shouldStop = false;
+        let stats = {
+            total: 0,
+            processed: 0,
+            success: 0,
+            errors: 0,
+            times: []
+        };
+
+        const productTemplates = [
+            "Молоко 3.2% 1л", "Хлеб белый", "Масло сливочное 200г", "Сыр российский 100г",
+            "Колбаса вареная 300г", "Яйца С1 10шт", "Сахар 1кг", "Чай черный 100г",
+            "Кофе растворимый 95г", "Сок апельсиновый 1л", "Вода минеральная 1.5л",
+            "Печенье 200г", "Конфеты 250г", "Шоколад 100г", "Батон нарезной"
+        ];
+
+        function generateRandomCheck(itemsCount) {
+            const items = [];
+            let total = 0;
+
+            for (let i = 0; i < itemsCount; i++) {
+                const name = productTemplates[Math.floor(Math.random() * productTemplates.length)];
+                const quantity = (Math.floor(Math.random() * 3) + 1).toString();
+                const price = (Math.random() * 300 + 20).toFixed(2);
+                
+                items.push({ name, quantity, price });
+                total += parseFloat(quantity) * parseFloat(price);
+            }
+
+            return { items, total };
+        }
+
+        async function startTest() {
+            if (isRunning) return;
+
+            const checksCount = parseInt(document.getElementById('checksCount').value);
+            const itemsPerCheck = parseInt(document.getElementById('itemsPerCheck').value);
+            const delay = parseInt(document.getElementById('delayBetween').value);
+            const cashier = document.getElementById('cashier').value.trim();
+
+            if (!cashier) {
+                alert('Введите имя кассира');
+                return;
+            }
+
+            // Сброс статистики
+            stats = {
+                total: checksCount,
+                processed: 0,
+                success: 0,
+                errors: 0,
+                times: []
+            };
+
+            isRunning = true;
+            shouldStop = false;
+
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('totalCount').textContent = checksCount;
+            document.getElementById('status').textContent = 'Работает...';
+            document.getElementById('status').style.color = '#4CAF50';
+
+            addLog(`Начало теста: ${checksCount} чеков по ${itemsPerCheck} позиций`, 'info');
+
+            for (let i = 1; i <= checksCount; i++) {
+                if (shouldStop) {
+                    addLog('Тест остановлен пользователем', 'error');
+                    break;
+                }
+
+                const checkData = generateRandomCheck(itemsPerCheck);
+                
+                const requestData = {
+                    tableData: checkData.items,
+                    cashier: `${cashier} (Чек #${i})`,
+                    type: 'sell',
+                    payments: [
+                        { type: Math.random() > 0.5 ? 'cash' : 'card', amount: checkData.total }
+                    ]
+                };
+
+                const startTime = performance.now();
+                
+                try {
+                    const response = await fetch(`${API_URL}/api/print-check`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const endTime = performance.now();
+                    const duration = (endTime - startTime) / 1000;
+                    stats.times.push(duration);
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        stats.success++;
+                        addLog(`✅ Чек #${i}: Успешно (${duration.toFixed(2)} сек, ${checkData.total.toFixed(2)} ₽)`, 'success');
+                    } else {
+                        stats.errors++;
+                        addLog(`❌ Чек #${i}: Ошибка - ${result.error || 'Неизвестная ошибка'}`, 'error');
+                    }
+                } catch (error) {
+                    stats.errors++;
+                    addLog(`❌ Чек #${i}: Ошибка сети - ${error.message}`, 'error');
+                }
+
+                stats.processed++;
+                updateProgress();
+
+                if (i < checksCount && !shouldStop) {
+                    await sleep(delay);
+                }
+            }
+
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('status').textContent = shouldStop ? 'Остановлен' : 'Завершен';
+            document.getElementById('status').style.color = shouldStop ? '#f44336' : '#4CAF50';
+
+            const avgTime = stats.times.length > 0 
+                ? (stats.times.reduce((a, b) => a + b, 0) / stats.times.length).toFixed(2)
+                : '0.00';
+            
+            addLog(`\n📊 Итоги теста:`, 'info');
+            addLog(`Всего: ${stats.total}, Обработано: ${stats.processed}, Успешно: ${stats.success}, Ошибок: ${stats.errors}`, 'info');
+            addLog(`Среднее время: ${avgTime} сек`, 'info');
+        }
+
+        function stopTest() {
+            shouldStop = true;
+        }
+
+        function updateProgress() {
+            const percent = Math.round((stats.processed / stats.total) * 100);
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressFill').textContent = percent + '%';
+            document.getElementById('processedCount').textContent = stats.processed;
+            document.getElementById('successCount').textContent = stats.success;
+            document.getElementById('errorCount').textContent = stats.errors;
+            
+            const avgTime = stats.times.length > 0 
+                ? (stats.times.reduce((a, b) => a + b, 0) / stats.times.length).toFixed(2)
+                : '0.00';
+            document.getElementById('avgTime').textContent = avgTime;
+        }
+
+        function addLog(message, type = 'info') {
+            const logSection = document.getElementById('logSection');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logSection.appendChild(entry);
+            logSection.scrollTop = logSection.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logSection').innerHTML = '<div class="log-entry info">Лог очищен. Готов к запуску теста...</div>';
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
+

@@ -266,6 +266,7 @@ class Handler {
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
         $permitMark = $data['permitMark'] ?? '';
+        $this->logger->info("HandleCheckPermitMark: permitMark: " . $permitMark);
         $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
 
         if ($sellOrReturn != 'sell' && $sellOrReturn != 'buyReturn') {

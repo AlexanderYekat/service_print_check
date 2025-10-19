@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест 2: Чек с большим количеством позиций</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-description {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button.secondary {
+            background-color: #2196F3;
+        }
+        .button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .button.danger {
+            background-color: #f44336;
+        }
+        .button.danger:hover {
+            background-color: #da190b;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .form-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .items-preview {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px;
+            text-align: left;
+        }
+        td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        tr:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>📦 Тест 2: Чек с большим количеством позиций</h1>
+    
+    <div class="test-description">
+        <strong>Цель теста:</strong> Проверить работу системы с чеками, содержащими большое количество позиций.<br>
+        <strong>Что проверяем:</strong> 
+        <ul>
+            <li>Печать чека с 20-50 позициями</li>
+            <li>Печать чека с 100+ позициями</li>
+            <li>Производительность системы</li>
+            <li>Корректность расчета итоговой суммы</li>
+        </ul>
+    </div>
+
+    <div class="form-section">
+        <h3>Генерация позиций</h3>
+        <div class="preset-buttons">
+            <button class="button" onclick="generateItems(20)">📦 20 позиций</button>
+            <button class="button" onclick="generateItems(50)">📦 50 позиций</button>
+            <button class="button" onclick="generateItems(100)">📦 100 позиций</button>
+            <button class="button secondary" onclick="generateItems(200)">📦 200 позиций</button>
+            <button class="button secondary" onclick="generateItems(500)">📦 500 позиций</button>
+        </div>
+        
+        <div class="form-group">
+            <label for="customCount">Или укажите свое количество:</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="customCount" min="1" max="1000" value="30" style="width: 150px;">
+                <button class="button" onclick="generateItems(parseInt(document.getElementById('customCount').value))">
+                    Создать позиции
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Параметры чека</h3>
+        <div class="form-group">
+            <label for="cashier">Кассир:</label>
+            <input type="text" id="cashier" value="Петров В.И.">
+        </div>
+        <div class="form-group">
+            <label for="checkType">Тип операции:</label>
+            <select id="checkType">
+                <option value="sell">Продажа</option>
+                <option value="return">Возврат</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="paymentType">Тип оплаты:</label>
+            <select id="paymentType">
+                <option value="cash">Наличные</option>
+                <option value="card">Карта</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Позиции чека (<span id="itemCount">0</span> шт.)</h3>
+        <div class="items-preview" id="itemsPreview">
+            <em style="padding: 10px; display: block;">Выберите количество позиций для генерации</em>
+        </div>
+        <div id="totalPreview" style="font-size: 20px; font-weight: bold; text-align: right; margin-top: 10px; color: #4CAF50;">
+            Итого: 0.00 ₽
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <button class="button" onclick="printCheck()" style="font-size: 20px; padding: 15px 40px;">
+            🖨️ Печать чека
+        </button>
+        <button class="button danger" onclick="clearResult()">🗑️ Очистить результат</button>
+    </div>
+
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let currentData = null;
+
+        // Шаблоны товаров для генерации
+        const productTemplates = [
+            "Молоко 3.2% 1л", "Хлеб белый", "Хлеб черный", "Масло сливочное 200г",
+            "Сыр российский кг", "Колбаса вареная кг", "Курица охлажденная кг",
+            "Яйца С1 10шт", "Сахар 1кг", "Соль 1кг", "Мука пшеничная 2кг",
+            "Рис 1кг", "Гречка 1кг", "Макароны 450г", "Чай черный 100г",
+            "Кофе растворимый 95г", "Сок апельсиновый 1л", "Вода минеральная 1.5л",
+            "Йогурт 125г", "Творог 200г", "Сметана 15% 300г", "Кефир 1л",
+            "Печенье шоколадное 200г", "Конфеты шоколадные 250г", "Шоколад молочный 100г",
+            "Чипсы 150г", "Сухарики 80г", "Орехи жареные 100г", "Семечки 200г",
+            "Пиво светлое 0.5л", "Вино красное 0.75л", "Сигареты", "Зажигалка",
+            "Батарейки АА 4шт", "Туалетная бумага 4шт", "Мыло 90г", "Шампунь 400мл",
+            "Зубная паста 100мл", "Зубная щетка", "Стиральный порошок 450г",
+            "Салфетки бумажные 100шт", "Губки для посуды 5шт", "Средство для посуды 500мл",
+            "Перчатки резиновые М", "Пакеты для мусора 30л 20шт", "Фольга 10м",
+            "Пленка пищевая 20м", "Спички", "Свечи 6шт", "Лампочка 60Вт",
+            "Тетрадь 48л клетка", "Ручка шариковая синяя", "Карандаш простой",
+            "Ластик", "Точилка", "Клей-карандаш", "Скотч 15мм 33м",
+            "Файлы А4 100шт", "Бумага А4 500л", "Степлер №10",
+            "Скрепки 100шт", "Кнопки канцелярские 50шт", "Маркер черный",
+            "Блокнот А5", "Календарь настольный", "Ежедневник А5",
+            "Носки мужские", "Носки женские", "Колготки 40 ден", "Футболка М",
+            "Майка Л", "Трусы мужские", "Трусы женские", "Перчатки вязаные",
+            "Шапка зимняя", "Шарф", "Кепка", "Ремень кожаный",
+            "Галстук", "Платок носовой 3шт", "Расческа", "Заколка для волос",
+            "Резинка для волос 10шт", "Зеркало карманное", "Пилка для ногтей",
+            "Кружка керамическая 300мл", "Тарелка стеклянная", "Ложка столовая",
+            "Вилка столовая", "Нож столовый", "Половник", "Лопатка кухонная",
+            "Доска разделочная", "Терка", "Консервный нож", "Штопор",
+            "Дуршлаг", "Ведро пластиковое 10л", "Таз 12л", "Швабра",
+            "Щетка для пола", "Совок для мусора", "Веник", "Тряпка для пола"
+        ];
+
+        function generateItems(count) {
+            const items = [];
+            let total = 0;
+
+            for (let i = 0; i < count; i++) {
+                const nameIndex = i % productTemplates.length;
+                const name = productTemplates[nameIndex];
+                const quantity = (Math.floor(Math.random() * 5) + 1).toString();
+                const price = (Math.random() * 500 + 10).toFixed(2);
+                
+                items.push({ name, quantity, price });
+                total += parseFloat(quantity) * parseFloat(price);
+            }
+
+            currentData = {
+                tableData: items
+            };
+
+            updatePreview(total);
+        }
+
+        function updatePreview(total) {
+            if (!currentData) return;
+
+            // Показать позиции
+            let itemsHtml = '<table>';
+            itemsHtml += '<tr><th style="width: 50px;">#</th><th>Наименование</th><th style="width: 80px;">Кол-во</th><th style="width: 100px;">Цена</th><th style="width: 100px;">Сумма</th></tr>';
+            
+            currentData.tableData.forEach((item, index) => {
+                const sum = parseFloat(item.quantity) * parseFloat(item.price);
+                itemsHtml += `<tr>
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td>${item.name}</td>
+                    <td style="text-align: center;">${item.quantity}</td>
+                    <td style="text-align: right;">${parseFloat(item.price).toFixed(2)} ₽</td>
+                    <td style="text-align: right;">${sum.toFixed(2)} ₽</td>
+                </tr>`;
+            });
+            itemsHtml += '</table>';
+            document.getElementById('itemsPreview').innerHTML = itemsHtml;
+
+            // Обновить счетчик и итого
+            document.getElementById('itemCount').textContent = currentData.tableData.length;
+            document.getElementById('totalPreview').innerHTML = `Итого: ${total.toFixed(2)} ₽`;
+        }
+
+        async function printCheck() {
+            if (!currentData) {
+                alert('Сначала сгенерируйте позиции');
+                return;
+            }
+
+            const cashier = document.getElementById('cashier').value.trim();
+            if (!cashier) {
+                alert('Введите имя кассира');
+                return;
+            }
+
+            const checkType = document.getElementById('checkType').value;
+            const paymentType = document.getElementById('paymentType').value;
+
+            // Рассчитать общую сумму
+            let total = 0;
+            currentData.tableData.forEach(item => {
+                total += parseFloat(item.quantity) * parseFloat(item.price);
+            });
+
+            const requestData = {
+                tableData: currentData.tableData,
+                cashier: cashier,
+                type: checkType,
+                payments: [
+                    { type: paymentType, amount: total }
+                ]
+            };
+
+            showResult(`Отправка чека с ${currentData.tableData.length} позициями на печать...`, 'info');
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(`${API_URL}/api/print-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const endTime = performance.now();
+                const duration = ((endTime - startTime) / 1000).toFixed(2);
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult(
+                        `✅ Чек успешно отправлен на печать!\n\n` +
+                        `Позиций: ${currentData.tableData.length}\n` +
+                        `Время обработки: ${duration} сек\n` +
+                        `Итого: ${total.toFixed(2)} ₽\n\n` +
+                        JSON.stringify(result, null, 2),
+                        'success'
+                    );
+                } else {
+                    showResult(
+                        `❌ Ошибка при печати чека:\n\n` +
+                        `Время обработки: ${duration} сек\n\n` +
+                        JSON.stringify(result, null, 2),
+                        'error'
+                    );
+                }
+            } catch (error) {
+                showResult('❌ Ошибка сети:\n\n' + error.message, 'error');
+            }
+        }
+
+        function showResult(text, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = text;
+            resultDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                resultDiv.style.borderLeft = '4px solid #4CAF50';
+                resultDiv.style.backgroundColor = '#e8f5e9';
+            } else if (type === 'error') {
+                resultDiv.style.borderLeft = '4px solid #f44336';
+                resultDiv.style.backgroundColor = '#ffebee';
+            } else {
+                resultDiv.style.borderLeft = '4px solid #2196F3';
+                resultDiv.style.backgroundColor = '#e3f2fd';
+            }
+        }
+
+        function clearResult() {
+            document.getElementById('result').style.display = 'none';
+        }
+
+        // Сгенерировать 20 позиций по умолчанию
+        window.onload = () => {
+            generateItems(20);
+        };
+    </script>
+</body>
+</html>
+

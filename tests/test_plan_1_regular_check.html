@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест 1: Обычный чек</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-description {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button.secondary {
+            background-color: #2196F3;
+        }
+        .button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .button.danger {
+            background-color: #f44336;
+        }
+        .button.danger:hover {
+            background-color: #da190b;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .form-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>📝 Тест 1: Обычный чек</h1>
+    
+    <div class="test-description">
+        <strong>Цель теста:</strong> Проверить базовую функциональность печати обычного чека без маркировки.<br>
+        <strong>Что проверяем:</strong> 
+        <ul>
+            <li>Печать простого чека с несколькими позициями</li>
+            <li>Оплату наличными</li>
+            <li>Оплату картой</li>
+            <li>Смешанную оплату</li>
+        </ul>
+    </div>
+
+    <div class="form-section">
+        <h3>Готовые сценарии</h3>
+        <div class="preset-buttons">
+            <button class="button" onclick="loadPreset1()">🛒 Продукты (3 позиции)</button>
+            <button class="button" onclick="loadPreset2()">🍕 Кафе (5 позиций)</button>
+            <button class="button" onclick="loadPreset3()">📚 Книги (2 позиции)</button>
+            <button class="button secondary" onclick="loadPreset4()">💳 Безнал (4 позиции)</button>
+            <button class="button secondary" onclick="loadPreset5()">💰 Смешанная оплата</button>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Параметры чека</h3>
+        <div class="form-group">
+            <label for="cashier">Кассир:</label>
+            <input type="text" id="cashier" value="Иванова А.С.">
+        </div>
+        <div class="form-group">
+            <label for="checkType">Тип операции:</label>
+            <select id="checkType">
+                <option value="sell">Продажа</option>
+                <option value="return">Возврат</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Позиции чека</h3>
+        <div id="itemsPreview" style="margin-bottom: 15px; padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
+            <em>Выберите готовый сценарий или заполните данные вручную</em>
+        </div>
+        <div id="totalPreview" style="font-size: 18px; font-weight: bold; text-align: right; margin-top: 10px;">
+            Итого: 0.00 ₽
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3>Оплата</h3>
+        <div id="paymentsPreview" style="margin-bottom: 15px; padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
+            <em>Выберите сценарий</em>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px;">
+        <button class="button" onclick="printCheck()" style="font-size: 20px; padding: 15px 40px;">
+            🖨️ Печать чека
+        </button>
+        <button class="button danger" onclick="clearResult()">🗑️ Очистить результат</button>
+    </div>
+
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let currentData = null;
+
+        function loadPreset1() {
+            currentData = {
+                tableData: [
+                    { name: "Хлеб «Бородинский»", quantity: "2", price: "45.50" },
+                    { name: "Молоко 3.2% 1л", quantity: "1", price: "85.00" },
+                    { name: "Яйца С1 10шт", quantity: "1", price: "120.00" }
+                ],
+                payments: [
+                    { type: "cash", amount: 296.00 }
+                ]
+            };
+            updatePreview();
+        }
+
+        function loadPreset2() {
+            currentData = {
+                tableData: [
+                    { name: "Капучино большой", quantity: "2", price: "180.00" },
+                    { name: "Круассан с шоколадом", quantity: "2", price: "95.00" },
+                    { name: "Салат Цезарь", quantity: "1", price: "350.00" },
+                    { name: "Сок апельсиновый 0.3л", quantity: "1", price: "120.00" },
+                    { name: "Эклер", quantity: "1", price: "115.00" }
+                ],
+                payments: [
+                    { type: "cash", amount: 1035.00 }
+                ]
+            };
+            updatePreview();
+        }
+
+        function loadPreset3() {
+            currentData = {
+                tableData: [
+                    { name: "Книга «Война и мир» Л.Н. Толстой", quantity: "1", price: "850.00" },
+                    { name: "Книга «Мастер и Маргарита» М.А. Булгаков", quantity: "1", price: "650.00" }
+                ],
+                payments: [
+                    { type: "cash", amount: 1500.00 }
+                ]
+            };
+            updatePreview();
+        }
+
+        function loadPreset4() {
+            currentData = {
+                tableData: [
+                    { name: "Смартфон защитное стекло", quantity: "1", price: "450.00" },
+                    { name: "Чехол силиконовый", quantity: "1", price: "350.00" },
+                    { name: "Кабель USB-C 1м", quantity: "2", price: "250.00" },
+                    { name: "Наушники TWS", quantity: "1", price: "1890.00" }
+                ],
+                payments: [
+                    { type: "card", amount: 3190.00 }
+                ]
+            };
+            updatePreview();
+        }
+
+        function loadPreset5() {
+            currentData = {
+                tableData: [
+                    { name: "Футболка хлопок М", quantity: "1", price: "890.00" },
+                    { name: "Джинсы классические 32", quantity: "1", price: "2450.00" },
+                    { name: "Носки набор 3 пары", quantity: "1", price: "350.00" }
+                ],
+                payments: [
+                    { type: "cash", amount: 2000.00 },
+                    { type: "card", amount: 1690.00 }
+                ]
+            };
+            updatePreview();
+        }
+
+        function updatePreview() {
+            if (!currentData) return;
+
+            // Показать позиции
+            let itemsHtml = '<table style="width: 100%; font-size: 14px;">';
+            itemsHtml += '<tr style="background-color: #e0e0e0;"><th>Наименование</th><th>Кол-во</th><th>Цена</th><th>Сумма</th></tr>';
+            
+            let total = 0;
+            currentData.tableData.forEach(item => {
+                const sum = parseFloat(item.quantity) * parseFloat(item.price);
+                total += sum;
+                itemsHtml += `<tr>
+                    <td>${item.name}</td>
+                    <td style="text-align: center;">${item.quantity}</td>
+                    <td style="text-align: right;">${parseFloat(item.price).toFixed(2)} ₽</td>
+                    <td style="text-align: right;">${sum.toFixed(2)} ₽</td>
+                </tr>`;
+            });
+            itemsHtml += '</table>';
+            document.getElementById('itemsPreview').innerHTML = itemsHtml;
+
+            // Показать итого
+            document.getElementById('totalPreview').innerHTML = `Итого: ${total.toFixed(2)} ₽`;
+
+            // Показать оплату
+            let paymentsHtml = '';
+            currentData.payments.forEach(payment => {
+                const typeText = payment.type === 'cash' ? '💵 Наличные' : '💳 Карта';
+                paymentsHtml += `<div>${typeText}: ${payment.amount.toFixed(2)} ₽</div>`;
+            });
+            document.getElementById('paymentsPreview').innerHTML = paymentsHtml;
+        }
+
+        async function printCheck() {
+            if (!currentData) {
+                alert('Выберите готовый сценарий');
+                return;
+            }
+
+            const cashier = document.getElementById('cashier').value.trim();
+            if (!cashier) {
+                alert('Введите имя кассира');
+                return;
+            }
+
+            const checkType = document.getElementById('checkType').value;
+
+            const requestData = {
+                ...currentData,
+                cashier: cashier,
+                type: checkType
+            };
+
+            showResult('Отправка чека на печать...', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/api/print-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showResult('✅ Чек успешно отправлен на печать!\n\n' + JSON.stringify(result, null, 2), 'success');
+                } else {
+                    showResult('❌ Ошибка при печати чека:\n\n' + JSON.stringify(result, null, 2), 'error');
+                }
+            } catch (error) {
+                showResult('❌ Ошибка сети:\n\n' + error.message, 'error');
+            }
+        }
+
+        function showResult(text, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = text;
+            resultDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                resultDiv.style.borderLeft = '4px solid #4CAF50';
+                resultDiv.style.backgroundColor = '#e8f5e9';
+            } else if (type === 'error') {
+                resultDiv.style.borderLeft = '4px solid #f44336';
+                resultDiv.style.backgroundColor = '#ffebee';
+            } else {
+                resultDiv.style.borderLeft = '4px solid #2196F3';
+                resultDiv.style.backgroundColor = '#e3f2fd';
+            }
+        }
+
+        function clearResult() {
+            document.getElementById('result').style.display = 'none';
+        }
+
+        // Загрузить первый пресет по умолчанию
+        window.onload = () => {
+            loadPreset1();
+        };
+    </script>
+</body>
+</html>
+

@@ -72,7 +72,8 @@ try {
         $currentSettings->portIpKkt,
         $currentSettings->ipServKkt,
         $logger,
-        $currentSettings->emulation
+        $currentSettings->emulation,
+        $currentSettings->emulationwait
     );
     
     $err = $FptrDriver->NewSafe();

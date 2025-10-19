@@ -77,6 +77,7 @@ class Settings {
     public $portIpKkt;
     public $ipServKkt;
     public $emulation;
+    public $emulationwait;
     public $allowedOrigin;
     public $comScale;
     public $baudRateScale;
@@ -179,6 +180,7 @@ class Settings {
         $this->portIpKkt = 0;
         $this->ipServKkt = "";
         $this->emulation = false;
+        $this->emulationwait = false;
         $this->allowedOrigin = "";
         $this->comScale = 1001;
         $this->baudRateScale = 18;
@@ -230,6 +232,7 @@ class Settings {
         $this->portIpKkt = $data['portIpKkt'] ?? $this->portIpKkt;
         $this->ipServKkt = $data['ipServKkt'] ?? $this->ipServKkt;
         $this->emulation = $data['emulation'] ?? $this->emulation;
+        $this->emulationwait = $data['emulationwait'] ?? $this->emulationwait;
         $this->allowedOrigin = $data['allowedOrigin'] ?? $this->allowedOrigin;
         $this->comScale = $data['comScale'] ?? $this->comScale;
         $this->baudRateScale = $data['baudRateScale'] ?? $this->baudRateScale;
@@ -284,6 +287,7 @@ class Settings {
             'portIpKkt' => $this->portIpKkt,
             'ipServKkt' => $this->ipServKkt,
             'emulation' => $this->emulation,
+            'emulationwait' => $this->emulationwait,
             'allowedOrigin' => $this->allowedOrigin,
             'comScale' => $this->comScale,
             'baudRateScale' => $this->baudRateScale,

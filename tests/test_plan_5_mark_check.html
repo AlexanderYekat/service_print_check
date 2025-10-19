@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест 5: Проверка марок</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .test-description {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .button.secondary {
+            background-color: #2196F3;
+        }
+        .button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .button.danger {
+            background-color: #f44336;
+        }
+        .button.danger:hover {
+            background-color: #da190b;
+        }
+        .button.warning {
+            background-color: #FF9800;
+        }
+        .button.warning:hover {
+            background-color: #e68900;
+        }
+        .form-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            font-family: monospace;
+            min-height: 100px;
+        }
+        .result-card {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .result-status {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .result-data {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .quick-marks {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .quick-mark-btn {
+            padding: 8px;
+            font-size: 12px;
+            background-color: #e0e0e0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .quick-mark-btn:hover {
+            background-color: #d0d0d0;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border-left: 4px solid #4CAF50;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Тест 5: Проверка марок</h1>
+    
+    <div class="test-description">
+        <strong>Цель теста:</strong> Проверить работу функций проверки маркировочных кодов.<br>
+        <strong>Что проверяем:</strong> 
+        <ul>
+            <li>Проверку марки через ККТ</li>
+            <li>Проверку марки через разрешительный режим</li>
+            <li>Массовую проверку марок</li>
+            <li>Обработку ошибок (неверные марки, нет связи)</li>
+        </ul>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('single')">Одиночная проверка</button>
+        <button class="tab" onclick="switchTab('batch')">Массовая проверка</button>
+    </div>
+
+    <!-- Вкладка: Одиночная проверка -->
+    <div id="tab-single" class="tab-content active">
+        <div class="form-section">
+            <h3>Параметры проверки</h3>
+            <div class="form-group">
+                <label for="singleMark">Маркировочный код:</label>
+                <textarea id="singleMark" placeholder="Вставьте маркировочный код DataMatrix"></textarea>
+                <div style="margin-top: 10px;">
+                    <strong>Быстрый выбор марки из списка:</strong>
+                    <div class="quick-marks" id="quickMarks"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="estimatedStatus">Тип операции:</label>
+                <select id="estimatedStatus">
+                    <option value="itemPieceSold">Продажа (sell)</option>
+                    <option value="itemPieceReturn">Возврат (return)</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button class="button" onclick="checkKKT()" style="font-size: 18px; padding: 15px 30px;">
+                🔍 Проверка ККТ
+            </button>
+            <button class="button secondary" onclick="checkPermit()" style="font-size: 18px; padding: 15px 30px;">
+                🔐 Проверка разрешения
+            </button>
+            <button class="button warning" onclick="checkBoth()" style="font-size: 18px; padding: 15px 30px;">
+                ⚡ Обе проверки
+            </button>
+        </div>
+
+        <div id="singleResults"></div>
+    </div>
+
+    <!-- Вкладка: Массовая проверка -->
+    <div id="tab-batch" class="tab-content">
+        <div class="form-section">
+            <h3>Массовая проверка марок</h3>
+            <div class="form-group">
+                <label>Выберите количество марок:</label>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
+                    <button class="button" onclick="loadBatchMarks(5)">5 марок</button>
+                    <button class="button" onclick="loadBatchMarks(10)">10 марок</button>
+                    <button class="button" onclick="loadBatchMarks(20)">20 марок</button>
+                    <button class="button secondary" onclick="loadBatchMarks(50)">50 марок</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="batchMarks">Маркировочные коды (по одному на строке):</label>
+                <textarea id="batchMarks" style="min-height: 200px;" placeholder="Каждая марка на отдельной строке"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="batchStatus">Тип операции:</label>
+                <select id="batchStatus">
+                    <option value="itemPieceSold">Продажа (sell)</option>
+                    <option value="itemPieceReturn">Возврат (return)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="batchCheckType">Тип проверки:</label>
+                <select id="batchCheckType">
+                    <option value="kkt">Только ККТ</option>
+                    <option value="permit">Только разрешение</option>
+                    <option value="both">Обе проверки</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="batchDelay">Задержка между проверками (мс):</label>
+                <input type="number" id="batchDelay" min="0" max="5000" value="200" style="width: 150px;">
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button class="button" id="batchStartBtn" onclick="startBatchCheck()" style="font-size: 18px; padding: 15px 30px;">
+                ▶️ Запустить проверку
+            </button>
+            <button class="button danger" id="batchStopBtn" onclick="stopBatchCheck()" disabled style="font-size: 18px; padding: 15px 30px;">
+                ⏹️ Остановить
+            </button>
+        </div>
+
+        <div class="stats-grid" id="batchStats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="batchTotal">0</div>
+                <div class="stat-label">Всего марок</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="batchProcessed">0</div>
+                <div class="stat-label">Обработано</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #4CAF50;">
+                <div class="stat-value" id="batchSuccess">0</div>
+                <div class="stat-label">✅ Успешно</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #f44336;">
+                <div class="stat-value" id="batchErrors">0</div>
+                <div class="stat-label">❌ Ошибок</div>
+            </div>
+        </div>
+
+        <div id="batchResults"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let batchRunning = false;
+        let batchShouldStop = false;
+
+        // Реальные марки из файла test-marks.csv
+        const realMarks = [
+            "0102900361700015215kW5N:H<?F%Q-91EE10922lrLybbYVXrqjXkDebP/DgSpg8TmWbN92+sB1VseIuE=",
+            "0102900361700015215B>8*=:lemBkc91EE1092+u+FxEK+afslMQ0JpezD35Y3rfmWuTnef2yDBJFQtIU=",
+            "0102900361700015215yqhvbKYebqt!91EE1092lEiKPyjqgRROSN5z6kUmLoMswjxiLze5xmv0xPs6qOA=",
+            "0102900361700015215O<k&rnMIH/Yd91EE1092N0FQmiTetUyPqsmLKqvv+BztVTQ4loSEta2+5D0knvI=",
+            "0102900361700015215k.oLNq/G%mhY91EE1092QQn0FtnSLNN1FbtM7r6sKQDq/e95VrFPYhGw73w87eo=",
+            "0102900361700015215ANNi_bbqT-<N91EE1092Z2+pO/Qv3mpOyvdvGKsz9cTQ+mWfqnMTK1KcwQ5VKc4=",
+            "0102900361700015215\"AlDaXnMUF7s91EE10921CVMx2a7GfK6pqAnGBKcw+Bxn3L6qHqsu4JJEQNb5eY=",
+            "0102900361700015215+VoPV8'npskX91EE1092dle8CgVgQDxaBXcilHXa4ctzCE5htVNpWmrr9fMbRgM=",
+            "01029003617000152159V<E8>;CEHbW91EE1092nRrCiA9h4Wtxl8fmWAcZw1iJGzcWdGShyAOeIL2DxlA=",
+            "0102900361700015215Bv<0V_TUoMOo91EE1092nyhyJ0PwXcjcVNOYQdRpIELAW93xx+172OBvVN/PdqQ=",
+            "01029003617000152158by4li2SRlb=91EE1092R90emG27Kc0q2IuAyycBjFQDpkoaUGZl423PUiM9ITs=",
+            "0102900361700015215gPxugWxHVa.n91EE1092FQJ1w8O6LV+TauyYmZ7KYAgFgTT7IATAFK3jvA8Y9Qg=",
+            "0102900361700015215OaF)SWNz6tZh91EE1092FTXeQgA4jp23QDxeNls001/bD5/0eww2qRYVAaTtJnU=",
+            "0102900361700015215?_EnWREUvYV(91EE1092w7g2UdNfVK/tbC83RM+Y3PlBBsR+xu3jO1X4xm7YoC0=",
+            "0102900361700015215EPWgVBar?Q6P91EE1092t1/B28/RoWqMhLXvxKat5FwyZJbtXPx2qKhm4+zBGWo="
+        ];
+
+        // Инициализация быстрых кнопок марок
+        function initQuickMarks() {
+            const container = document.getElementById('quickMarks');
+            realMarks.forEach((mark, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'quick-mark-btn';
+                btn.textContent = `Марка ${index + 1}`;
+                btn.onclick = () => {
+                    document.getElementById('singleMark').value = mark;
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        async function checkKKT() {
+            const markingCode = document.getElementById('singleMark').value.trim();
+            if (!markingCode) {
+                alert('Введите маркировочный код');
+                return;
+            }
+
+            showSingleResult('Проверка марки через ККТ...', 'pending');
+
+            try {
+                const response = await fetch(`${API_URL}/api/check-marking-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ markingCode })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showSingleResult('ККТ проверка', 'success', result);
+                } else {
+                    showSingleResult('ККТ проверка', 'error', result);
+                }
+            } catch (error) {
+                showSingleResult('ККТ проверка', 'error', { error: error.message });
+            }
+        }
+
+        async function checkPermit() {
+            const markingCode = document.getElementById('singleMark').value.trim();
+            const estimatedStatus = document.getElementById('estimatedStatus').value;
+            
+            if (!markingCode) {
+                alert('Введите маркировочный код');
+                return;
+            }
+
+            showSingleResult('Проверка марки через разрешительный режим...', 'pending');
+
+            // Конвертируем itemEstimatedStatus в sellOrReturn
+            const sellOrReturn = estimatedStatus === 'itemPieceSold' ? 'sell' : 'return';
+
+            try {
+                const response = await fetch(`${API_URL}/api/check-permit-mark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ permitMark: markingCode, sellOrReturn: sellOrReturn })
+                });
+
+                const result = await response.json();
+                
+                // API возвращает {success: true/false, ...}
+                if (result.success) {
+                    showSingleResult('Проверка разрешения', 'success', result);
+                } else {
+                    showSingleResult('Проверка разрешения', 'error', result);
+                }
+            } catch (error) {
+                showSingleResult('Проверка разрешения', 'error', { error: error.message });
+            }
+        }
+
+        async function checkBoth() {
+            const markingCode = document.getElementById('singleMark').value.trim();
+            const estimatedStatus = document.getElementById('estimatedStatus').value;
+            
+            if (!markingCode) {
+                alert('Введите маркировочный код');
+                return;
+            }
+
+            // Конвертируем itemEstimatedStatus в sellOrReturn
+            const sellOrReturn = estimatedStatus === 'itemPieceSold' ? 'sell' : 'return';
+
+            const resultsDiv = document.getElementById('singleResults');
+            resultsDiv.innerHTML = '';
+
+            // ККТ проверка
+            let kktHtml = createResultCard('ККТ проверка', 'pending', 'Проверка...');
+            resultsDiv.innerHTML = kktHtml;
+
+            try {
+                const kktResponse = await fetch(`${API_URL}/api/check-marking-code`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ markingCode })
+                });
+
+                const kktResult = await kktResponse.json();
+                kktHtml = createResultCard('ККТ проверка', kktResponse.ok ? 'success' : 'error', kktResult);
+            } catch (error) {
+                kktHtml = createResultCard('ККТ проверка', 'error', { error: error.message });
+            }
+
+            // Проверка разрешения
+            let permitHtml = createResultCard('Проверка разрешения', 'pending', 'Проверка...');
+            resultsDiv.innerHTML = kktHtml + permitHtml;
+
+            try {
+                const permitResponse = await fetch(`${API_URL}/api/check-permit-mark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ permitMark: markingCode, sellOrReturn: sellOrReturn })
+                });
+
+                const permitResult = await permitResponse.json();
+                // API возвращает {success: true/false, ...}
+                permitHtml = createResultCard('Проверка разрешения', permitResult.success ? 'success' : 'error', permitResult);
+            } catch (error) {
+                permitHtml = createResultCard('Проверка разрешения', 'error', { error: error.message });
+            }
+
+            resultsDiv.innerHTML = kktHtml + permitHtml;
+        }
+
+        function showSingleResult(title, status, data) {
+            const resultsDiv = document.getElementById('singleResults');
+            resultsDiv.innerHTML = createResultCard(title, status, data);
+        }
+
+        function createResultCard(title, status, data) {
+            const statusClass = `status-${status}`;
+            const statusText = {
+                'success': '✅ Успешно',
+                'error': '❌ Ошибка',
+                'pending': '⏳ Выполняется...'
+            }[status] || status;
+
+            // Форматируем данные для лучшего отображения
+            let displayData = data;
+            if (typeof data === 'object' && data !== null) {
+                // Если есть поле error, выделим его
+                if (data.error) {
+                    displayData = '❌ ОШИБКА: ' + data.error + '\n\n' + JSON.stringify(data, null, 2);
+                }
+                // Если есть поле message, выделим его
+                else if (data.message) {
+                    displayData = '📝 ' + data.message + '\n\n' + JSON.stringify(data, null, 2);
+                }
+                else {
+                    displayData = JSON.stringify(data, null, 2);
+                }
+            }
+
+            return `
+                <div class="result-card">
+                    <div class="result-header">
+                        <h3 style="margin: 0;">${title}</h3>
+                        <div class="result-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="result-data">${displayData}</div>
+                </div>
+            `;
+        }
+
+        function loadBatchMarks(count) {
+            const marks = realMarks.slice(0, Math.min(count, realMarks.length));
+            document.getElementById('batchMarks').value = marks.join('\n');
+        }
+
+        async function startBatchCheck() {
+            const marksText = document.getElementById('batchMarks').value.trim();
+            if (!marksText) {
+                alert('Введите маркировочные коды');
+                return;
+            }
+
+            const marks = marksText.split('\n').filter(m => m.trim());
+            const checkType = document.getElementById('batchCheckType').value;
+            const estimatedStatus = document.getElementById('batchStatus').value;
+            const delay = parseInt(document.getElementById('batchDelay').value);
+
+            batchRunning = true;
+            batchShouldStop = false;
+            document.getElementById('batchStartBtn').disabled = true;
+            document.getElementById('batchStopBtn').disabled = false;
+            document.getElementById('batchStats').style.display = 'grid';
+
+            const stats = { total: marks.length, processed: 0, success: 0, errors: 0 };
+            updateBatchStats(stats);
+
+            const resultsDiv = document.getElementById('batchResults');
+            resultsDiv.innerHTML = '';
+
+            for (let i = 0; i < marks.length; i++) {
+                if (batchShouldStop) break;
+
+                const mark = marks[i].trim();
+                const markNum = i + 1;
+
+                let results = [];
+
+                // ККТ проверка
+                if (checkType === 'kkt' || checkType === 'both') {
+                    try {
+                        const response = await fetch(`${API_URL}/api/check-marking-code`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ markingCode: mark })
+                        });
+                        const result = await response.json();
+                        results.push(createResultCard(`Марка ${markNum} - ККТ`, response.ok ? 'success' : 'error', result));
+                        if (response.ok) stats.success++; else stats.errors++;
+                    } catch (error) {
+                        results.push(createResultCard(`Марка ${markNum} - ККТ`, 'error', { error: error.message }));
+                        stats.errors++;
+                    }
+                }
+
+                // Проверка разрешения
+                if (checkType === 'permit' || checkType === 'both') {
+                    // Конвертируем itemEstimatedStatus в sellOrReturn
+                    const sellOrReturn = estimatedStatus === 'itemPieceSold' ? 'sell' : 'return';
+                    
+                    try {
+                        const response = await fetch(`${API_URL}/api/check-permit-mark`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ permitMark: mark, sellOrReturn: sellOrReturn })
+                        });
+                        const result = await response.json();
+                        // API возвращает {success: true/false, ...}
+                        results.push(createResultCard(`Марка ${markNum} - Разрешение`, result.success ? 'success' : 'error', result));
+                        if (result.success) stats.success++; else stats.errors++;
+                    } catch (error) {
+                        results.push(createResultCard(`Марка ${markNum} - Разрешение`, 'error', { error: error.message }));
+                        stats.errors++;
+                    }
+                }
+
+                resultsDiv.innerHTML += results.join('');
+                stats.processed++;
+                updateBatchStats(stats);
+
+                if (i < marks.length - 1 && !batchShouldStop) {
+                    await sleep(delay);
+                }
+            }
+
+            batchRunning = false;
+            document.getElementById('batchStartBtn').disabled = false;
+            document.getElementById('batchStopBtn').disabled = true;
+        }
+
+        function stopBatchCheck() {
+            batchShouldStop = true;
+        }
+
+        function updateBatchStats(stats) {
+            document.getElementById('batchTotal').textContent = stats.total;
+            document.getElementById('batchProcessed').textContent = stats.processed;
+            document.getElementById('batchSuccess').textContent = stats.success;
+            document.getElementById('batchErrors').textContent = stats.errors;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Инициализация при загрузке
+        window.onload = () => {
+            initQuickMarks();
+            loadBatchMarks(5);
+            document.getElementById('singleMark').value = realMarks[0];
+        };
+    </script>
+</body>
+</html>
+

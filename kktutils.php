@@ -693,9 +693,12 @@ class TFptr10Driver {
                 ];
 
                 if (!empty($item['markingCode'])) {
+                    // Преобразуем маркировку в base64 для ККТ
+                    $markingCodeBase64 = base64_encode($item['markingCode']);
+                    
                     // Инициализируем imcParams с базовыми данными маркировки
                     $imcParams = [
-                        "imc" => $item['markingCode'],
+                        "imc" => $markingCodeBase64,
                         "imcType" => "auto",
                         "itemEstimatedStatus" => $item['itemEstimatedStatus'] ?? $itemEstimatedStatus,
                         "imcModeProcessing" => 0
@@ -705,26 +708,28 @@ class TFptr10Driver {
                     // (например, результаты проверки марки), объединяем их с базовыми imcParams.
                     // Это предотвращает "затирание" предыдущих данных и формирует единый объект imcParams.
                     
-                    // Проверяем наличие результатов проверки маркировки в kktCheckResult.machineData
-                    if (isset($item['kktCheckResult']['machineData']['itemInfoCheckResult'])) {
-                        $machineData = $item['kktCheckResult']['machineData'];
-                        $itemInfoCheckResult = $machineData['itemInfoCheckResult'];
+                    // Проверяем наличие результатов проверки маркировки в kktCheckResult
+                    if (isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult'])) {
+                        $responseData = $item['kktCheckResult']['data']['response'];
+                        $itemInfoCheckResult = $responseData['itemInfoCheckResult'];
                         
-                        // Объединяем поля из machineData в $imcParams
+                        // Объединяем поля из response в $imcParams
                         $imcParams['itemInfoCheckResult'] = $itemInfoCheckResult;
                         
-                        // Добавляем itemEstimatedStatus из machineData, если он есть
-                        if (isset($machineData['itemEstimatedStatus'])) {
-                            $imcParams['itemEstimatedStatus'] = $machineData['itemEstimatedStatus'];
+                        // Добавляем itemEstimatedStatus из response, если он есть
+                        if (isset($responseData['itemEstimatedStatus'])) {
+                            $imcParams['itemEstimatedStatus'] = $responseData['itemEstimatedStatus'];
                         }
+                        
+                        $this->logger->info("Добавлены результаты проверки ККТ в imcParams: " . json_encode($itemInfoCheckResult));
                     }
                     // Добавляем сформированный объект imcParams как свойство позиции
                     $positionItem['imcParams'] = $imcParams;
                     //разрешительный режим маркировки
                     $this->logger->info("Разрешительный режим маркировки industryInfo: " . json_encode($item['permitCheckResult']));
-                    if (isset($item['permitCheckResult']['status']) && $item['permitCheckResult']['status'] === 'success') {
+                    if (isset($item['permitCheckResult']['data']['response']['user_status']['ok']) && $item['permitCheckResult']['data']['response']['user_status']['ok'] === true) {
                         $this->logger->info("Разрешительный режим маркировки status успешно: " . json_encode($item['permitCheckResult']));
-                        $machineData = $item['permitCheckResult']['machineData'];
+                        $machineData = $item['permitCheckResult']['data']['response']['machine_data'];
                         $this->logger->info("Разрешительный режим маркировки machineData: " . json_encode($machineData));
                         $uuid = $machineData['uuid'] ?? '';
                         $time = $machineData['timeStamp'] ?? '';

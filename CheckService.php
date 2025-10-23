@@ -118,32 +118,18 @@ class CheckService {
                 $this->logger->info("itemEstimatedStatus: " . ($item['itemEstimatedStatus'] ?? 'не задан'));
                 
                 // Проверяем наличие результатов проверки КМ в ККТ
+                $needsKktCheck = false;
+                
+                // Альтернативная проверка с array_key_exists
                 $needsKktCheck = !isset($item['kktCheckResult']) || 
                                      !isset($item['kktCheckResult']['data']) ||
                                      !isset($item['kktCheckResult']['data']['response']) ||
-                                     !isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult']);
-                
-                $this->logger->info("Нужна проверка КМ в ККТ: " . ($needsKktCheck ? 'да' : 'нет'));
-                
-                if (isset($item['kktCheckResult'])) {
-                    $this->logger->info("kktCheckResult: " . json_encode($item['kktCheckResult'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                }
-                if (isset($item['permitCheckResult'])) {
-                    $this->logger->info("permitCheckResult: " . json_encode($item['permitCheckResult'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-                }
-                $this->logger->info('isset($item[permitCheckResult]) = ' . (isset($item['permitCheckResult']) ? 'true' : 'false'));
-                $this->logger->info('isset($item[permitCheckResult][data]) = ' . (isset($item['permitCheckResult']['data']) ? 'true' : 'false'));
-                $this->logger->info('isset($item[permitCheckResult][data][response]) = ' . (isset($item['permitCheckResult']['data']['response']) ? 'true' : 'false'));
-                //$this->logger->info("isset($item['permitCheckResult']['data']) = " . (isset($item['permitCheckResult']['data']) ? 'true' : 'false'));
-                //$this->logger->info("isset($item['kktCheckResult']['data']['response']) = " . (isset($item['kktCheckResult']['data']['response']) ? 'true' : 'false'));
-                //$this->logger->info("isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult']) = " . (isset($item['kktCheckResult']['data']['response']['itemInfoCheckResult']) ? 'true' : 'false'));
-                //$this->logger->info("isset($item['permitCheckResult']['success']) = " . (isset($item['permitCheckResult']['success']) ? 'true' : 'false'));
-                //$this->logger->info("isset($item['permitCheckResult']['success']) = " . (isset($item['permitCheckResult']['success']) ? 'true' : 'false'));
+                                     !array_key_exists('itemInfoCheckResult', $item['kktCheckResult']['data']['response']) ||
+                                     $item['kktCheckResult']['data']['response']['itemInfoCheckResult'] === null;
                 $needsPermitCheck = !isset($item['permitCheckResult']) || 
                                      !isset($item['permitCheckResult']['data']) ||
                                      !isset($item['kktCheckResult']['data']['response']) || 
                                      $item['permitCheckResult']['success'] === false && ($typeCheck === 'sell' || $typeCheck === 'buyReturn') && $this->getPermitMarkEnabled();
-                $this->logger->info("needsPermitCheck = " . ($needsPermitCheck ? 'true' : 'false'));
                 $mark = [
                     'index' => $index,
                     'markingCode' => $item['markingCode'],
@@ -389,7 +375,9 @@ class CheckService {
             }
             
             // Добавляем результаты проверки в данные чека
-            $checkData = $this->addMarkCheckResultsToCheckData($checkData, $kktCheckResult['results'], $permitCheckResult['results']);
+            $kktResults = $kktCheckResult['results'] ?? [];
+            $permitResults = $permitCheckResult['results'] ?? [];
+            $checkData = $this->addMarkCheckResultsToCheckData($checkData, $kktResults, $permitResults);
             
             $this->logger->info("Все марки успешно проверены, продолжаем печать чека");
         } else {

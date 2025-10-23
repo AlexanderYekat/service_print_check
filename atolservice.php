@@ -103,6 +103,7 @@ function runServer() {
             'verifySSL' => true,
             'emulation' => $currentSettings->permitMarkEmulation ?? false,
             'testLocalModule' => $currentSettings->testLocalModule ?? false,
+            'testExpiredMarks' => $currentSettings->testExpiredMarks ?? false,
             'asyncCDNHealthCheck' => $isAsyncMode,
             'cdnCacheUpdateIntervalAsync' => $asyncInterval,
             'cdnCacheUpdateIntervalSync' => $syncInterval
@@ -173,6 +174,9 @@ function runServer() {
         } catch (Exception $e) {
             $logger->warning("Не удалось создать экземпляр TScale8Driver: " . $e->getMessage());
         }
+
+        // Обновляем объекты в CheckService после их создания
+        $checkService->updateDrivers($bankObject, $scaleObject);
     } else {
         $logger->debug("Банк и весы не требуются для эндпоинта: {$uri}");
     }

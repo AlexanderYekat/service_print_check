@@ -695,12 +695,12 @@
                         });
                         
                         const permitResult = await permitResponse.json();
-                        // API возвращает {success: true/false, ...}
-                        item.checkResults.permit = permitResult.success ? 
+                        // API возвращает {success: true, data: {success: true/false, ...}}
+                        item.checkResults.permit = permitResult.data.success ? 
                             { status: 'success', data: permitResult } : 
                             { status: 'error', error: permitResult };
                         
-                        if (permitResult.success) successCount++; else errorCount++;
+                        if (permitResult.data.success) successCount++; else errorCount++;
                     } catch (error) {
                         item.checkResults.permit = { status: 'error', error: error.message };
                         errorCount++;

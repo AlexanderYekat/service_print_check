@@ -23,6 +23,18 @@ class CheckService {
         $this->settings = $settings; // Инициализируем поле для настроек
     }
 
+    /**
+     * Обновляет объекты банка и весов после их создания
+     */
+    public function updateDrivers(?TBankDriver $bankDriver = null, ?TScale8Driver $scaleObject = null) {
+        if ($bankDriver !== null) {
+            $this->bankDriver = $bankDriver;
+        }
+        if ($scaleObject !== null) {
+            $this->scaleObject = $scaleObject;
+        }
+    }
+
     public function getPermitMarkEnabled() {
         return $this->permitMarkCheckGateway->getPermitMarkEnabled();
     }
@@ -502,7 +514,7 @@ class CheckService {
         
         $this->logger->info("Разрешительный режим маркировки проверено.");
         
-        // Проверяем, есть ли ошибка в результате (например, марка заблокирована)
+        // Проверяем, есть ли ошибка в результате (например, марка заблокирована или просрочена)
         $isBlocked = false;
         $errorMessage = '';
         
@@ -530,7 +542,7 @@ class CheckService {
             'success' => true, 
             'message' => 'Разрешительный режим маркировки проверено', 
             'data' => [
-                'success' => true, 
+                'success' => !$isBlocked, 
                 'response' => $response
             ]
         ];
@@ -673,6 +685,12 @@ class CheckService {
     public function getWeight() {
         $this->logger->info("Попытка получения веса.");
 
+        // Проверяем, что объект весов инициализирован
+        if ($this->scaleObject === null) {
+            $this->logger->error("Объект весов не инициализирован");
+            return ['success' => false, 'message' => "Объект весов не инициализирован"];
+        }
+
         list($isOpened, $connectErrorDesc) = $this->scaleObject->Open();
         if (!$isOpened) {
             $this->logger->error("Ошибка подключения к весам: {$connectErrorDesc}");
@@ -708,10 +726,21 @@ class CheckService {
             // Обновляем конфигурацию в PermitMarkCheckGateway
             if (isset($configData['testExpiredMarks'])) {
                 if ($this->permitMarkCheckGateway) {
+                    $oldValue = $this->permitMarkCheckGateway->config['testExpiredMarks'] ?? 'не установлено';
                     $this->permitMarkCheckGateway->config['testExpiredMarks'] = (bool)$configData['testExpiredMarks'];
-                    $this->logger->info("testExpiredMarks установлен в: " . ($configData['testExpiredMarks'] ? 'true' : 'false'));
+                    $newValue = $this->permitMarkCheckGateway->config['testExpiredMarks'];
+                    $this->logger->info("testExpiredMarks изменен с '{$oldValue}' на '" . ($newValue ? 'true' : 'false') . "'");
                 } else {
                     $this->logger->warning("PermitMarkCheckGateway не инициализирован, конфигурация не обновлена");
+                }
+                
+                // Также обновляем настройки для сохранения
+                if ($this->settings) {
+                    $this->settings->testExpiredMarks = (bool)$configData['testExpiredMarks'];
+                    $this->settings->save(); // Сохраняем изменения в файл
+                    $this->logger->info("Настройки testExpiredMarks обновлены в Settings и сохранены в файл");
+                } else {
+                    $this->logger->warning("Settings не инициализированы, изменения не будут сохранены");
                 }
             }
             

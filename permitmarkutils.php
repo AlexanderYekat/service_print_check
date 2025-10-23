@@ -65,6 +65,10 @@ class PermitMarkCheckGateway
     public function checkPermit(string $code, array $context = []): array
     {
         $this->logger->info("Начинаем проверку маркировки: " . $code);
+        
+        // Логируем текущую конфигурацию testExpiredMarks
+        $testExpiredMarks = isset($this->config['testExpiredMarks']) ? $this->config['testExpiredMarks'] : 'не установлено';
+        $this->logger->info("Текущая конфигурация testExpiredMarks: " . ($testExpiredMarks === true ? 'true' : ($testExpiredMarks === false ? 'false' : $testExpiredMarks)));
 
         // Запускаем фоновое обновление кэша CDN (не блокирующее)
         $this->updateCDNCacheInBackground();
@@ -434,7 +438,8 @@ class PermitMarkCheckGateway
             }
             
             // Если включен режим тестирования просроченных марок, устанавливаем просроченную дату
-            $this->logger->info("Режим тестирования просроченных марок: " . $this->config['testExpiredMarks']);
+            $testExpiredMarks = isset($this->config['testExpiredMarks']) ? $this->config['testExpiredMarks'] : 'не установлено';
+            $this->logger->info("Режим тестирования просроченных марок: " . ($testExpiredMarks === true ? 'true' : ($testExpiredMarks === false ? 'false' : $testExpiredMarks)));
             if ($this->config['testExpiredMarks']) {
                 // Устанавливаем просроченную дату (вчера)
                 $yesterday = new DateTime('yesterday', new DateTimeZone('UTC'));
@@ -460,6 +465,7 @@ class PermitMarkCheckGateway
                     // Проверяем, истёк ли срок годности
                     if ($expireDateTime < $currentDateTime) {
                         $message = 'У товара истёк срок годности (истекает: ' . $expireDateTime->format('d.m.Y H:i') . ')';
+                        $errorCode = 1; // Устанавливаем код ошибки для просроченной марки
                         $this->logger->warning("Срок годности истёк для марки. expireDate: " . $expireDateTime->format('Y-m-d H:i:s') . 
                                               ", текущая дата: " . $currentDateTime->format('Y-m-d H:i:s'));
                     } else {

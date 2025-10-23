@@ -304,6 +304,9 @@
             <button class="button danger" id="batchStopBtn" onclick="stopBatchCheck()" disabled style="font-size: 18px; padding: 15px 30px;">
                 ⏹️ Остановить
             </button>
+            <button class="button secondary" onclick="loadMarksFromCSV()" style="font-size: 16px; padding: 12px 24px; margin-left: 10px;">
+                🔄 Перезагрузить марки
+            </button>
         </div>
 
         <div class="stats-grid" id="batchStats" style="display: none;">
@@ -333,28 +336,52 @@
         let batchRunning = false;
         let batchShouldStop = false;
 
-        // Реальные марки из файла test-marks.csv
-        const realMarks = [
-            "0102900361700015215kW5N:H<?F%Q-91EE10922lrLybbYVXrqjXkDebP/DgSpg8TmWbN92+sB1VseIuE=",
-            "0102900361700015215B>8*=:lemBkc91EE1092+u+FxEK+afslMQ0JpezD35Y3rfmWuTnef2yDBJFQtIU=",
-            "0102900361700015215yqhvbKYebqt!91EE1092lEiKPyjqgRROSN5z6kUmLoMswjxiLze5xmv0xPs6qOA=",
-            "0102900361700015215O<k&rnMIH/Yd91EE1092N0FQmiTetUyPqsmLKqvv+BztVTQ4loSEta2+5D0knvI=",
-            "0102900361700015215k.oLNq/G%mhY91EE1092QQn0FtnSLNN1FbtM7r6sKQDq/e95VrFPYhGw73w87eo=",
-            "0102900361700015215ANNi_bbqT-<N91EE1092Z2+pO/Qv3mpOyvdvGKsz9cTQ+mWfqnMTK1KcwQ5VKc4=",
-            "0102900361700015215\"AlDaXnMUF7s91EE10921CVMx2a7GfK6pqAnGBKcw+Bxn3L6qHqsu4JJEQNb5eY=",
-            "0102900361700015215+VoPV8'npskX91EE1092dle8CgVgQDxaBXcilHXa4ctzCE5htVNpWmrr9fMbRgM=",
-            "01029003617000152159V<E8>;CEHbW91EE1092nRrCiA9h4Wtxl8fmWAcZw1iJGzcWdGShyAOeIL2DxlA=",
-            "0102900361700015215Bv<0V_TUoMOo91EE1092nyhyJ0PwXcjcVNOYQdRpIELAW93xx+172OBvVN/PdqQ=",
-            "01029003617000152158by4li2SRlb=91EE1092R90emG27Kc0q2IuAyycBjFQDpkoaUGZl423PUiM9ITs=",
-            "0102900361700015215gPxugWxHVa.n91EE1092FQJ1w8O6LV+TauyYmZ7KYAgFgTT7IATAFK3jvA8Y9Qg=",
-            "0102900361700015215OaF)SWNz6tZh91EE1092FTXeQgA4jp23QDxeNls001/bD5/0eww2qRYVAaTtJnU=",
-            "0102900361700015215?_EnWREUvYV(91EE1092w7g2UdNfVK/tbC83RM+Y3PlBBsR+xu3jO1X4xm7YoC0=",
-            "0102900361700015215EPWgVBar?Q6P91EE1092t1/B28/RoWqMhLXvxKat5FwyZJbtXPx2qKhm4+zBGWo="
-        ];
+        // Загружаем марки из CSV файла
+        let realMarks = [];
+
+        // Функция для загрузки марок из CSV файла
+        async function loadMarksFromCSV() {
+            try {
+                const response = await fetch('marks/test-marks.csv');
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить файл с марками');
+                }
+                
+                const csvText = await response.text();
+                // Разбиваем по строкам и убираем пустые
+                realMarks = csvText.split('\n')
+                    .map(line => line.trim())
+                    .filter(mark => mark.length > 0);
+                
+                console.log(`Загружено ${realMarks.length} марок из CSV файла`);
+                
+                // Обновляем быстрые кнопки марок
+                initQuickMarks();
+                
+                // Обновляем поле с маркой, если оно пустое
+                const singleMarkField = document.getElementById('singleMark');
+                if (!singleMarkField.value.trim() && realMarks.length > 0) {
+                    singleMarkField.value = realMarks[0];
+                }
+                
+            } catch (error) {
+                console.error('Ошибка загрузки марок:', error);
+                // Fallback на несколько тестовых марок
+                realMarks = [
+                    "0102900361700015215kW5N:H<?F%Q-\u001d91EE10\u001d922lrLybbYVXrqjXkDebP/DgSpg8TmWbN\u001d92+sB1VseIuE=",
+                    "0102900361700015215B>8*=:lemBkc\u001d91EE10\u001d92+u+FxEK+afslMQ0JpezD35Y3rfmWuTnef2yDBJFQtIU=",
+                    "0102900361700015215yqhvbKYebqt!\u001d91EE10\u001d92lEiKPyjqgRROSN5z6kUmLoMswjxiLze5xmv0xPs6qOA="
+                ];
+                alert('Не удалось загрузить марки из файла. Используются тестовые марки.');
+                initQuickMarks();
+            }
+        }
 
         // Инициализация быстрых кнопок марок
         function initQuickMarks() {
             const container = document.getElementById('quickMarks');
+            container.innerHTML = ''; // Очищаем контейнер перед добавлением новых кнопок
+            
             realMarks.forEach((mark, index) => {
                 const btn = document.createElement('button');
                 btn.className = 'quick-mark-btn';
@@ -634,10 +661,9 @@
         }
 
         // Инициализация при загрузке
-        window.onload = () => {
-            initQuickMarks();
+        window.onload = async () => {
+            await loadMarksFromCSV();
             loadBatchMarks(5);
-            document.getElementById('singleMark').value = realMarks[0];
         };
     </script>
 </body>

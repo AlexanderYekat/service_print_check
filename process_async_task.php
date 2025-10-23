@@ -109,6 +109,7 @@ try {
             'verifySSL' => true,
             'emulation' => $currentSettings->permitMarkEmulation ?? false,
             'testLocalModule' => $currentSettings->testLocalModule ?? false,
+            'testExpiredMarks' => $currentSettings->testExpiredMarks ?? false,
             'asyncCDNHealthCheck' => $isAsyncMode,
             'cdnCacheUpdateIntervalAsync' => $asyncInterval,
             'cdnCacheUpdateIntervalSync' => $syncInterval

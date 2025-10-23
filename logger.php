@@ -58,4 +58,9 @@ class Logger {
     public function critical(string $message): void {
         $this->log($message, 0, 'CRITICAL'); // Critical errors are always logged
     }
+}
+
+// Функция-обёртка для совместимости со старым кодом
+function logger($msg) {
+    Logger::getInstance(__DIR__, 1)->info($msg);
 } 

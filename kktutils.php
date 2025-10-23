@@ -768,6 +768,23 @@ class TFptr10Driver {
                 // Добавляем позицию в общий список элементов чека
                 $checkItems[] = $positionItem;
             }
+            $quantity = floatval($item['quantity']);
+            $price = floatval($item['price']);
+            $checkItems[] = [
+                "type" => "position",
+                "name" => $item['name'],
+                "price" => $price,
+                "quantity" => $quantity,
+                "amount" => $price * $quantity,
+                "tax" => [
+                    "type" => $taxType
+                ],
+                // Новые поля для маркированных товаров
+                "mark_code" => $item['mark_code'] ?? null,
+                "position_id" => $item['position_id'] ?? null,
+                "mark_status" => $item['mark_status'] ?? null,
+                "mark_check_result" => $item['mark_check_result'] ?? null
+            ];
         }
 
         // Считаем общую сумму
@@ -830,55 +847,105 @@ class TFptr10Driver {
         return [$success, $commandErrorDesc];
     }
 
-    /**
-     * Определяет FOIS, дату и номер документа на основе категории товара
-     * 
-     * @param string $category Категория товара
-     * @return array Массив с ключами: fois, date, number
-     */
-    private function getCategoryDocumentInfo($category) {
-        // Маппинг категорий товаров на соответствующие документы
-        $categoryMapping = [
-            'dairy' => [ // Молочные продукты
-                'fois' => '030',
-                'date' => '2020.12.15',
-                'number' => '2099'
-            ],
-            'beverages' => [ // Газированные напитки, соки, компоты, упакованная вода
-                'fois' => '030',
-                'date' => '2023.05.31',
-                'number' => '887'
-            ],
-            'canned_food' => [ // Консервы (рыбные, мясные, овощные)
-                'fois' => '030',
-                'date' => '2024.05.27',
-                'number' => '677'
-            ],
-            'vegetable_oils' => [ // Растительные масла
-                'fois' => '030',
-                'date' => '2024.05.27',
-                'number' => '676'
-            ],
-            'seafood_caviar' => [ // Морепродукты (икра)
-                'fois' => '030',
-                'date' => '2023.11.29',
-                'number' => '2028'
-            ],
+    public function GetShiftStatus(string $imc) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "getShiftStatus"
         ];
 
-        // Если категория не найдена, используем значения по умолчанию (корма)
-        $defaultCategory = '';
-        $selectedCategory = isset($categoryMapping[$category]) ? $category : $defaultCategory;
-        
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
 
-        if (empty($selectedCategory)) {
-            $this->logger->error("Категория товара не найдена: " . $category);
-            return [
-                'fois' => '030',
-                'date' => '2024.05.27',
-                'number' => '674'
-            ];
-        }
-        return $categoryMapping[$selectedCategory];
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
     }
+
+
+    /**
+     * Начинает проверку кода марки (КМ)
+     *
+     * @param string $imc - Код марки (Base64 строка)
+     * @return array [success, responseJson, commandErrorDesc]
+     */
+    public function BeginMarkingCodeValidation(string $imc) {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "beginMarkingCodeValidation",
+            "params" => [
+                "imcType" => "auto",
+                "imc" => $imc,
+                "itemEstimatedStatus" => "itemPieceSold",
+                //"itemUnits" => "kilogram",
+                "imcModeProcessing" => 0
+                //"notSendToServer" => false,
+                //"notFormRequest" => false
+            ]
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+    /**
+     * проверяем статус проверки КМ (КМ)
+     * @return array [success, responseJson, commandErrorDesc]
+     */
+    public function CheckMarkingCodeValidation() {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "getMarkingCodeValidationStatus"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+    public function AcceptMarkingCode() {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "acceptMarkingCode"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+    public function ClearMarkingCodeValidationResult() {
+        if ($this->fptr === null) {
+            return [false, "", "Драйвер не инициализирован"];
+        }
+
+        $command = [
+            "type" => "clearMarkingCodeValidationResult"
+        ];
+
+        $jsonCommand = json_encode($command, JSON_UNESCAPED_UNICODE);
+
+        list($success, $responseJson, $commandErrorDesc) = $this->sendCommandAndGetAnswerFromKKT($jsonCommand);
+
+        return [$success, $responseJson, $commandErrorDesc];
+    }
+
+
 }

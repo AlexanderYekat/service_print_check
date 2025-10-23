@@ -40,6 +40,12 @@ require_once 'logger.php'; // Подключаем наш новый логге�
 require_once 'bank/bankutils.php'; // Подключаем утилиты для работы с банком
 require_once 'TaskManager.php'; // Подключаем менеджер задач
 
+// === Глобальный массив для хранения позиций чека по session_id ===
+global $CHECK_SESSIONS;
+if (!isset($CHECK_SESSIONS)) {
+    $CHECK_SESSIONS = [];
+}
+
 // Глобальные переменные (эти строки будут удалены или закомментированы)
 // $glFptrDriver = new TFptr10Driver();
 // $currentSettings = new Settings();
@@ -575,10 +581,12 @@ function runServer() {
         $fetchHandler->HandleGetWeight();
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
         $fetchHandler->HandlePrintBankSlip();
-    } elseif ($uri === '/api/update-config' && $method === 'POST') {
-        $fetchHandler->HandleUpdateConfig();
-    } elseif ((strpos($uri, '/static/') === 0 || strpos($uri, '/tests/') === 0 || strpos($uri, '/scanner/') === 0) && $method === 'GET') {
-        // Обработка статических файлов (CSS, JS), файлов тестирования и файлов сканера
+    } elseif ($uri === '/api/add-check-position' && $method === 'POST') {
+        $fetchHandler->HandleAddCheckPosition();
+    } elseif ($uri === '/api/checkrr' && $method === 'GET') {
+        $fetchHandler->HandleCheckRR();
+    } elseif (strpos($uri, '/static/') === 0 && $method === 'GET') {
+        // Обработка статических файлов (CSS, JS)
         $filePath = __DIR__ . $uri;
         if (file_exists($filePath)) {
             $mimeType = mime_content_type($filePath);

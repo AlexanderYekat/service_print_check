@@ -9,7 +9,8 @@ class CheckItem {
     public $quantity;
     public $price;
     public $taxNDS;
-    public $category; // Категория товара для определения FOIS
+    public $mark_code; // Код маркировки
+    public $position_id; // Уникальный идентификатор позиции
 
     public function __construct($data = null) {
         if ($data) {
@@ -17,7 +18,8 @@ class CheckItem {
             $this->quantity = $data['quantity'] ?? '';
             $this->price = $data['price'] ?? '';
             $this->taxNDS = $data['taxNDS'] ?? null;
-            $this->category = $data['category'] ?? '';
+            $this->mark_code = $data['mark_code'] ?? null;
+            $this->position_id = $data['position_id'] ?? null;
         }
     }
 }

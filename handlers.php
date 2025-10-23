@@ -4,8 +4,10 @@
 require_once 'models.php';   // Здесь структура CheckData и ApiResponse
 require_once 'validators.php'; // Новый валидатор
 require_once 'CheckService.php'; // Новый сервис
+require_once 'chznaklrr.php'; // Подключаем честный знак РР
 require_once 'logger.php'; // Подключаем логгер
 require_once 'TaskManager.php'; // Подключаем менеджер задач
+
 
 class Handler {
     private $checkService;
@@ -39,7 +41,7 @@ class Handler {
             return;
         }
 
-        $result = $this->checkService->printCheck($checkData);
+        $result = $this->checkService->processPrintCheck($checkData);
         if (!$result['success']) {
             $this->logger->error("HandlePrintCheck: Ошибка печати чека: " . $result['message']);
             http_response_code(500);
@@ -526,34 +528,46 @@ class Handler {
         $this->sendHandlerResponse("success", "Вес получен", $result['data']);
     }
 
-    public function HandleUpdateConfig() {
+    public function HandleCheckRR() {
+        $result = getCdnInfo();
+        if ($result['success']) {
+            $this->logger->info("HandleCheckRR: CDN - получены");
+            $this->sendHandlerResponse("success", "CDN - получены", $result['data']);
+        } else {
+            $this->sendHandlerResponse("error", $result['message']);    
+            $errstr = $result['message'];
+            $this->logger->error("HandleCheckRR: CDN - не получены ($errstr)");
+        }
+        //$this->sendHandlerResponse("success", "CDN - получены", $result['data']);
+    }
+
+    public function HandleAddCheckPosition() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->logger->warning("HandleUpdateConfig: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
+            $this->logger->warning("HandleAddCheckPosition: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
-
-        if (!$data) {
-            $this->logger->error("HandleUpdateConfig: Ошибка декодирования JSON");
+        $session_id = $data['session_id'] ?? null;
+        $position = $data['position'] ?? null;
+        if (!$session_id || !$position) {
             http_response_code(400);
-            $this->sendHandlerResponse("error", 'Ошибка декодирования JSON');
+            $this->sendHandlerResponse("error", 'Не передан session_id или position');
             return;
         }
+        $result = $this->checkService->addCheckPosition($session_id, $position);
 
-        $result = $this->checkService->updateConfig($data);
         if (!$result['success']) {
-            $this->logger->error("HandleUpdateConfig: Ошибка обновления конфигурации: " . $result['message']);
+            $this->logger->error("HandleAddCheckPosition: Ошибка добавления позиции: " . $result['message']);
             http_response_code(500);
             $this->sendHandlerResponse("error", $result['message']);
             return;
         }
 
-        $this->logger->info("HandleUpdateConfig: Конфигурация успешно обновлена.");
-        $this->sendHandlerResponse("success", $result['message'], $result['data']);
+        $this->logger->info("HandleAddCheckPosition: поизция успешно добавлена.");
+        $this->sendHandlerResponse("success", "Поизция успешно добавлена", $result['data']);
     }
 
     private function sendHandlerResponse($type, $message, $data = [], $id = "") {

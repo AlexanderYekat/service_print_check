@@ -1,70 +1,70 @@
-# Скрипт для обновления службы CloudPosBridgePHP
+# РЎРєСЂРёРїС‚ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ СЃР»СѓР¶Р±С‹ CloudPosBridgePHP
 
-# Указываем путь к корневой папке вашего проекта
+# РЈРєР°Р·С‹РІР°РµРј РїСѓС‚СЊ Рє РєРѕСЂРЅРµРІРѕР№ РїР°РїРєРµ РІР°С€РµРіРѕ РїСЂРѕРµРєС‚Р°
 $ProjectSourcePath = (Get-Item -Path $PSScriptRoot).FullName
 
-# Указываем путь к папке установки службы
+# РЈРєР°Р·С‹РІР°РµРј РїСѓС‚СЊ Рє РїР°РїРєРµ СѓСЃС‚Р°РЅРѕРІРєРё СЃР»СѓР¶Р±С‹
 $ServiceInstallPath = "C:\CloudPosBridgePHP\app"
 
-Write-Host "Остановка службы CloudPosBridgeServicePHP..."
+Write-Host "РћСЃС‚Р°РЅРѕРІРєР° СЃР»СѓР¶Р±С‹ CloudPosBridgeServicePHP..."
 try {
     Stop-Service -Name CloudPosBridgeServicePHP -ErrorAction Stop
-    Write-Host "Служба CloudPosBridgeServicePHP остановлена."
+    Write-Host "РЎР»СѓР¶Р±Р° CloudPosBridgeServicePHP РѕСЃС‚Р°РЅРѕРІР»РµРЅР°."
 }
 catch {
-    Write-Warning "Не удалось остановить службу CloudPosBridgeServicePHP. Возможно, она уже остановлена или не существует. Продолжаем."
+    Write-Warning "РќРµ СѓРґР°Р»РѕСЃСЊ РѕСЃС‚Р°РЅРѕРІРёС‚СЊ СЃР»СѓР¶Р±Сѓ CloudPosBridgeServicePHP. Р’РѕР·РјРѕР¶РЅРѕ, РѕРЅР° СѓР¶Рµ РѕСЃС‚Р°РЅРѕРІР»РµРЅР° РёР»Рё РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚. РџСЂРѕРґРѕР»Р¶Р°РµРј."
 }
 
-Write-Host "Копирование файлов проекта в [$ServiceInstallPath]..."
+Write-Host "РљРѕРїРёСЂРѕРІР°РЅРёРµ С„Р°Р№Р»РѕРІ РїСЂРѕРµРєС‚Р° РІ [$ServiceInstallPath]..."
 try {
-    # Создаем целевую папку, если она не существует
+    # РЎРѕР·РґР°РµРј С†РµР»РµРІСѓСЋ РїР°РїРєСѓ, РµСЃР»Рё РѕРЅР° РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚
     if (-not (Test-Path -Path $ServiceInstallPath)) {
         New-Item -Path $ServiceInstallPath -ItemType Directory -Force | Out-Null
-        Write-Host "Создана целевая папка: $ServiceInstallPath"
+        Write-Host "РЎРѕР·РґР°РЅР° С†РµР»РµРІР°СЏ РїР°РїРєР°: $ServiceInstallPath"
     }
 
-    # Копируем PHP файлы из корневой папки проекта
+    # РљРѕРїРёСЂСѓРµРј PHP С„Р°Р№Р»С‹ РёР· РєРѕСЂРЅРµРІРѕР№ РїР°РїРєРё РїСЂРѕРµРєС‚Р°
     Get-ChildItem -Path $ProjectSourcePath -Filter "*.php" -File | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $ServiceInstallPath -Force
     }
-    Write-Host "PHP файлы скопированы."
+    Write-Host "PHP С„Р°Р№Р»С‹ СЃРєРѕРїРёСЂРѕРІР°РЅС‹."
     Get-ChildItem -Path $ProjectSourcePath -Filter "*.ps1" -File | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $ServiceInstallPath -Force
     }
-    Write-Host "Файлы скриптов PowerSHell скопированы."
+    Write-Host "Р¤Р°Р№Р»С‹ СЃРєСЂРёРїС‚РѕРІ PowerSHell СЃРєРѕРїРёСЂРѕРІР°РЅС‹."
 
-    # Копируем README.md
+    # РљРѕРїРёСЂСѓРµРј README.md
     Copy-Item -Path "$ProjectSourcePath\README.md" -Destination $ServiceInstallPath -Force -ErrorAction SilentlyContinue
-    Write-Host "README.md скопирован (если существует)."
+    Write-Host "README.md СЃРєРѕРїРёСЂРѕРІР°РЅ (РµСЃР»Рё СЃСѓС‰РµСЃС‚РІСѓРµС‚)."
 
-    # Копируем содержимое папок с сохранением иерархии
-    $foldersToCopy = @("templates", "settings_storage", "tests", "resource", "bank", "scanner")
+    # РљРѕРїРёСЂСѓРµРј СЃРѕРґРµСЂР¶РёРјРѕРµ РїР°РїРѕРє СЃ СЃРѕС…СЂР°РЅРµРЅРёРµРј РёРµСЂР°СЂС…РёРё
+    $foldersToCopy = @("templates", "settings_storage", "samples", "resource", "bank")
     foreach ($folder in $foldersToCopy) {
         $source = Join-Path $ProjectSourcePath $folder
         $destination = $ServiceInstallPath
         if (Test-Path -Path $source) {
-            Write-Host "Копирование папки [$folder]..."
+            Write-Host "РљРѕРїРёСЂРѕРІР°РЅРёРµ РїР°РїРєРё [$folder]..."
             Copy-Item -Path $source -Destination $destination -Recurse -Force
-            Write-Host "Папка [$folder] скопирована."
+            Write-Host "РџР°РїРєР° [$folder] СЃРєРѕРїРёСЂРѕРІР°РЅР°."
         } else {
-            Write-Warning "Папка [$folder] не найдена в проекте: $source"
+            Write-Warning "РџР°РїРєР° [$folder] РЅРµ РЅР°Р№РґРµРЅР° РІ РїСЂРѕРµРєС‚Рµ: $source"
         }
     }
-    Write-Host "Все необходимые файлы скопированы."
+    Write-Host "Р’СЃРµ РЅРµРѕР±С…РѕРґРёРјС‹Рµ С„Р°Р№Р»С‹ СЃРєРѕРїРёСЂРѕРІР°РЅС‹."
 }
 catch {
-    Write-Error "Ошибка при копировании файлов: $_"
+    Write-Error "РћС€РёР±РєР° РїСЂРё РєРѕРїРёСЂРѕРІР°РЅРёРё С„Р°Р№Р»РѕРІ: $_"
     exit 1
 }
 
-Write-Host "Запуск службы CloudPosBridgeServicePHP..."
+Write-Host "Р—Р°РїСѓСЃРє СЃР»СѓР¶Р±С‹ CloudPosBridgeServicePHP..."
 try {
     Start-Service -Name CloudPosBridgeServicePHP -ErrorAction Stop
-    Write-Host "Служба CloudPosBridgeServicePHP запущена."
+    Write-Host "РЎР»СѓР¶Р±Р° CloudPosBridgeServicePHP Р·Р°РїСѓС‰РµРЅР°."
 }
 catch {
-    Write-Error "Не удалось запустить службу CloudPosBridgeServicePHP: $_"
+    Write-Error "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ СЃР»СѓР¶Р±Сѓ CloudPosBridgeServicePHP: $_"
     exit 1
 }
 
-Write-Host "Процесс обновления завершен." 
+Write-Host "РџСЂРѕС†РµСЃСЃ РѕР±РЅРѕРІР»РµРЅРёСЏ Р·Р°РІРµСЂС€РµРЅ." 

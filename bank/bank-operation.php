@@ -114,7 +114,7 @@ function bank_operation_via_ps1($operation, $amount = null, $logger = null) {
             return $is_not_empty && $does_not_contain_S;
         });
         $returnResult = array_values($returnResult);
-        if ($logger) $logger->info("Слип после очистки служебюных и пустых строк: " . json_encode($returnResult));
+        if ($logger) $logger->info("Слип после очистки служебных и пустых строк: " . json_encode($returnResult));
     }
 
     return [

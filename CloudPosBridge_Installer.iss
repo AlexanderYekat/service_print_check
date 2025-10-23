@@ -2,7 +2,7 @@
 ; Название вашего приложения, которое будет отображаться в Установке и Панели управления
 AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
-AppVersion=2025.07.05.01
+AppVersion=2025.10.23.01
 ; Имя файла установки, который будет создан
 OutputBaseFilename=CloudPosBridgePHP_Setup
 ; Папка, куда по умолчанию будет установлено приложение
@@ -33,7 +33,7 @@ Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createal
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
 ; Копируем все файлы из папки @myapp_dist в подпапку drivers
-Source: "myapp_dist\KKT10-10.10.6.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+Source: "myapp_dist\KKT10-10.10.7.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\KKT10-10.9.1.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "myapp_dist\VC_redist.x64.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
@@ -84,7 +84,7 @@ Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: r
 
 ; Установка драйвера ККТ и драйвера весов
 Filename: "{app}\drivers\KKT10-10.9.1.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
-Filename: "{app}\drivers\KKT10-10.10.6.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
+Filename: "{app}\drivers\KKT10-10.10.7.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
 Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера FDU..."; Tasks: install_fdu_driver
 
 ; Установка Microsoft Visual C++ Redistributable в зависимости от архитектуры системы
@@ -157,7 +157,7 @@ begin
 
   KKTDriverPage.Add('Не устанавливать драйвер ККТ');
   KKTDriverPage.Add('Кассовый аппарат старый (не обновлялся) (KKT10-10.9.1.0-windows32-setup.exe)');
-  KKTDriverPage.Add('Кассовый аппарат новый (обновлялся) (KKT10-10.10.6.0-windows32-setup.exe)');
+  KKTDriverPage.Add('Кассовый аппарат новый (обновлялся) (KKT10-10.10.7.0-windows32-setup.exe)');
   
   // По умолчанию выбираем "не устанавливать" (индекс 0)
   KKTDriverPage.SelectedValueIndex := 2;

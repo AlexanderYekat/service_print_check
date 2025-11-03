@@ -339,10 +339,56 @@ class TFptr10Driver {
         if (!$beginMarkingCodeValidation[0]) {
             return [false, "", $beginMarkingCodeValidation[2]];
         }
-        $checkMarkingCodeValidation = $this->checkMarkingCodeValidation();
-        if (!$checkMarkingCodeValidation[0]) {
-            return [false, "", $checkMarkingCodeValidation[2]];
-        }
+
+		// Ожидаем завершения проверки КМ (поллинг статуса)
+		$maxWaitSeconds = 60; // таймаут ожидания
+		$isReady = false;
+		$lastResponseJson = "";
+		$prevNonEmptyResponseJson = "";
+		for ($i = 0; $i < $maxWaitSeconds; $i++) {
+			$checkMarkingCodeValidation = $this->checkMarkingCodeValidation();
+			if (!$checkMarkingCodeValidation[0]) {
+				return [false, "", $checkMarkingCodeValidation[2]];
+			}
+			$lastResponseJson = (string)$checkMarkingCodeValidation[1];
+            $this->logger->debug("checkMarkingCode: lastResponseJson: " . $lastResponseJson);
+			if ($lastResponseJson === "") {
+				$this->logger->debug("checkMarkingCode: пустой ответ статуса, повторю запрос...");
+				sleep(1);
+				continue;
+			}
+			$prevNonEmptyResponseJson = $lastResponseJson;
+			$resp = json_decode($lastResponseJson, true);
+			if (!is_array($resp)) {
+				// если парсинг не удался, но ранее был валидный ответ — используем его
+				if ($prevNonEmptyResponseJson !== "") {
+					$this->logger->debug("checkMarkingCode: не удалось распарсить ответ, использую предыдущий валидный");
+					$resp = json_decode($prevNonEmptyResponseJson, true);
+					if (!is_array($resp)) {
+						return [false, "", "Некорректный ответ при проверке КМ"];
+					}
+				} else {
+					return [false, "", "Некорректный ответ при проверке КМ"];
+				}
+			}
+			// Проверяем флаг готовности
+			if (!empty($resp["ready"])) {
+				// Проверяем ошибки драйвера, если есть
+				$driverErrorCode = $resp["driverError"]["code"] ?? 0;
+				if ($driverErrorCode !== 0) {
+					return [false, "", "Ошибка драйвера при проверке КМ: код " . $driverErrorCode];
+				}
+				$isReady = true;
+				break;
+			}
+			sleep(1);
+		}
+
+		if (!$isReady) {
+			// По возможности отменяем проверку, чтобы не оставлять висящее состояние
+			try { $this->cancelMarkingCodeValidation(); } catch (\Throwable $e) {}
+			return [false, "", "Истек таймаут ожидания готовности проверки КМ"];
+		}
         $acceptMarkingCode = $this->acceptMarkingCode();
         if (!$acceptMarkingCode[0]) {
             return [false, "", $acceptMarkingCode[2]];
@@ -356,6 +402,7 @@ class TFptr10Driver {
     }
 
     public function beginMarkingCodeValidation(string $imc, string $itemEstimatedStatus) {
+        $this->logger->debug("beginMarkingCodeValidation: imc: " . $imc . " (длина: " . strlen($imc) . ")");
         if ($this->fptr === null) {
             return [false, "", "Драйвер не инициализирован"];
         }
@@ -384,7 +431,18 @@ class TFptr10Driver {
 
         list($success, $responseJson, $commandErrorDesc) =  $this->sendCommandAndGetAnswerFromKKT($beginMarkingCodeValidationJson);
         if (!$success && !$this->emulation) {
-            return [false, "", $commandErrorDesc];
+            if (strpos($commandErrorDesc, "Процедура проверки КМ уже запущена") !== false) {
+                $cancelMarkingCodeValidation = $this->cancelMarkingCodeValidation();
+                if (!$cancelMarkingCodeValidation[0]) {
+                    $this->logger->error("Ошибка отмены валидации кода маркировки: " . $cancelMarkingCodeValidation[2]);
+                    return [false, "", "Ошибка отмены валидации кода маркировки: " . $cancelMarkingCodeValidation[2]];
+                }    
+                list($success, $responseJson, $commandErrorDesc) =  $this->sendCommandAndGetAnswerFromKKT($beginMarkingCodeValidationJson); 
+            }            
+            if (!$success) {
+                $this->logger->error("Ошибка начала валидации кода маркировки: " . $commandErrorDesc);
+                return [false, "", "Ошибка начала валидации кода маркировки: " . $commandErrorDesc];
+            }
         }
 
         // В режиме эмуляции возвращаем мок-ответ
@@ -546,14 +604,18 @@ class TFptr10Driver {
         if ($comJson === false) {
             return [false, "", "Ошибка конвертации кодировки"];
         }
+        $this->logger->debug("sendCommandAndGetAnswerFromKKT: comJson: " . $comJson);
         $this->fptr->setParam($this->fptr->LIBFPTR_PARAM_JSON_DATA, $comJson);
 
         // отправка команды (если не эмуляция)
         if (!$this->emulation) {
-            $result = $this->fptr->processJson();
-            if ($result !== 0) {
+            $this->fptr->processJson();
+            $errorCode = $this->fptr->errorCode();
+            $this->logger->debug("sendCommandAndGetAnswerFromKKT: errorCode: " . $errorCode);
+            if ($errorCode !== 0) {
                 $errorDescription = $this->fptr->errorDescription();
                 $errorDescription = iconv('Windows-1251', 'UTF-8//IGNORE', $errorDescription  ?? '');
+                $this->logger->debug("sendCommandAndGetAnswerFromKKT: errorDescription: " . $errorDescription);
                 return [false, "", "Ошибка отправки команды на ККТ: {$errorDescription}"];
             }
         } else { // Если эмуляция, возвращаем мок-ответ
@@ -584,15 +646,20 @@ class TFptr10Driver {
             return [true, $resJson, ""];
         }
     
-        // Получаем ответ от ККТ
-        $jsonAnswer = $this->fptr->GetParamString($this->fptr->LIBFPTR_PARAM_JSON_DATA);
-        $jsonAnswer = json_decode($jsonAnswer, true);
-
-        if ($jsonAnswer === null) {
-            return [true, "", ""];
-        }
-        //return [true, "", ""];
-        return [true, json_encode($jsonAnswer), ""];
+		// Получаем ответ от ККТ
+		$jsonAnswerRaw = $this->fptr->GetParamString($this->fptr->LIBFPTR_PARAM_JSON_DATA);
+		$this->logger->debug("sendCommandAndGetAnswerFromKKT: jsonAnswer: " . $jsonAnswerRaw);
+		// Ответ от драйвера может быть в Windows-1251, конвертируем в UTF-8 перед разбором
+		$jsonAnswerUtf8 = iconv('Windows-1251', 'UTF-8//IGNORE', $jsonAnswerRaw  ?? '');
+		$decoded = json_decode($jsonAnswerUtf8, true);
+		if ($decoded === null) {
+			// Если декодирование не удалось, но ответ не пустой — вернём строку как есть (UTF-8)
+			if (trim((string)$jsonAnswerUtf8) !== '') {
+				return [true, $jsonAnswerUtf8, ""];
+			}
+			return [true, "", ""];
+		}
+		return [true, json_encode($decoded, JSON_UNESCAPED_UNICODE), ""];
     }
     
     public function SuccessCommand($resultJson) {
@@ -727,9 +794,21 @@ class TFptr10Driver {
                     $positionItem['imcParams'] = $imcParams;
                     //разрешительный режим маркировки
                     $this->logger->info("Разрешительный режим маркировки industryInfo: " . json_encode($item['permitCheckResult']));
-                    if (isset($item['permitCheckResult']['data']['response']['user_status']['ok']) && $item['permitCheckResult']['data']['response']['user_status']['ok'] === true) {
+                    // Универсальная проверка OK в разных вариантах ответа API
+                    $permitResponse = $item['permitCheckResult']['data']['response'] ?? [];
+                    $okFlag = null;
+                    if (isset($permitResponse['user_status']['ok'])) {
+                        $okFlag = $permitResponse['user_status']['ok'];
+                    } elseif (isset($permitResponse['']['ok'])) { // как в логах пользователя: ключ ""
+                        $okFlag = $permitResponse['']['ok'];
+                    } elseif (isset($permitResponse['ok'])) { // запасной вариант
+                        $okFlag = $permitResponse['ok'];
+                    }
+
+                    if ($okFlag === true) {
                         $this->logger->info("Разрешительный режим маркировки status успешно: " . json_encode($item['permitCheckResult']));
-                        $machineData = $item['permitCheckResult']['data']['response']['machine_data'];
+                        // Достаём machine_data из ответа, если доступно
+                        $machineData = $permitResponse['machine_data'] ?? [];
                         $this->logger->info("Разрешительный режим маркировки machineData: " . json_encode($machineData));
                         $uuid = $machineData['uuid'] ?? '';
                         $time = $machineData['timeStamp'] ?? '';
@@ -865,13 +944,9 @@ class TFptr10Driver {
                 'number' => '2028'
             ],
         ];
-
-        // Если категория не найдена, используем значения по умолчанию (корма)
-        $defaultCategory = '';
-        $selectedCategory = isset($categoryMapping[$category]) ? $category : $defaultCategory;
-        
-
-        if (empty($selectedCategory)) {
+        // Нормализуем через централизованную функцию моделей (без дублирования логики)
+        $selectedKey = CheckItem::normalizeCategoryKey($category);
+        if (!isset($categoryMapping[$selectedKey])) {
             $this->logger->error("Категория товара не найдена: " . $category);
             return [
                 'fois' => '030',
@@ -879,6 +954,6 @@ class TFptr10Driver {
                 'number' => '674'
             ];
         }
-        return $categoryMapping[$selectedCategory];
+        return $categoryMapping[$selectedKey];
     }
 }

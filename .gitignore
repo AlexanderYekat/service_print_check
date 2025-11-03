@@ -4,6 +4,7 @@
 tests/screenshots/
 .gigaide/
 _temp_update/
+compare/
 
 !myapp_dist/
 !myapp_dist/*.exe

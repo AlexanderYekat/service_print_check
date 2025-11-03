@@ -194,6 +194,10 @@ function runServer() {
         $logger->debug("Запрос на получение страницы настроек разрешительного режима маркировки.");
         header('Content-Type: text/html; charset=utf-8');
         readfile(__DIR__ . '/templates/permit_mark_settings.html');
+    } elseif ($uri === '/demo-scanner' && $method === 'GET') {
+        $logger->debug("Запрос на получение страницы демо-сканера.");
+        header('Content-Type: text/html; charset=utf-8');
+        readfile(__DIR__ . '/templates/scanner_demo.html');
     } elseif ($uri === '/api/settings') {
         $logger->debug("Запрос настроек.");
         if ($method === 'GET') {

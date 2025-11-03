@@ -36,6 +36,7 @@ class BarcodeScanner {
     
     // Настройки логирования (устанавливаем ПЕРЕД парсингом терминатора)
     this.debug = options.debug || false;
+    console.log('debug: ' + this.debug);
     
     // Настройки
     this.terminator = this.parseTerminator(options.terminator || '\t');
@@ -65,11 +66,20 @@ class BarcodeScanner {
       
       // Пытаемся подключиться к сохраненному порту
       if (options.trySavedPortFirst && options.savedPortInfo) {
+        if (this.debug) {
+          console.log('options.savedPortInfo: ' + JSON.stringify(options.savedPortInfo));
+        }
         const savedPort = await this.tryConnectToSavedPort(options.savedPortInfo);
+        if (this.debug) {
+          console.log('tryConnectToSavedPort: ' + JSON.stringify(savedPort));
+        }
         if (savedPort) {
           this.log('Подключение к сохраненному порту успешно');
           this.setupPort(savedPort);
           return;
+        }
+        if (this.debug) {
+          console.log('Сохраненный порт не найден, используем диалог выбора');
         }
         this.log('Сохраненный порт не найден, используем диалог выбора');
       }
@@ -456,10 +466,16 @@ class BarcodeScanner {
    * @returns {Promise<Object|null>} Информация о сохраненном порте или null
    */
   async loadSavedPortInfo() {
+    if (this.debug) {
+      this.log('loadSavedPortInfo');
+    }
     try {
       const response = await fetch('/api/settings');
       if (response.ok) {
         const settings = await response.json();
+        if (this.debug) {
+          this.log('settings: ' + JSON.stringify(settings));
+        }
         if (settings.scannerUsbVendorId && settings.scannerUsbProductId) {
           return {
             vendorId: settings.scannerUsbVendorId,

@@ -392,7 +392,7 @@
                     },
                     terminator: suffix,
                     baudRate: 9600,
-                    debug: false, // Отключаем избыточное логирование
+                    debug: true, // Отключаем избыточное логирование
                     maxBufferSize: 20480,
                     bufferTimeout: 600000
                 });
@@ -498,14 +498,23 @@
                         scannerSuffix: scannerSuffixValue
                     }),
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     console.log('Ответ сервера на сохранение:', data);
+                    if (data.status === 'success') {
                     alert('Настройка сохранена успешно!');
+                    } else {
+                        alert(`Ошибка сервера: ${data.message || 'Неизвестная ошибка'}`);
+                    }
                 })
                 .catch((error) => {
                     console.error('Ошибка:', error);
-                    alert('Произошла ошибка при сохранении настройки.');
+                    alert(`Произошла ошибка при сохранении настройки: ${error.message}`);
                 });
             });
 
@@ -755,7 +764,7 @@
                     }
                     
                     // Создаем временный сканер для работы с портами
-                    const tempScanner = new BarcodeScanner({ debug: false });
+                    const tempScanner = new BarcodeScanner({ debug: true });
                     
                     // Сначала пробуем найти сохраненный порт
                     const savedPortInfo = await tempScanner.loadSavedPortInfo();
@@ -768,6 +777,8 @@
                     // Если сохраненного порта нет, запрашиваем новый
                     const port = await navigator.serial.requestPort();
                     const portInfo = port.getInfo();
+
+                    console.log('portInfo: ' + JSON.stringify(portInfo));
                     
                     // Просим пользователя ввести номер COM-порта
                     const manualInput = prompt(
@@ -780,13 +791,28 @@
                     if (manualInput !== null && manualInput.trim() !== '') {
                         const comNumber = parseInt(manualInput.trim());
                         if (!isNaN(comNumber) && comNumber > 0) {
-                            // Сохраняем информацию о порте на сервере
-                            const saved = await tempScanner.savePortInfo(comNumber);
+                            // Сохраняем информацию о порте напрямую через API
+                            try {
+                                const response = await fetch('/api/settings', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        scannerUsbVendorId: portInfo.usbVendorId,
+                                        scannerUsbProductId: portInfo.usbProductId,
+                                        comScanner: comNumber
+                                    })
+                                });
                             
-                            if (saved) {
+                                if (response.ok) {
                                 comScannerInput.value = comNumber;
                                 alert(`✅ COM-порт ${comNumber} настроен и сохранен на сервере!\n\nПри следующем запуске порт будет выбран автоматически.`);
                             } else {
+                                    alert('❌ Ошибка при сохранении настроек на сервере. Попробуйте еще раз.');
+                                }
+                            } catch (saveError) {
+                                console.error('Ошибка при сохранении настроек:', saveError);
                                 alert('❌ Ошибка при сохранении настроек на сервере. Попробуйте еще раз.');
                             }
                         } else {
@@ -806,7 +832,7 @@
             // Автоматическое заполнение сохраненного порта при загрузке страницы
             async function initSavedPort() {
                 try {
-                    const tempScanner = new BarcodeScanner({ debug: false });
+                    const tempScanner = new BarcodeScanner({ debug: true });
                     const savedPortInfo = await tempScanner.loadSavedPortInfo();
                     
                     if (savedPortInfo) {

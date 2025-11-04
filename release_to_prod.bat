@@ -39,6 +39,7 @@ IF %ERRORLEVEL% NEQ 0 (
     echo Ошибка: Не удалось отправить prod-phprails. Проверьте ваше сетевое соединение или права доступа.
     goto :eof
 )
+git checkout async
 echo.
 echo Процесс завершен. Если не было ошибок, GitHub Action должен быть запущен.
 git checkout async

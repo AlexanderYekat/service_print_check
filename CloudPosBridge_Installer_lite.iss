@@ -4,7 +4,7 @@ AppName=CloudPosBridgePHP Service
 ; Версия вашего приложения
 AppVersion=2025.11.04.06
 ; Имя файла установки, который будет создан
-OutputBaseFilename=CloudPosBridgePHP_Setup
+OutputBaseFilename=CloudPosBridgePHP_Setup_lite
 ; Папка, куда по умолчанию будет установлено приложение
 ;DefaultDirName={localappdata}\CloudPosBridgePHP
 DefaultDirName=c:\CloudPosBridgePHP
@@ -22,9 +22,9 @@ Compression=lzma
 [Tasks]
 Name: desktopicon; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительные ярлыки:";
 Name: programgroupicon; Description: "Создать ярлык в меню 'Пуск'"; GroupDescription: "Дополнительные ярлыки:"; Flags: unchecked
-Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку сбербанка (sbrf.dll из папки c:\sc552) для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
-Name: install_fdu_driver; Description: "Установить драйвер вкесов (FDU_8_28_18_00_Full.EXE)"; GroupDescription: "Установка драйверов:";
-Name: install_vcredist; Description: "Установить Microsoft Visual C++ Redistributable (автоматический выбор версии)"; GroupDescription: "Установка компонентов:";
+;Name: register_sbrf_dll; Description: "Зарегистрировать библиотеку сбербанка (sbrf.dll из папки c:\sc552) для работы банковского терминала"; GroupDescription: "Регистрация DLL-библиотек:";
+;Name: install_fdu_driver; Description: "Установить драйвер вкесов (FDU_8_28_18_00_Full.EXE)"; GroupDescription: "Установка драйверов:";
+;Name: install_vcredist; Description: "Установить Microsoft Visual C++ Redistributable (автоматический выбор версии)"; GroupDescription: "Установка компонентов:";
 
 [Files]
 ; Копируем все файлы из папки @myapp_dist/php в подпапку {app}\php
@@ -33,11 +33,11 @@ Source: "myapp_dist\php\*"; DestDir: "{app}\php"; Flags: recursesubdirs createal
 Source: "myapp_dist\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
 
 ; Копируем все файлы из папки @myapp_dist в подпапку drivers
-Source: "myapp_dist\KKT10-10.10.7.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\KKT10-10.9.1.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\VC_redist.x64.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
-Source: "myapp_dist\VC_redist.x86.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\KKT10-10.10.7.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\KKT10-10.9.1.0-windows32-setup.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\FDU_8_28_18_00_Full.EXE"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\VC_redist.x64.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
+;Source: "myapp_dist\VC_redist.x86.exe"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
 ; Копируем все PHP файлы из корневой папки приложения в {app}\app
 Source: "*.php"; DestDir: "{app}\app"; Flags: 
@@ -74,6 +74,12 @@ Name: "{app}\app\settings"
 Name: "{app}\app\logs"
 Name: "{app}\drivers"
 Name: "{app}\app\bank\temp"
+Name: "{app}\app\vendor"
+Name: "{app}\app\rr"
+Name: "{app}\app\tests"
+Name: "{app}\app\templates"
+Name: "{app}\app\resource"
+Name: "{app}\app\scanner"
 
 [Icons]
 ; Ярлык в папке установки (всегда создается)
@@ -90,16 +96,16 @@ Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://loca
 Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\rr\rr.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Регистрация DLL-библиотек
-Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll..."; Tasks: register_sbrf_dll
+;Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll..."; Tasks: register_sbrf_dll
 
 ; Установка драйвера ККТ и драйвера весов
-Filename: "{app}\drivers\KKT10-10.9.1.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
-Filename: "{app}\drivers\KKT10-10.10.7.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
-Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера FDU..."; Tasks: install_fdu_driver
+;Filename: "{app}\drivers\KKT10-10.9.1.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (АТОЛ) (старый)..."; Check: ShouldInstallOldKKTDriver
+;Filename: "{app}\drivers\KKT10-10.10.7.0-windows32-setup.exe"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера ККТ (32x битный) (новый)..."; Check: ShouldInstallNewKKTDriver
+;Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waituntilterminated; StatusMsg: "Установка драйвера FDU..."; Tasks: install_fdu_driver
 
 ; Установка Microsoft Visual C++ Redistributable в зависимости от архитектуры системы
-Filename: "{app}\drivers\VC_redist.x64.exe"; Parameters: "/quiet"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x64)..."; Tasks: install_vcredist; Check: IsWin64
-Filename: "{app}\drivers\VC_redist.x86.exe"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x86)..."; Tasks: install_vcredist; Check: not IsWin64
+;Filename: "{app}\drivers\VC_redist.x64.exe"; Parameters: "/quiet"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x64)..."; Tasks: install_vcredist; Check: IsWin64
+;Filename: "{app}\drivers\VC_redist.x86.exe"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x86)..."; Tasks: install_vcredist; Check: not IsWin64
 
 ; Параметры RoadRunner: использовать конфиг rr.yaml из папки приложения
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""serve -c {app}\app\rr.yaml"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров RoadRunner..."; Flags: runhidden
@@ -162,15 +168,15 @@ end;
 procedure InitializeWizard();
 begin
   // Создаем новую страницу для выбора версии драйвера ККТ
-  KKTDriverPage := CreateInputOptionPage(wpWelcome, 'Выбор драйвера ККТ', 'Пожалуйста, выберите версию драйвера ККТ для установки:',
-    'Какой кассовый аппарат вы используете?', True, False);
+  //KKTDriverPage := CreateInputOptionPage(wpWelcome, 'Выбор драйвера ККТ', 'Пожалуйста, выберите версию драйвера ККТ для установки:',
+  //  'Какой кассовый аппарат вы используете?', True, False);
 
-  KKTDriverPage.Add('Не устанавливать драйвер ККТ');
-  KKTDriverPage.Add('Кассовый аппарат старый (не обновлялся) (KKT10-10.9.1.0-windows32-setup.exe)');
-  KKTDriverPage.Add('Кассовый аппарат новый (обновлялся) (KKT10-10.10.7.0-windows32-setup.exe)');
+  //KKTDriverPage.Add('Не устанавливать драйвер ККТ');
+  //KKTDriverPage.Add('Кассовый аппарат старый (не обновлялся) (KKT10-10.9.1.0-windows32-setup.exe)');
+  //KKTDriverPage.Add('Кассовый аппарат новый (обновлялся) (KKT10-10.10.7.0-windows32-setup.exe)');
   
   // По умолчанию выбираем "не устанавливать" (индекс 0)
-  KKTDriverPage.SelectedValueIndex := 2;
+  //KKTDriverPage.SelectedValueIndex := 2;
 end;
 
 var

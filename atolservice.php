@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_11_04_1709');
+define('VERSION_OF_PROGRAM', '2025_11_04_1823');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -258,7 +258,10 @@ function runServer() {
         }
     } elseif ($uri === '/api/version' && $method === 'GET') {
         $logger->debug("Запрос на получение версии программы.");
-        echo VERSION_OF_PROGRAM;
+        $version = VERSION_OF_PROGRAM;
+        $logger->info("Версия программы: " . $version);
+        echo $version;
+        //echo json_encode(['status' => 'success', 'message' => 'Версия программы: ' . $version], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/send-logs' && $method === 'POST') {
         $logger->debug("Запрос на отправку логов на почту.");
         header('Content-Type: application/json; charset=utf-8');

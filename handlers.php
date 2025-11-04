@@ -77,6 +77,7 @@ class Handler {
             return;
         }
         $this->logger->info("HandleCheckMarkingCode: requestData: " . json_encode($requestData, JSON_UNESCAPED_UNICODE));
+        $cashier = $requestData['cashier'] ?? '';
         $markingCode = $requestData['markingCode'] ?? '';
         $sellOrReturn = $requestData['sellOrReturn'] ?? 'sell';
         $itemEstimatedStatus = $requestData['itemEstimatedStatus'] ?? '';
@@ -90,7 +91,7 @@ class Handler {
             $this->sendHandlerResponse("error", 'Код маркировки не может быть пустым.');
             return;
         }
-        $result = $this->checkService->checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus);
+        $result = $this->checkService->checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus, $cashier);
         if (!$result['success']) {
             $this->logger->error("HandleCheckMarkingCode: Ошибка проверки кода маркировки: " . $result['message']);
             http_response_code(500);

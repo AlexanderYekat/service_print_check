@@ -921,6 +921,7 @@
             renderItem(item);
 
             const checkType = document.getElementById('checkType').value;
+            const cashier = document.getElementById('cashier').value;
 
             try {
                 const response = await fetch(`${API_URL}/api/check-marking-code`, {
@@ -930,7 +931,8 @@
                     },
                     body: JSON.stringify({
                         markingCode: markingCode,
-                        sellOrReturn: checkType
+                        sellOrReturn: checkType,
+                        cashier: cashier
                     })
                 });
                 const data = await response.json();

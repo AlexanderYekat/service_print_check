@@ -275,9 +275,21 @@
                     </div>
                     
                     <div class="form-field">
-                        <label for="permitMarkEnabled" style="display: inline-block; margin-right: 8px;">Включить проверку маркировок товаров</label>
+                        <label for="permitMarkEnabled" style="display: inline-block; margin-right: 8px;">Включить проверку маркировок товаров (разрешительный режим)</label>
                         <input type="checkbox" id="permitMarkEnabled" name="permitMarkEnabled" style="transform: scale(1.2); vertical-align: middle;">
                         <span class="helper-text">Если включено, система будет проверять маркировки товаров через разрешительный режим "Честный ЗНАК".</span>
+                    </div>
+
+                    <!-- Поле X-API-Key (отображается только при включенном разрешительном режиме) -->
+                    <div class="form-field" id="xApiKeyField" style="display: none;">
+                        <label for="xApiKey">X-API-Key</label>
+                        <div class="password-input" style="position: relative;">
+                            <input type="password" id="xApiKey" name="xApiKey" class="text-input" placeholder="Введите ваш X-API-Key">
+                            <button type="button" id="xApiKeyToggle" class="password-toggle" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--md-sys-color-outline); cursor: pointer; padding: 4px; border-radius: 4px;">
+                                <span class="material-icons" id="xApiKeyToggleIcon">visibility</span>
+                            </button>
+                        </div>
+                        <span class="helper-text">API ключ для работы с системой разрешительного режима маркировки</span>
                     </div>
                 </div>
                 
@@ -336,6 +348,11 @@
             const closeSpecialCharsBtn = document.getElementById('closeSpecialChars');
             const suffixInfo = document.getElementById('suffixInfo');
             const diagnoseButton = document.getElementById('diagnoseButton');
+            const permitCheckbox = document.getElementById('permitMarkEnabled');
+            const xApiKeyField = document.getElementById('xApiKeyField');
+            const xApiKeyInput = document.getElementById('xApiKey');
+            const xApiKeyToggle = document.getElementById('xApiKeyToggle');
+            const xApiKeyToggleIcon = document.getElementById('xApiKeyToggleIcon');
             
             // Переменная для тестирования сканера
             let testScanner = null;
@@ -415,9 +432,12 @@
                         comScaleInput.value = settings.comScale - 1000;
                     }
                     // Разрешительный режим маркировки
-                    const permitCheckbox = document.getElementById('permitMarkEnabled');
                     if (permitCheckbox) {
                         permitCheckbox.checked = !!settings.permitMarkEnabled;
+                    }
+                    // X-API-Key
+                    if (xApiKeyInput && settings.permitMarkXApiKey) {
+                        xApiKeyInput.value = settings.permitMarkXApiKey;
                     }
                     // Часовой пояс
                     if (timeZoneSelect) {
@@ -436,6 +456,11 @@
                         }
                     }
                     
+                    // Показать/скрыть поле X-API-Key согласно чекбоксу
+                    if (xApiKeyField) {
+                        xApiKeyField.style.display = permitCheckbox && permitCheckbox.checked ? 'block' : 'none';
+                    }
+
                     // После загрузки настроек пытаемся заполнить сохраненный порт
                     initSavedPort();
                 })
@@ -494,6 +519,7 @@
                     body: JSON.stringify({ 
                         comScale: valueToSend,
                         permitMarkEnabled: permitCheckbox ? !!permitCheckbox.checked : undefined,
+                        permitMarkXApiKey: permitCheckbox && permitCheckbox.checked ? (xApiKeyInput ? xApiKeyInput.value.trim() : '') : undefined,
                         timeZone: timeZoneValue,
                         comScanner: scannerValueToSend,
                         scannerSuffix: scannerSuffixValue
@@ -658,6 +684,28 @@
                     console.log('Внимание: Изменение терминатора требует переподключения сканера!');
                 }
             });
+
+            // Переключение видимости поля X-API-Key
+            if (permitCheckbox) {
+                permitCheckbox.addEventListener('change', function() {
+                    if (xApiKeyField) {
+                        xApiKeyField.style.display = permitCheckbox.checked ? 'block' : 'none';
+                    }
+                });
+            }
+
+            // Переключатель видимости X-API-Key
+            if (xApiKeyToggle && xApiKeyInput && xApiKeyToggleIcon) {
+                xApiKeyToggle.addEventListener('click', function() {
+                    if (xApiKeyInput.type === 'password') {
+                        xApiKeyInput.type = 'text';
+                        xApiKeyToggleIcon.textContent = 'visibility_off';
+                    } else {
+                        xApiKeyInput.type = 'password';
+                        xApiKeyToggleIcon.textContent = 'visibility';
+                    }
+                });
+            }
 
             // Обработчик ввода в поле произвольного суффикса
             customSuffixInput.addEventListener('input', function() {

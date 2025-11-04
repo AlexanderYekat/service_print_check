@@ -27,13 +27,25 @@ IF %ERRORLEVEL% NEQ 0 (
     echo Ошибка: Не удалось обновить prod-phprails. Проверьте ваше сетевое соединение или права доступа.
     goto :eof
 )
-echo [Шаг 5/6] Слияние async в prod-phprails...
-git merge async
+echo [Шаг 5/7] Слияние async в prod-phprails (fast-forward)...
+git merge --ff-only async
 IF %ERRORLEVEL% NEQ 0 (
-    echo Ошибка: Конфликты слияния! Пожалуйста, разрешите их вручную перед повторным запуском скрипта.
+    echo Fast-forward невозможен. Пробую авторазрешение конфликтов в пользу async...
+    git merge -X theirs --no-edit async
+    IF %ERRORLEVEL% NEQ 0 (
+        echo Ошибка: Автоматическое слияние не удалось. Разрешите конфликты вручную и повторите попытку.
+        goto :eof
+    )
+)
+
+echo [Шаг 6/7] Проверка на маркеры конфликтов...
+git grep -n "^[<][<][<][<][<][<][<] " -- . 2>nul
+IF %ERRORLEVEL% EQU 0 (
+    echo Ошибка: Обнаружены маркеры конфликтов (<<<<<<< ======= >>>>>>>). Исправьте их и повторите.
     goto :eof
 )
-echo [Шаг 6/6] Отправка prod-phprails на GitHub (это запустит GitHub Action)...
+
+echo [Шаг 7/7] Отправка prod-phprails на GitHub (это запустит GitHub Action)...
 git push origin prod-phprails
 IF %ERRORLEVEL% NEQ 0 (
     echo Ошибка: Не удалось отправить prod-phprails. Проверьте ваше сетевое соединение или права доступа.

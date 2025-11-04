@@ -101,7 +101,7 @@ try {
         # Копируем файлы в промежуточную директорию, исключая те, что не нужны
         $exclusions = @(
             "_temp_update", "_backup_*", "logs", "settings", "backup",
-            ".github", "myapp_dist", ".gitattributes", ".gitignore",
+            ".github", "myapp_dist", ".gitattributes", ".gitignore", "vendor", "compare",
             "*.tmp", "*.lock", "*.db", ".git"
         )
 

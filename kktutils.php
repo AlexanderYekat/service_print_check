@@ -805,10 +805,17 @@ class TFptr10Driver {
                         $okFlag = $permitResponse['ok'];
                     }
 
-                    if ($okFlag === true) {
-                        $this->logger->info("Разрешительный режим маркировки status успешно: " . json_encode($item['permitCheckResult']));
-                        // Достаём machine_data из ответа, если доступно
-                        $machineData = $permitResponse['machine_data'] ?? [];
+                    // Достаём machine_data из ответа, если доступно
+                    $machineData = $permitResponse['machine_data'] ?? [];
+                    
+                    // Добавляем industryInfo всегда, если есть данные разрешительного режима (независимо от результата проверки)
+                    if (!empty($machineData)) {
+                        if ($okFlag === true) {
+                            $this->logger->info("Разрешительный режим маркировки status успешно: " . json_encode($item['permitCheckResult']));
+                        } else {
+                            $this->logger->info("Разрешительный режим маркировки status отрицательный, но данные будут добавлены в чек: " . json_encode($item['permitCheckResult']));
+                        }
+                        
                         $this->logger->info("Разрешительный режим маркировки machineData: " . json_encode($machineData));
                         $uuid = $machineData['uuid'] ?? '';
                         $time = $machineData['timeStamp'] ?? '';

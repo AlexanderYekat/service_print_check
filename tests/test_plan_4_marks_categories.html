@@ -372,7 +372,8 @@
                 console.error('Ошибка загрузки марок:', error);
                 // Fallback на несколько тестовых марок
                 realMarks = [
-                    "0102900361700015215kW5N:H<?F%Q-\u001d91EE10\u001d922lrLybbYVXrqjXkDebP/DgSpg8TmWbN\u001d92+sB1VseIuE=",
+                    //"0102900361700015215kW5N:H<?F%Q-\u001d91EE10\u001d922lrLybbYVXrqjXkDebP/DgSpg8TmWbN\u001d92+sB1VseIuE=",
+                    "010460592200165221509Wyz\u001d93izFZ",
                     "0102900361700015215B>8*=:lemBkc\u001d91EE10\u001d92+u+FxEK+afslMQ0JpezD35Y3rfmWuTnef2yDBJFQtIU=",
                     "0102900361700015215yqhvbKYebqt!\u001d91EE10\u001d92lEiKPyjqgRROSN5z6kUmLoMswjxiLze5xmv0xPs6qOA="
                 ];
@@ -621,11 +622,21 @@
             
             if (checkResult.status === 'error') {
                 let errorMsg = 'Ошибка проверки';
-                if (checkResult.error) {
-                    if (typeof checkResult.error === 'object') {
-                        errorMsg = checkResult.error.error || checkResult.error.message || JSON.stringify(checkResult.error);
-                    } else {
-                        errorMsg = checkResult.error;
+                // Проверяем структуру: { status: 'error', data: {...} }
+                if (checkResult.data) {
+                    if (checkResult.data.message) {
+                        errorMsg = checkResult.data.message;
+                    } else if (checkResult.data.error) {
+                        errorMsg = typeof checkResult.data.error === 'string' ? 
+                            checkResult.data.error : 
+                            JSON.stringify(checkResult.data.error);
+                    } else if (checkResult.data.response) {
+                        // Извлекаем текст ошибки из response
+                        const response = checkResult.data.response;
+                        const firstKey = Object.keys(response)[0];
+                        if (response[firstKey] && response[firstKey].text) {
+                            errorMsg = response[firstKey].text;
+                        }
                     }
                 }
                 return `title="${errorMsg}"`;
@@ -696,13 +707,22 @@
                         
                         const permitResult = await permitResponse.json();
                         // API возвращает {success: true, data: {success: true/false, ...}}
+                        // Сохраняем результат для отображения в UI и отправки на сервер
                         item.checkResults.permit = permitResult.data.success ? 
                             { status: 'success', data: permitResult } : 
-                            { status: 'error', error: permitResult };
+                            { status: 'error', data: permitResult };
                         
                         if (permitResult.data.success) successCount++; else errorCount++;
                     } catch (error) {
-                        item.checkResults.permit = { status: 'error', error: error.message };
+                        // При ошибке сети создаем объект в формате API
+                        item.checkResults.permit = { 
+                            status: 'error', 
+                            data: { 
+                                success: false, 
+                                message: 'Ошибка проверки разрешения маркировки', 
+                                error: error.message 
+                            } 
+                        };
                         errorCount++;
                     }
                 }
@@ -751,11 +771,17 @@
                     rowData.itemEstimatedStatus = item.itemEstimatedStatus;
                     rowData.category = item.category;
                     
-                    // Добавить результаты проверок, если они есть
-                    if (item.checkResults?.kkt?.status === 'success') {
-                        rowData.kktCheckResult = item.checkResults.kkt.data;
+                    // Добавить результаты проверок, если они есть (включая ошибки)
+                    if (item.checkResults?.kkt && item.checkResults.kkt.status !== 'not_checked') {
+                        if (item.checkResults.kkt.status === 'success') {
+                            rowData.kktCheckResult = item.checkResults.kkt.data;
+                        } else {
+                            rowData.kktCheckResult = item.checkResults.kkt;
+                        }
                     }
-                    if (item.checkResults?.permit?.status === 'success') {
+                    if (item.checkResults?.permit && item.checkResults.permit.status !== 'not_checked') {
+                        // Отправляем сам permitResult в плоской структуре (как в my.txt)
+                        // не оборачиваем в {status: 'error', error: ...}
                         rowData.permitCheckResult = item.checkResults.permit.data;
                     }
                 }
@@ -852,13 +878,10 @@
             let errorText = `Тип проверки: ${type}\n`;
             errorText += `Статус: ${checkResult.status}\n\n`;
             
-            if (checkResult.error) {
-                errorText += `Ошибка:\n`;
-                if (typeof checkResult.error === 'object') {
-                    errorText += JSON.stringify(checkResult.error, null, 2);
-                } else {
-                    errorText += checkResult.error;
-                }
+            // Проверяем структуру: { status: 'error', data: {...} }
+            if (checkResult.data) {
+                errorText += `Детали проверки:\n`;
+                errorText += JSON.stringify(checkResult.data, null, 2);
             } else {
                 errorText += 'Детали ошибки недоступны\n';
                 errorText += `Полные данные: ${JSON.stringify(checkResult, null, 2)}`;

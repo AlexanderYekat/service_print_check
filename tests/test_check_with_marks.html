@@ -528,11 +528,11 @@
 
         // Шаблоны тестовых данных
         const testItems = [
-            { name: "Хлеб белый", price: 45.50, quantity: 2, markingCode: "" },
-            { name: "Молоко 1л", price: 89.90, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E" },
-            { name: "Сыр российский", price: 320.00, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E" },
-            { name: "Колбаса докторская", price: 450.00, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E" },
-            { name: "Яблоки", price: 120.00, quantity: 3, markingCode: "" }
+            { name: "Молоко 1л", price: 45.50, quantity: 2, markingCode: "", category: "Молочная продукция" },
+            { name: "Молоко 1л", price: 89.90, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E", category: "Молочная продукция" },
+            { name: "Сыр российский", price: 320.00, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E", category: "Сыры" },
+            { name: "Колбаса докторская", price: 450.00, quantity: 1, markingCode: "0104607008480429215KpOL.jHnx6Xm\u001d93kl/E", category: "Колбасы" },
+            { name: "Яблоки", price: 120.00, quantity: 3, markingCode: "", category: "Фрукты" }
         ];
 
         function addItem() {
@@ -663,6 +663,7 @@
                 quantity: parseInt(quantity),
                 markingCodes: markingCodes,
                 hasMarking: hasMarking,
+                category: (typeof name === 'string') ? (testItems.find(t => t.name === name)?.category || '') : ''
                 // Убираем глобальные проверки - теперь они будут для каждой марки отдельно
             };
             items.push(item);
@@ -712,6 +713,10 @@
                     <div class="form-group">
                         <label>Название</label>
                         <input type="text" value="${item.name}" onchange="updateItem('${item.id}', 'name', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Категория</label>
+                        <input type="text" value="${item.category || ''}" placeholder="Категория товара" onchange="updateItem('${item.id}', 'category', this.value)">
                     </div>
                     <div class="form-group">
                         <label>Цена</label>
@@ -961,39 +966,56 @@
                 });
                 const data = await response.json();
                 
-                mark.permitCheck.status = data.success ? 'success' : 'error';
                 mark.permitCheck.result = data;
                 
                 // Обрабатываем результат для пользователя
-                if (data.success) {
+                if (checkType === 'return') {
                     // Для возврата проверка разрешительного режима не требуется
-                    if (checkType === 'return') {
-                        mark.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
-                        mark.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
-                    } else if (data.data && data.data.success) {
-                        const responseData = data.data.response;
-                        if (responseData && responseData.user_status) {
-                            if (responseData.user_status.ok) {
-                                mark.permitCheck.userResult = '✓ Разрешено к продаже';
-                            } else {
-                                mark.permitCheck.userResult = '✗ Не разрешено: ' + (responseData.user_status.text || 'Неизвестная причина');
-                            }
+                    mark.permitCheck.status = 'success';
+                    mark.permitCheck.userResult = '✓ Проверка не требуется (возврат)';
+                    mark.permitCheck.machineData = { note: 'Для возврата товаров проверка разрешительного режима не требуется' };
+                } else if (data && data.success && data.data) {
+                    const responseData = data.data.response || {};
+                    const userStatus = responseData.user_status;
+                    const altStatus = responseData[""];
+                    const machine = responseData.machine_data || {};
+                    const reasonText = (altStatus && (altStatus.text || altStatus.message))
+                        || (userStatus && (userStatus.text || userStatus.message))
+                        || responseData.message
+                        || data.message
+                        || '';
+                    if (data.data.success === true) {
+                        mark.permitCheck.status = 'success';
+                        // Если пришёл явный ok=false (в user_status или в ""), трактуем как запрет
+                        if ((userStatus && userStatus.ok === false) || (altStatus && altStatus.ok === false)) {
+                            mark.permitCheck.status = 'error';
+                            mark.permitCheck.userResult = '✗ Не разрешено' + (reasonText ? ': ' + reasonText : '');
                         } else {
                             mark.permitCheck.userResult = '✓ Разрешено к продаже';
                         }
-                        mark.permitCheck.machineData = {
-                            code: responseData.machine_data?.code,
-                            uuid: responseData.machine_data?.uuid || 'N/A',
-                            timeStamp: responseData.machine_data?.timeStamp || 'N/A',
-                            ver: responseData.machine_data?.ver || 'N/A',
-                            inst: responseData.machine_data?.inst || 'N/A'
-                        };
+                    } else if (data.data.success === false) {
+                        mark.permitCheck.status = 'error';
+                        mark.permitCheck.userResult = '✗ Не разрешено' + (reasonText ? ': ' + reasonText : '');
                     } else {
-                        mark.permitCheck.userResult = '✓ Разрешено к продаже';
-                        mark.permitCheck.machineData = data;
+                        // Неопределённый ответ — считаем ошибкой
+                        mark.permitCheck.status = 'error';
+                        mark.permitCheck.userResult = '✗ Ошибка проверки разрешения';
                     }
-                } else {
+                    mark.permitCheck.machineData = {
+                        code: machine.code,
+                        uuid: machine.uuid || 'N/A',
+                        timeStamp: machine.timeStamp || 'N/A',
+                        ver: machine.ver || 'N/A',
+                        inst: machine.inst || 'N/A'
+                    };
+                } else if (data && data.success === false) {
+                    mark.permitCheck.status = 'error';
                     mark.permitCheck.userResult = '✗ Ошибка проверки разрешения';
+                    mark.permitCheck.machineData = data;
+                } else {
+                    // Нет ожидаемой структуры ответа
+                    mark.permitCheck.status = data && data.success ? 'success' : 'error';
+                    mark.permitCheck.userResult = data && data.success ? '✓ Разрешено к продаже' : '✗ Ошибка проверки разрешения';
                     mark.permitCheck.machineData = data;
                 }
                 
@@ -1287,25 +1309,18 @@
                             quantity: "1", // Каждая марка = 1 штука
                             price: item.price.toFixed(2),
                             markingCode: mark.code,
-                            itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn'
+                            itemEstimatedStatus: checkType === 'sell' ? 'itemPieceSold' : 'itemPieceReturn',
+                            category: item.category || ''
                         };
                         
-                        // Добавляем результаты проверки ККТ
-                        if (mark.kktCheck && (mark.kktCheck.status === 'success' || mark.kktCheck.status === 'error')) {
-                            rowData.kktCheckResult = {
-                                status: mark.kktCheck.status,
-                                userResult: mark.kktCheck.userResult,
-                                machineData: mark.kktCheck.machineData
-                            };
+                        // Добавляем результаты проверки ККТ (как в test_plan_4_marks_categories)
+                        if (mark.kktCheck && mark.kktCheck.result) {
+                            rowData.kktCheckResult = mark.kktCheck.result;
                         }
                         
-                        // Добавляем результаты проверки разрешительного режима
-                        if (mark.permitCheck && (mark.permitCheck.status === 'success' || mark.permitCheck.status === 'error')) {
-                            rowData.permitCheckResult = {
-                                status: mark.permitCheck.status,
-                                userResult: mark.permitCheck.userResult,
-                                machineData: mark.permitCheck.machineData
-                            };
+                        // Добавляем результаты проверки разрешительного режима (как в test_plan_4_marks_categories)
+                        if (mark.permitCheck && mark.permitCheck.result) {
+                            rowData.permitCheckResult = mark.permitCheck.result;
                         }
                         
                         tableData.push(rowData);
@@ -1315,7 +1330,8 @@
                     tableData.push({
                         name: item.name,
                         quantity: item.quantity.toString(),
-                        price: item.price.toFixed(2)
+                        price: item.price.toFixed(2),
+                        category: item.category || ''
                     });
                 }
             });

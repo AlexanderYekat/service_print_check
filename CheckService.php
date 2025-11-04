@@ -487,13 +487,14 @@ class CheckService {
     public function checkMarkingCode($markingCode, $sellOrReturn, $itemEstimatedStatus, $cashier = "", $cashierVatin = "") {
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkMarkingCode_IsShiftOpened', false);
 
-        // Проверяем успешность операции перед обращением к данным
-        if (!$resultCheckShiftOpened['success'] || !isset($resultCheckShiftOpened['data']['response']['isShiftOpened'])) {
-            $this->logger->error("Ошибка проверки статуса смены: " . ($resultCheckShiftOpened['message'] ?? 'Неизвестная ошибка'));
-            return ['success' => false, 'message' => 'Ошибка проверки статуса смены: ' . ($resultCheckShiftOpened['message'] ?? 'Неизвестная ошибка')];
+        // Безопасная обработка ошибок подключения/ответа
+        if (!isset($resultCheckShiftOpened['success']) || $resultCheckShiftOpened['success'] !== true) {
+            $message = $resultCheckShiftOpened['message'] ?? 'Ошибка проверки смены: неизвестная ошибка';
+            $this->logger->error("checkMarkingCode: IsShiftOpened неуспешно: " . $message);
+            return ['success' => false, 'message' => $message];
         }
 
-        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
 
         if (!$isShiftOpened) {
             if ($cashier === "") {
@@ -545,7 +546,7 @@ class CheckService {
         
         // Формируем ответ в формате, ожидаемом клиентом
         $response = [
-            'user_status' => [
+            '' => [
                 'ok' => !$isBlocked,
                 'text' => $isBlocked ? $errorMessage : ($result['message'] ?? 'Марка разрешена к продаже')
             ],

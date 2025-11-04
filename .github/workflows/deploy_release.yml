@@ -33,6 +33,8 @@ jobs:
         cp README.md temp_release_contents/
         cp restart_service.ps1 temp_release_contents/
         cp update_from_url.ps1 temp_release_contents/
+        cp composer.json temp_release_contents/
+        cp rr.yaml temp_release_contents/
 
     - name: Copy directories to temp directory
       run: |

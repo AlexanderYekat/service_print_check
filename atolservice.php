@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_11_04_1828');
+define('VERSION_OF_PROGRAM', '2025_11_04_1833');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');

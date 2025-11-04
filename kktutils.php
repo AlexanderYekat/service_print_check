@@ -806,7 +806,9 @@ class TFptr10Driver {
                     }
 
                     // Достаём machine_data из ответа, если доступно
+                    $this->logger->info("permitResponse raw before machine_data extract: " . json_encode($permitResponse, JSON_UNESCAPED_UNICODE));
                     $machineData = $permitResponse['machine_data'] ?? [];
+                    $this->logger->info("machine_data extracted: " . json_encode($machineData, JSON_UNESCAPED_UNICODE));
                     
                     // Добавляем industryInfo всегда, если есть данные разрешительного режима (независимо от результата проверки)
                     if (!empty($machineData)) {
@@ -843,12 +845,28 @@ class TFptr10Driver {
                         }
                                                 
                         // Формируем industryInfo
-                        $positionItem['industryInfo'] = [
+                        $this->logger->info("industryInfo input payload: " . json_encode([
+                            'fois' => $fois,
+                            'date' => $documentDate,
+                            'number' => $documentNumber,
+                            'industryAttribute' => $industryDetails
+                        ], JSON_UNESCAPED_UNICODE));
+
+                        $this->logger->info("industryInfo BEFORE append: " . json_encode($positionItem['industryInfo'] ?? null, JSON_UNESCAPED_UNICODE));
+                        if (!isset($positionItem['industryInfo']) || !is_array($positionItem['industryInfo'])) {
+                            $positionItem['industryInfo'] = [];
+                        }
+                        $positionItem['industryInfo'][] = [
                             "fois" => $fois,
                             "date" => $documentDate,
                             "number" => $documentNumber,
                             "industryAttribute" => $industryDetails
                         ];
+                        $this->logger->info(
+                            "industryInfo AFTER append: type=" . gettype($positionItem['industryInfo']) .
+                            (is_array($positionItem['industryInfo']) ? (", count=" . count($positionItem['industryInfo'])) : '') .
+                            "; sample=" . json_encode(is_array($positionItem['industryInfo']) && count($positionItem['industryInfo']) > 0 ? $positionItem['industryInfo'][0] : $positionItem['industryInfo'], JSON_UNESCAPED_UNICODE)
+                        );
                     }
                 }
                 // Добавляем позицию в общий список элементов чека

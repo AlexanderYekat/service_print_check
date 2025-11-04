@@ -187,6 +187,7 @@ class CheckService {
         }
         
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkAllMarksOnKKT_IsShiftOpened', false);
+<<<<<<< HEAD
         
         // Проверяем успешность операции перед обращением к данным
         if (!$resultCheckShiftOpened['success'] || !isset($resultCheckShiftOpened['data']['response']['isShiftOpened'])) {
@@ -195,6 +196,9 @@ class CheckService {
         }
         
         $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+=======
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
+>>>>>>> async
 
         if (!$isShiftOpened) {
             return ['success' => false, 'message' => 'Смена не открыта - поэтому не можем проверить марки на ККТ'];
@@ -362,6 +366,7 @@ class CheckService {
         $cashierVatin = $checkData['cashierVatin'] ?? '';
 
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'printCheck_IsShiftOpened', false);
+<<<<<<< HEAD
         
         // Проверяем успешность операции перед обращением к данным
         if (!$resultCheckShiftOpened['success'] || !isset($resultCheckShiftOpened['data']['response']['isShiftOpened'])) {
@@ -370,6 +375,9 @@ class CheckService {
         }
         
         $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+=======
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
+>>>>>>> async
 
         if (!$isShiftOpened) {
             $resultOpenShift = $this->_executeFptrOperation([$this->FptrDriver, 'OpenShift'], [$cashier, $cashierVatin], 'printCheck_OpenShift', false);
@@ -598,6 +606,7 @@ class CheckService {
             $this->logger->error("Ошибка при проверке открытой смены: " . $resultCheckShiftOpened['message']);
             return ['success' => false, 'message' => "Ошибка при проверке открытой смены: " . $resultCheckShiftOpened['message']];
         }
+<<<<<<< HEAD
         
         // Проверяем наличие данных перед обращением к ним
         if (!isset($resultCheckShiftOpened['data']['response']['isShiftOpened']) || 
@@ -609,6 +618,11 @@ class CheckService {
         $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
         $shiftErrorDesc = $resultCheckShiftOpened['data']['error'] ?? '';
         $constOfSmeny = $resultCheckShiftOpened['data']['response']['constOfSmeny'];
+=======
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
+        $shiftErrorDesc = $resultCheckShiftOpened['data']['error'] ?? '';
+        $constOfSmeny = $resultCheckShiftOpened['data']['response']['constOfSmeny'] ?? null;
+>>>>>>> async
         $this->logger->debug("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc . ", constOfSmeny=" . $constOfSmeny);
         ////$this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc);
         if (!$isShiftOpened) {

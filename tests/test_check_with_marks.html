@@ -258,16 +258,28 @@
 
     <div style="margin-top: 30px;">
         <h3>Печать чека</h3>
-        <div class="form-group">
-            <label for="cashierName">Имя кассира:</label>
-            <input type="text" id="cashierName" value="Иван Иванов">
-        </div>
-        <div class="form-group">
-            <label for="checkType">Тип чека:</label>
-            <select id="checkType" onchange="updateCheckType()">
-                <option value="sell">Продажа</option>
-                <option value="return">Возврат</option>
-            </select>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div class="form-group">
+                <label for="cashierName">Имя кассира:</label>
+                <input type="text" id="cashierName" value="Иван Иванов">
+            </div>
+            <div class="form-group">
+                <label for="checkType">Тип чека:</label>
+                <select id="checkType" onchange="updateCheckType()">
+                    <option value="sell">Продажа</option>
+                    <option value="return">Возврат</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="productCategory">Категория товара:</label>
+                <select id="productCategory">
+                    <option value="dairy">🥛 Молочные продукты</option>
+                    <option value="beverages">🥤 Напитки</option>
+                    <option value="canned_food">🥫 Консервы</option>
+                    <option value="vegetable_oils">🫒 Растительные масла</option>
+                    <option value="seafood_caviar">🐟 Морепродукты (икра)</option>
+                </select>
+            </div>
         </div>
         <button class="button" onclick="printCheck()" style="font-size: 18px; padding: 15px 30px;">Отправить чек на печать</button>
     </div>
@@ -526,6 +538,18 @@
             }, 3000);
         }
 
+        // Функция для получения отображаемого названия категории
+        function getCategoryDisplayName(categoryCode) {
+            const categories = {
+                'dairy': '🥛 Молочные продукты',
+                'beverages': '🥤 Напитки',
+                'canned_food': '🥫 Консервы',
+                'vegetable_oils': '🫒 Растительные масла',
+                'seafood_caviar': '🐟 Морепродукты (икра)'
+            };
+            return categories[categoryCode] || categoryCode;
+        }
+
         // Шаблоны тестовых данных
         const testItems = [
             { name: "Молоко 1л", price: 45.50, quantity: 2, markingCode: "", category: "Молочная продукция" },
@@ -656,6 +680,9 @@
                 markingCodes = [markObject];
             }
             
+            // Получаем выбранную категорию из селекта
+            const selectedCategory = document.getElementById('productCategory')?.value || 'dairy';
+            
             const item = {
                 id: itemId,
                 name: name,
@@ -663,8 +690,7 @@
                 quantity: parseInt(quantity),
                 markingCodes: markingCodes,
                 hasMarking: hasMarking,
-                category: (typeof name === 'string') ? (testItems.find(t => t.name === name)?.category || '') : ''
-                // Убираем глобальные проверки - теперь они будут для каждой марки отдельно
+                category: selectedCategory
             };
             items.push(item);
             
@@ -716,7 +742,13 @@
                     </div>
                     <div class="form-group">
                         <label>Категория</label>
-                        <input type="text" value="${item.category || ''}" placeholder="Категория товара" onchange="updateItem('${item.id}', 'category', this.value)">
+                        <select onchange="updateItem('${item.id}', 'category', this.value)" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="dairy" ${item.category === 'dairy' ? 'selected' : ''}>🥛 Молочные продукты</option>
+                            <option value="beverages" ${item.category === 'beverages' ? 'selected' : ''}>🥤 Напитки</option>
+                            <option value="canned_food" ${item.category === 'canned_food' ? 'selected' : ''}>🥫 Консервы</option>
+                            <option value="vegetable_oils" ${item.category === 'vegetable_oils' ? 'selected' : ''}>🫒 Растительные масла</option>
+                            <option value="seafood_caviar" ${item.category === 'seafood_caviar' ? 'selected' : ''}>🐟 Морепродукты (икра)</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Цена</label>

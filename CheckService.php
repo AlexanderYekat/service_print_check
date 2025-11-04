@@ -187,7 +187,7 @@ class CheckService {
         }
         
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'checkAllMarksOnKKT_IsShiftOpened', false);
-        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
 
         if (!$isShiftOpened) {
             return ['success' => false, 'message' => 'Смена не открыта - поэтому не можем проверить марки на ККТ'];
@@ -355,7 +355,7 @@ class CheckService {
         $cashierVatin = $checkData['cashierVatin'] ?? '';
 
         $resultCheckShiftOpened = $this->_executeFptrOperation([$this->FptrDriver, 'IsShiftOpened'], [], 'printCheck_IsShiftOpened', false);
-        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
 
         if (!$isShiftOpened) {
             $resultOpenShift = $this->_executeFptrOperation([$this->FptrDriver, 'OpenShift'], [$cashier, $cashierVatin], 'printCheck_OpenShift', false);
@@ -584,9 +584,9 @@ class CheckService {
             $this->logger->error("Ошибка при проверке открытой смены: " . $resultCheckShiftOpened['message']);
             return ['success' => false, 'message' => "Ошибка при проверке открытой смены: " . $resultCheckShiftOpened['message']];
         }
-        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'];
-        $shiftErrorDesc = $resultCheckShiftOpened['data']['error'];
-        $constOfSmeny = $resultCheckShiftOpened['data']['response']['constOfSmeny'];
+        $isShiftOpened = $resultCheckShiftOpened['data']['response']['isShiftOpened'] ?? false;
+        $shiftErrorDesc = $resultCheckShiftOpened['data']['error'] ?? '';
+        $constOfSmeny = $resultCheckShiftOpened['data']['response']['constOfSmeny'] ?? null;
         $this->logger->debug("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc . ", constOfSmeny=" . $constOfSmeny);
         ////$this->logger->info("Проверка открытой смены: isShiftOpened=" . ($isShiftOpened ? "true" : "false") . ", shiftErrorDesc=" . $shiftErrorDesc);
         if (!$isShiftOpened) {

@@ -76,7 +76,7 @@ class PermitMarkCheckGateway
         // Сначала пробуем онлайн проверку
         if (!$this->getTestLocalModule()) {
             $onlineResult = $this->checkOnline($code, $context);
-            $this->logger->info("Результат онлайн проверки1: " . json_encode($onlineResult));
+            $this->logger->info("Результат онлайн проверки1: " . json_encode($onlineResult, JSON_UNESCAPED_UNICODE));
 
             if ($onlineResult['success']) {
                 $this->logger->info("Онлайн проверка была произведена");

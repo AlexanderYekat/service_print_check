@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_11_04_1013');
+define('VERSION_OF_PROGRAM', '2025_11_04_1254');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -581,8 +581,17 @@ function runServer() {
         $fetchHandler->HandlePrintBankSlip();
     } elseif ($uri === '/api/update-config' && $method === 'POST') {
         $fetchHandler->HandleUpdateConfig();
-    } elseif ((strpos($uri, '/static/') === 0 || strpos($uri, '/tests/') === 0 || strpos($uri, '/scanner/') === 0) && $method === 'GET') {
-        // Обработка статических файлов (CSS, JS), файлов тестирования и файлов сканера
+    } elseif ($uri === '/favicon.ico' && $method === 'GET') {
+        // Отдача favicon по корневому пути
+        $iconPath = __DIR__ . '/resource/icon.ico';
+        if (file_exists($iconPath)) {
+            header('Content-Type: image/x-icon');
+            readfile($iconPath);
+        } else {
+            http_response_code(404);
+        }
+    } elseif ((strpos($uri, '/static/') === 0 || strpos($uri, '/tests/') === 0 || strpos($uri, '/scanner/') === 0 || strpos($uri, '/resource/') === 0) && $method === 'GET') {
+        // Обработка статических файлов (CSS, JS), файлов тестирования, файлов сканера и ресурсов (иконки и т.п.)
         $filePath = __DIR__ . $uri;
         if (file_exists($filePath)) {
             $mimeType = mime_content_type($filePath);

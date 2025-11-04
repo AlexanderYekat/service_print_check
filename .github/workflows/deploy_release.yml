@@ -42,6 +42,7 @@ jobs:
         cp -R tests temp_release_contents/
         cp -R resource temp_release_contents/
         cp -R bank temp_release_contents/
+        cp -R scanner temp_release_contents/
 
     - name: Create ZIP archive
       run: |

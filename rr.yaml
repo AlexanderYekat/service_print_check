@@ -1,0 +1,18 @@
+version: "3"
+
+server:
+  # Для dev: .\myapp_dist\php\php.exe; для установленной версии: ..\php\php.exe
+  # Используем cmd для условного выбора исполняемого файла
+  command: "cmd /c if exist ..\\php\\php.exe (..\\php\\php.exe server.php) else (.\\myapp_dist\\php\\php.exe server.php)"
+  env:
+    PATH: ".\\myapp_dist\\php;..\\php;${PATH}"
+
+http:
+  address: ":8000"
+  pool:
+    num_workers: 1
+
+logs:
+  level: info
+
+

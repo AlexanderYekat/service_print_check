@@ -43,6 +43,12 @@ Source: "myapp_dist\VC_redist.x86.exe"; DestDir: "{app}\drivers"; Flags: ignorev
 Source: "*.php"; DestDir: "{app}\app"; Flags: 
 ; Копируем README.md в {app}\app
 Source: "README.md"; DestDir: "{app}\app"; Flags: 
+; Упаковываем Composer-зависимости
+Source: "vendor\*"; DestDir: "{app}\app\vendor"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Конфиг RoadRunner
+Source: "rr.yaml"; DestDir: "{app}\app"; Flags: ignoreversion
+; Бинарь RoadRunner (должен быть положен в myapp_dist\rr на машине сборки)
+Source: "myapp_dist\rr\rr.exe"; DestDir: "{app}\rr"; Flags: ignoreversion
 ; Копируем файлы из папки templates в {app}\app\templates
 Source: "templates\*"; DestDir: "{app}\app\templates"; Flags: recursesubdirs createallsubdirs
 ; Копируем файлы из папки settings_storage в {app}\app\settings_storage
@@ -76,8 +82,8 @@ Name: "{autodesktop}\Настройки CloudPosBridgePHP.url"; Filename: "http:
 Name: "{group}\Настройки CloudPosBridgePHP.url"; Filename: "http://localhost:8000/"; Tasks: programgroupicon; Comment: "Открыть страницу настроек службы CloudPosBridgePHP"; IconFilename: "{app}\app\resource\icon.ico"
 
 [Run]
-; Установка службы Windows с помощью NSSM
-Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\php\php.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
+; Установка службы Windows (RoadRunner) с помощью NSSM
+Filename: "{app}\nssm\nssm.exe"; Parameters: "install CloudPosBridgeServicePHP ""{app}\rr\rr.exe"""; WorkingDir: "{app}\nssm"; StatusMsg: "Установка службы CloudPosBridgePHP Service..."; Flags: runhidden
 
 ; Регистрация DLL-библиотек
 Filename: "{sys}\regsvr32.exe"; Parameters: "/s ""c:\sc552\sbrf.dll"""; Flags: runhidden; StatusMsg: "Регистрация sbrf.dll..."; Tasks: register_sbrf_dll
@@ -91,8 +97,8 @@ Filename: "{app}\drivers\FDU_8_28_18_00_Full.EXE"; Parameters: ""; Flags: waitun
 Filename: "{app}\drivers\VC_redist.x64.exe"; Parameters: "/quiet"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x64)..."; Tasks: install_vcredist; Check: IsWin64
 Filename: "{app}\drivers\VC_redist.x86.exe"; Flags: waituntilterminated; StatusMsg: "Установка Microsoft Visual C++ Redistributable (x86)..."; Tasks: install_vcredist; Check: not IsWin64
 
-; Установка параметров приложения для PHP (тестовый скрипт)
-Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""-S"" ""0.0.0.0:8000"" ""-t"" \""{app}\app\"" \""index.php\"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров PHP скрипта..."; Flags: runhidden 
+; Параметры RoadRunner: использовать конфиг rr.yaml из папки приложения
+Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP AppParameters ""serve -c {app}\app\rr.yaml"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка параметров RoadRunner..."; Flags: runhidden
 
 ; Установка отображаемого имени службы
 Filename: "{app}\nssm\nssm.exe"; Parameters: "set CloudPosBridgeServicePHP DisplayName ""CloudPosBridgePHP Service"""; WorkingDir: "{app}\nssm"; StatusMsg: "Настройка службы CloudPosBridgePHP Service..."; Flags: runhidden

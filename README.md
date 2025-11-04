@@ -16,6 +16,38 @@
 
 [Категории товаров для маркировки](docs/category_mapping.md)
 
+### Запуск через RoadRunner (для реюза COM между запросами)
+
+1. Установите Composer‑зависимости:
+   - `nyholm/psr7`
+   - `spiral/roadrunner-worker`
+   - `spiral/roadrunner-http`
+
+2. Скачайте `rr.exe` (RoadRunner) для Windows и поместите рядом с проектом.
+
+3. Проверьте `rr.yaml` в корне проекта. По умолчанию настроено 1 воркер (один COM на процесс):
+```
+server:
+  command: "php server.php"
+
+http:
+  address: ":8000"
+  pool:
+    num_workers: 1
+```
+
+4. Запуск:
+```
+rr.exe serve -c rr.yaml
+```
+
+5. (Опционально) Установка как Windows‑службы через NSSM:
+```
+nssm install CloudPosBridgeRR "C:\\path\\to\\rr.exe" "serve -c C:\\path\\to\\project\\rr.yaml"
+```
+
+После запуска RoadRunner COM‑драйвер ККТ создаётся один раз на воркер и переиспользуется между запросами.
+
 ## Обзор Архитектуры
 
 Приложение разделено на несколько ключевых слоев, каждый из которых имеет четко определенные обязанности:

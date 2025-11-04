@@ -26,7 +26,7 @@ header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token , Autho
 
 
 
-define('VERSION_OF_PROGRAM', '2025_11_04_1333');
+define('VERSION_OF_PROGRAM', '2025_11_04_1430');
 define('SETTINGS_DIR', __DIR__ . '/settings');
 define('SETTINGS_FILE', SETTINGS_DIR . '/settings.json');
 define('LOG_PATH', __DIR__ . '/logs');
@@ -40,6 +40,27 @@ require_once 'settings_storage/JsonFileSettingsStorage.php';
 require_once 'logger.php'; // Подключаем наш новый логгер
 require_once 'bank/bankutils.php'; // Подключаем утилиты для работы с банком
 require_once 'TaskManager.php'; // Подключаем менеджер задач
+// Унифицированный способ чтения сырого тела запроса (совместимость с RR)
+if (!function_exists('getRawInput')) {
+    function getRawInput() {
+        $raw = @file_get_contents('php://input');
+        //Logger::getInstance(LOG_PATH, false, true)->debug("Reading request body from php://input: " . substr($raw, 0, 200) . (strlen($raw) > 200 ? '...' : ''));
+        if ($raw === '' || $raw === false) {
+            //Logger::getInstance(LOG_PATH, false, true)->debug("Reading request body from php://input is empty");
+            if (isset($__RAW_BODY)) {
+                //Logger::getInstance(LOG_PATH, false, true)->debug("Reading request body from \$__RAW_BODY: " . substr($__RAW_BODY, 0, 200) . (strlen($__RAW_BODY) > 200 ? '...' : ''));
+                return (string)$__RAW_BODY;
+            }
+            if (isset($GLOBALS['__RAW_BODY'])) {
+                //Logger::getInstance(LOG_PATH, false, true)->debug("Reading request body from \$GLOBALS['__RAW_BODY']: " . substr($GLOBALS['__RAW_BODY'], 0, 200) . (strlen($GLOBALS['__RAW_BODY']) > 200 ? '...' : ''));
+                return (string)$GLOBALS['__RAW_BODY'];
+            }            
+            //Logger::getInstance(LOG_PATH, false, true)->debug("Reading request body from php://input is empty");
+            return '';
+        }
+        return $raw;
+    }
+}
 
 // Глобальные переменные (эти строки будут удалены или закомментированы)
 // $glFptrDriver = new TFptr10Driver();
@@ -183,7 +204,9 @@ function runServer() {
         header('Content-Type: text/html; charset=utf-8');
         readfile(__DIR__ . '/templates/permit_mark_settings.html');
     } elseif ($uri === '/demo-scanner' && $method === 'GET') {
-        $logger->debug("Запрос на получение страницы демо-сканера.");
+        //$input = getRawInput();
+        //$logger->debug("Запрос на получение страницы демо-сканера: " . $input);
+        //$logger->debug("Запрос на получение страницы демо-сканера.");
         header('Content-Type: text/html; charset=utf-8');
         readfile(__DIR__ . '/templates/scanner_demo.html');
     } elseif ($uri === '/api/settings') {
@@ -192,7 +215,7 @@ function runServer() {
             $logger->debug("Запрос на получение настроек.");
             echo json_encode($currentSettings->toArray(), JSON_UNESCAPED_UNICODE);
         } elseif ($method === 'POST') {
-            $input = file_get_contents('php://input');
+            $input = getRawInput();
             $data = json_decode($input, true);
 
             // Обработка сброса настроек по умолчанию
@@ -240,7 +263,7 @@ function runServer() {
         $logger->debug("Запрос на отправку логов на почту.");
         header('Content-Type: application/json; charset=utf-8');
 
-        $input = file_get_contents('php://input');
+        $input = getRawInput();
         $data = json_decode($input, true);
         $recipientEmail = $data['email'] ?? '';
         $logDirPath = LOG_PATH; // Путь к директории с логами
@@ -398,7 +421,7 @@ function runServer() {
         $scriptPath = __DIR__ . DIRECTORY_SEPARATOR . 'update_from_url.ps1';
 
         // Получаем данные из тела запроса
-        $input = file_get_contents('php://input');
+        $input = getRawInput();
         $requestData = json_decode($input, true);
 
         // Определяем URL для обновления: сначала из запроса, затем из настроек
@@ -524,17 +547,33 @@ function runServer() {
             'message' => $message // Добавляем сообщение
         ], JSON_UNESCAPED_UNICODE);
     } elseif ($uri === '/api/print-check' && $method === 'POST') {
-        $fetchHandler->HandlePrintCheck();
+        $input = getRawInput();
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandlePrintCheck: input: " . $input);
+        $requestData = json_decode($input, true);
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandlePrintCheck: data: " . json_encode($requestData, JSON_UNESCAPED_UNICODE));
+        $fetchHandler->HandlePrintCheck($requestData);
     } elseif ($uri === '/api/check-marking-code' && $method === 'POST') {
-        $fetchHandler->HandleCheckMarkingCode();
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandleCheckMarkingCode: method: " . $_SERVER['REQUEST_METHOD']);
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandleCheckMarkingCode: uri: " . $_SERVER['REQUEST_URI']);
+        $input = getRawInput();
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandleCheckMarkingCode: input: " . $input);
+        $requestData = json_decode($input, true);
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandleCheckMarkingCode: data: " . json_encode($requestData, JSON_UNESCAPED_UNICODE));
+        $fetchHandler->HandleCheckMarkingCode($requestData);
     } elseif ($uri === '/api/check-marking-code-async' && $method === 'POST') {
-        $fetchHandler->HandleCheckMarkingCodeAsync();
+        $input = getRawInput();
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandleCheckMarkingCodeAsync: input: " . $input);
+        $requestData = json_decode($input, true);
+        //Logger::getInstance(LOG_PATH, false, true)->debug("HandleCheckMarkingCodeAsync: data: " . json_encode($requestData, JSON_UNESCAPED_UNICODE));
+        $fetchHandler->HandleCheckMarkingCodeAsync($requestData);
     } elseif (preg_match('#^/api/check-marking-result/([a-f0-9\-]+)$#', $uri, $matches) && $method === 'GET') {
         $fetchHandler->HandleGetMarkingResult();
     } elseif ($uri === '/api/clear-marking-codes' && $method === 'GET') {
         $fetchHandler->HandleClearMarkingCodes();
     } elseif ($uri === '/api/check-permit-mark' && $method === 'POST') {
-        $fetchHandler->HandleCheckPermitMark();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleCheckPermitMark($requestData);
     } elseif ($uri === '/api/permit-local-module-status' && $method === 'GET') {
         $fetchHandler->HandlePermitLocalModuleStatus();
     } elseif ($uri === '/api/permit-local-module-init' && $method === 'GET') {
@@ -542,21 +581,38 @@ function runServer() {
     } elseif ($uri === '/api/permit-mark-check-cdn' && $method === 'GET') {
         $fetchHandler->HandlePermitCheckCdn();
     } elseif ($uri === '/api/close-shift' && $method === 'POST') {
-        $fetchHandler->HandleCloseShift();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleCloseShift($requestData);
     } elseif ($uri === '/api/x-report' && $method === 'POST') {
-        $fetchHandler->HandleXReport();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleXReport($requestData);
     } elseif ($uri === '/api/cash-in' && $method === 'POST') {
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleCashIn($requestData);
         $fetchHandler->HandleCashIn();
     } elseif ($uri === '/api/cash-out' && $method === 'POST') {
-        $fetchHandler->HandleCashOut();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleCashOut($requestData);
     } elseif ($uri === '/api/bank-operation' && $method === 'POST') {
-        $fetchHandler->HandleBankOperation();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleBankOperation($requestData);
     } elseif ($uri === '/api/get-weight' && $method === 'POST') {
-        $fetchHandler->HandleGetWeight();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleGetWeight($requestData);
     } elseif ($uri === '/api/print-bank-slip' && $method === 'POST') {
-        $fetchHandler->HandlePrintBankSlip();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandlePrintBankSlip($requestData);
     } elseif ($uri === '/api/update-config' && $method === 'POST') {
-        $fetchHandler->HandleUpdateConfig();
+        $input = getRawInput();
+        $requestData = json_decode($input, true);
+        $fetchHandler->HandleUpdateConfig($requestData);
     } elseif ($uri === '/favicon.ico' && $method === 'GET') {
         // Отдача favicon по корневому пути
         $iconPath = __DIR__ . '/resource/icon.ico';
@@ -634,4 +690,6 @@ function main() {
     runServer();
 }
 
-main();
+if (!defined('RUNNING_UNDER_RR')) {
+    main();
+}

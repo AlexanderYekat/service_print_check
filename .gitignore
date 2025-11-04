@@ -5,6 +5,9 @@ tests/screenshots/
 .gigaide/
 _temp_update/
 compare/
+composer.lock
+vendor/
+composer.phar
 
 !myapp_dist/
 !myapp_dist/*.exe

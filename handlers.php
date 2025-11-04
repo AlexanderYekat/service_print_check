@@ -20,7 +20,7 @@ class Handler {
         $this->taskManager = $taskManager ?? new TaskManager($logger); // Инициализируем менеджер задач
     }
 
-    public function HandlePrintCheck() {
+    public function HandlePrintCheck($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandlePrintCheck: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
@@ -28,8 +28,7 @@ class Handler {
             return;
         }
 
-        $input = file_get_contents('php://input');
-        $checkData = json_decode($input, true);
+        $checkData = $requestData;
 
         $validationResult = Validator::validateCheckData($checkData);
         if (!$validationResult['success']) {
@@ -68,20 +67,22 @@ class Handler {
         $this->logger->info("HandleClearMarkingCodes: Коды маркировки очищены.");
         $this->sendHandlerResponse("success", "Коды маркировки очищены", $result['data']);
     }
-    public function HandleCheckMarkingCode() {
+    public function HandleCheckMarkingCode($requestData) {
+        $this->logger->info("HandleCheckMarkingCode: method: " . $_SERVER['REQUEST_METHOD']);
+        $this->logger->info("HandleCheckMarkingCode: uri: " . $_SERVER['REQUEST_URI']);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCheckMarkingCode: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
-        $markingCode = $data['markingCode'] ?? '';
-        $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
-        $itemEstimatedStatus = $data['itemEstimatedStatus'] ?? '';
+        $this->logger->info("HandleCheckMarkingCode: requestData: " . json_encode($requestData, JSON_UNESCAPED_UNICODE));
+        $markingCode = $requestData['markingCode'] ?? '';
+        $sellOrReturn = $requestData['sellOrReturn'] ?? 'sell';
+        $itemEstimatedStatus = $requestData['itemEstimatedStatus'] ?? '';
         
         $this->logger->info("HandleCheckMarkingCode: markingCode: " . $markingCode . " (длина: " . strlen($markingCode) . ")");
+        $this->logger->info("HandleCheckMarkingCode: requestData: " . json_encode($requestData, JSON_UNESCAPED_UNICODE));
 
         if (empty($markingCode)) {
             $this->logger->error("HandleCheckMarkingCode: Отсутствует или пустое значение markingCode.");
@@ -100,7 +101,7 @@ class Handler {
         $this->sendHandlerResponse("success", "Код маркировки проверен", $result['data']);
     }
 
-    public function HandleCheckMarkingCodeAsync() {
+    public function HandleCheckMarkingCodeAsync($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCheckMarkingCodeAsync: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
@@ -108,8 +109,8 @@ class Handler {
             return;
         }
         
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        //$input = file_get_contents('php://input');
+        $data = $requestData;
         $markingCode = $data['markingCode'] ?? '';
         $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
         $itemEstimatedStatus = $data['itemEstimatedStatus'] ?? '';
@@ -251,7 +252,7 @@ class Handler {
         }
     }
 
-    public function HandleCheckPermitMark() {
+    public function HandleCheckPermitMark($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCheckPermitMark: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
@@ -265,8 +266,7 @@ class Handler {
             return;
         }
 
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
         $permitMark = $data['permitMark'] ?? '';
         $this->logger->info("HandleCheckPermitMark: permitMark: " . $permitMark . " (длина: " . strlen($permitMark) . ")");
         $sellOrReturn = $data['sellOrReturn'] ?? 'sell';
@@ -348,7 +348,7 @@ class Handler {
         $this->sendHandlerResponse("success", "CDN сервера честного знака маркировки проверены", $result['data']);
     }
 
-    public function HandleCloseShift() {
+    public function HandleCloseShift($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCloseShift: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
@@ -356,8 +356,7 @@ class Handler {
             return;
         }
 
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
 
         $cashier = $data['cashier'] ?? ''; // Извлекаем значение cashier из входных данных
 
@@ -380,15 +379,14 @@ class Handler {
         $this->sendHandlerResponse("success", "Смена закрыта", $result['data']);
     }
 
-    public function HandleXReport() {
+    public function HandleXReport($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleXReport: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
 
         $cashier = $data['cashier'] ?? '';
 
@@ -403,15 +401,14 @@ class Handler {
         $this->sendHandlerResponse("success", "X-отчёт напечатан", $result['data']);
     }
 
-    public function HandleCashIn() {
+    public function HandleCashIn($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCashIn: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
         $amount = $data['amount'] ?? 0;
         $cashier = $data['cashier'] ?? '';
 
@@ -433,15 +430,14 @@ class Handler {
         $this->sendHandlerResponse("success", "Внесение выполнено", $result['data']);
     }
 
-    public function HandleCashOut() {
+    public function HandleCashOut($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleCashOut: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
         $amount = $data['amount'] ?? 0;
         $cashier = $data['cashier'] ?? '';
 
@@ -464,15 +460,14 @@ class Handler {
     }
 
 
-    public function HandlePrintBankSlip() {
+    public function HandlePrintBankSlip($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandlePrintBankSlip: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
         $slipLines = $data['slipLines'] ?? []; // Предполагаем, что slipLines это массив строк
 
         $result = $this->checkService->printBankSlip($slipLines);
@@ -486,15 +481,14 @@ class Handler {
         $this->sendHandlerResponse("success", "Банковский слип напечатан", $result['data']);
     }
 
-    public function HandleBankOperation() {
+    public function HandleBankOperation($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleBankOperation: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
         $operation = $data['operation'] ?? '';
         $params = $data['params'] ?? [];
         $result = $this->checkService->bankOperation($operation, $params);
@@ -508,14 +502,15 @@ class Handler {
         $this->sendHandlerResponse("success", "Банковская операция была отпралена на терминал", $result['data']);
     }
 
-    public function HandleGetWeight() {
+    public function HandleGetWeight($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleGetWeight: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
             $this->sendHandlerResponse("error", 'Метод не поддерживается');
             return;
         }
-        $result = $this->checkService->getWeight();
+        $data = $requestData;
+        $result = $this->checkService->getWeight($data);
         if (!$result['success']) {
             $this->logger->error("HandleGetWeight: Ошибка получения веса: " . $result['message']);
             http_response_code(500);
@@ -526,7 +521,7 @@ class Handler {
         $this->sendHandlerResponse("success", "Вес получен", $result['data']);
     }
 
-    public function HandleUpdateConfig() {
+    public function HandleUpdateConfig($requestData) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->logger->warning("HandleUpdateConfig: Неподдерживаемый метод запроса " . $_SERVER['REQUEST_METHOD']);
             http_response_code(405);
@@ -534,8 +529,7 @@ class Handler {
             return;
         }
 
-        $input = file_get_contents('php://input');
-        $data = json_decode($input, true);
+        $data = $requestData;
 
         if (!$data) {
             $this->logger->error("HandleUpdateConfig: Ошибка декодирования JSON");

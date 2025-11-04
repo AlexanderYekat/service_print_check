@@ -21,8 +21,27 @@ class TFptr10Driver {
         $this->emulation = $emulation;
         $this->emulationwait = $emulationwait;
         $this->logger = $logger;
+        $logger->info("TFptr10Driver was created with emulation: " . $emulation);
     }
 
+    public function setComport($comport) {
+        $this->comport = $comport;
+    }
+    public function setIpKkt($ipKkt) {
+        $this->ipKkt = $ipKkt;
+    }
+    public function setPortIpKkt($portIpKkt) {
+        $this->portIpKkt = $portIpKkt;
+    }
+    public function setIpServKkt($ipServKkt) {
+        $this->ipServKkt = $ipServKkt;
+    }
+    public function setEmulation($emulation) {
+        $this->emulation = $emulation;
+    }
+    public function setEmulationwait($emulationwait) {
+        $this->emulationwait = $emulationwait;
+    }
     public function NewSafe() {
         try {
             if ($this->fptr === null) {

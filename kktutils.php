@@ -26,6 +26,8 @@ class TFptr10Driver {
     public function NewSafe() {
         try {
             if ($this->fptr === null) {
+                $this->logger->info("Creating COM object for Fptr10 driver");
+                $this->logger->info("Creating COM object for Fptr10 driver (PID=" . getmypid() . ")");
                 $this->fptr = new COM("AddIn.Fptr10") or die("Не удалось создать объект драйвера ККТ");
             }
             return null;
@@ -34,9 +36,21 @@ class TFptr10Driver {
         }
     }
 
+    private function ensureInitialized() {
+        if ($this->fptr !== null) {
+            return [true, ""];
+        }
+        $err = $this->NewSafe();
+        if ($err !== null) {
+            return [false, $err];
+        }
+        return [true, ""];
+    }
+
     public function Open() {
-        if ($this->fptr === null) {
-            return [false, "Драйвер не инициализирован"];
+        list($ok, $err) = $this->ensureInitialized();
+        if (!$ok) {
+            return [false, $err];
         }
         if ($this->IsOpened()) {
             return [true, ""];

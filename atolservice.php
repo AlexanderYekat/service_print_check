@@ -34,6 +34,7 @@ define('LOG_PATH', __DIR__ . '/logs');
 // Здесь должны быть ваши классы/модули для работы с ККТ и настройками
 require_once 'handlers.php';
 require_once 'kktutils.php';
+require_once 'KktDriverRegistry.php';
 require_once 'models.php';
 require_once 'settings_storage/JsonFileSettingsStorage.php';
 require_once 'logger.php'; // Подключаем наш новый логгер
@@ -55,21 +56,8 @@ function runServer() {
     // Инициализируем логгер с текущим уровнем отладки и настройкой отключения
     $logger = Logger::getInstance(LOG_PATH, $currentSettings->debug, !$currentSettings->disableLogging);
 
-    // Создаем экземпляр TFptr10Driver с параметрами подключения из настроек
-    $FptrDriver = new TFptr10Driver(
-        $currentSettings->comKkt,
-        $currentSettings->ipKkt,
-        $currentSettings->portIpKkt,
-        $currentSettings->ipServKkt,
-        $logger,
-        $currentSettings->emulation
-    );
-
-    // Инициализация драйвера ККТ
-    $err = $FptrDriver->NewSafe();
-    if ($err !== null) {
-        $logger->warning("Ошибка при инициализации драйвера ККТ: $err. Работа приложения продолжается.");
-    }
+    // Получаем процессный экземпляр TFptr10Driver через реестр (ленивая инициализация в Open())
+    $FptrDriver = KktDriverRegistry::get($currentSettings, $logger);
 
     // Создаем экземпляр CheckService, передавая ему FptrDriver и логгер
     // Банк и весы создаются позже, только если нужны
@@ -334,24 +322,12 @@ function runServer() {
 
         // Diagnostic for KKT
         try {
-            $kktDriver = new TFptr10Driver(
-                $currentSettings->comKkt,
-                $currentSettings->ipKkt,
-                $currentSettings->portIpKkt,
-                $currentSettings->ipServKkt,
-                $logger,
-                $currentSettings->emulation
-            );
-            $err = $kktDriver->NewSafe();
-            if ($err !== null) {
-                $results['kkt'] = ['success' => false, 'message' => "Драйвер ККТ не установлен. \n Ошибка инициализации COM-объекта ККТ: $err. "];
+            $kktDriver = KktDriverRegistry::get($currentSettings, $logger);
+            list($isOpen, $message) = $kktDriver->Open();
+            if ($isOpen) {
+                $results['kkt'] = ['success' => true, 'message' => 'Соединение с ККТ установлено.'];
             } else {
-                list($isOpen, $message) = $kktDriver->Open();
-                if ($isOpen) {
-                    $results['kkt'] = ['success' => true, 'message' => 'Соединение с ККТ установлено.'];
-                } else {
-                    $results['kkt'] = ['success' => false, 'message' => "Ошибка соединения с ККТ: $message"];
-                }
+                $results['kkt'] = ['success' => false, 'message' => "Ошибка соединения с ККТ: $message"];
             }
         } catch (Exception $e) {
             $results['kkt'] = ['success' => false, 'message' => "Исключение при диагностике ККТ: " . $e->getMessage()];

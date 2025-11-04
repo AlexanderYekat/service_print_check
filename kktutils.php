@@ -173,6 +173,9 @@ class TFptr10Driver {
         if ($this->fptr === null) {
             return [false, "Драйвер не инициализирован"];
         }
+
+        $cashier = iconv('UTF-8', 'Windows-1251', $cashier  ?? '');
+
         $this->fptr->setParam(1021, $cashier);
         if (!empty($cashierVatin)) {
             $this->fptr->setParam(1203, $cashierVatin);

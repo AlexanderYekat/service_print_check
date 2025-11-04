@@ -906,6 +906,7 @@
         }
 
         async function checkMarkingKKT(itemId, markIndex = 0) {
+            console.log('checkMarkingKKT', itemId, markIndex);
             const item = items.find(i => i.id === itemId);
             if (!item || !item.markingCodes || !item.markingCodes[markIndex]) return;
 
@@ -921,7 +922,7 @@
             renderItem(item);
 
             const checkType = document.getElementById('checkType').value;
-            const cashier = document.getElementById('cashier').value;
+            const cashier = document.getElementById('cashierName').value;
 
             try {
                 const response = await fetch(`${API_URL}/api/check-marking-code`, {

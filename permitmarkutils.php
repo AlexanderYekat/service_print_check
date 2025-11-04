@@ -188,7 +188,7 @@ class PermitMarkCheckGateway
             }
             
             // Проверяем таймаут 1.5 сек согласно ППРФ 1944 п. 17
-            if ($latency > 2 || ($result['timeout'] ?? false)) {
+            if ($latency > 5 || ($result['timeout'] ?? false)) {
                 $this->logger->warning("CDN таймаут более 1.5 сек: " . $host . ", задержка=" . $latency . "с");
                 $this->markCDNUnavailable($host);
                 continue;
@@ -342,6 +342,7 @@ class PermitMarkCheckGateway
      */
     private function processOnlineResult(array $result): array
     {
+        $this->logger->debug("processOnlineResult - begin");
         if (isset($result['data']['code']) && $result['data']['code'] !== 0) {
             return [
                 'success' => false,
@@ -377,9 +378,10 @@ class PermitMarkCheckGateway
                 ];
             }
             
-            $this->logger->info("Маркировка mark успешно: " . json_encode($mark));
+            $this->logger->info("Маркировка mark проверена: " . json_encode($mark));
             // Проверяем дополнительные условия
             if ($mark['isBlocked'] ?? false) {
+                $errorCode = 1;
                 $message = 'Марка заблокирована по решению органов государственной власти';
             }
             
@@ -477,23 +479,37 @@ class PermitMarkCheckGateway
                 }
             }
             
-            if ($mark['sold'] ?? false) {
+            if ($mark['sold'] ?? false) {                
+                $errorCode = 1;
                 $message = 'Марка уже выведена из оборота';
+                $this->logger->debug("Марка уже выведена из оборота");
+                $this->logger->debug("errorCode=". $errorCode);
             }
             
             if (!($mark['verified'] ?? true)) {
+                $errorCode = 1;
                 $message = 'Марка не прошла проверку';
             }
             
             if (!($mark['found'] ?? true)) {
+                $errorCode = 1;
                 $message = 'Марка не найдена';
             }
             
             if (!($mark['valid'] ?? true)) {
+                $errorCode = 1;
                 $message = 'Не валидная марка';
             }
+
+            //$successMarkOfCheck = true;
+            //if ($errorCode!=0) {
+            //    $successMarkOfCheck = false;
+            //}
             
-            $this->logger->info("Маркировка markingCode успешно: " . json_encode($mark));
+            //$this->logger->info("Маркировка markingCode успешно: " . json_encode($mark));
+            $this->logger->debug("message = ". $message);
+            $this->logger->debug("errorCode=". $errorCode);
+
 
             return [
                 'success' => true,
